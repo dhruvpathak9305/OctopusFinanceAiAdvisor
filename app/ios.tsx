@@ -1,115 +1,180 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { Platform } from 'react-native';
+import { MobilePageLayout } from '../components/layout/MobilePageLayout';
+import { WebPageLayout } from '../components/layout/WebPageLayout';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
-export default function IOSPlatform() {
+const IOSDemoContent = () => {
+  const handleGetStarted = () => {
+    router.push('/(dashboard)');
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <StatusBar style="auto" />
-      
-      <View style={styles.header}>
-        <Text style={styles.title}>🍎 iOS Platform</Text>
-        <Text style={styles.subtitle}>Native iPhone & iPad experience</Text>
-      </View>
-
+    <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.sectionTitle}>iOS Features</Text>
+        <Text style={styles.title}>🍎 iOS Platform Demo</Text>
+        <Text style={styles.subtitle}>Native Apple Experience</Text>
         
-        <View style={styles.featureCard}>
-          <Text style={styles.featureTitle}>🎯 Siri Integration</Text>
-          <Text style={styles.featureDescription}>
-            "Hey Siri, show my portfolio performance" - Voice commands for quick access
-          </Text>
+        <View style={styles.featureSection}>
+          <Text style={styles.sectionTitle}>iOS Features</Text>
+          
+          <View style={styles.featureCard}>
+            <Text style={styles.featureIcon}>👤</Text>
+            <Text style={styles.featureTitle}>Face ID & Touch ID</Text>
+            <Text style={styles.featureDescription}>
+              Secure biometric authentication for quick and safe access
+            </Text>
+          </View>
+          
+          <View style={styles.featureCard}>
+            <Text style={styles.featureIcon}>🏦</Text>
+            <Text style={styles.featureTitle}>Apple Pay Integration</Text>
+            <Text style={styles.featureDescription}>
+              Seamless payments and transactions using Apple Pay
+            </Text>
+          </View>
+          
+          <View style={styles.featureCard}>
+            <Text style={styles.featureIcon}>📱</Text>
+            <Text style={styles.featureTitle}>iOS Design Language</Text>
+            <Text style={styles.featureDescription}>
+              Native iOS interface with smooth animations and gestures
+            </Text>
+          </View>
         </View>
-
-        <View style={styles.featureCard}>
-          <Text style={styles.featureTitle}>⌚ Apple Watch Support</Text>
-          <Text style={styles.featureDescription}>
-            Quick portfolio glances, market alerts, and complication widgets
-          </Text>
-        </View>
+        
+        <TouchableOpacity style={styles.demoButton} onPress={handleGetStarted}>
+          <Text style={styles.demoButtonText}>Try Dashboard →</Text>
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+};
 
-      <View style={styles.navigationSection}>
-        <Link href="/" asChild>
-          <TouchableOpacity style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back to Home</Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-    </ScrollView>
+export default function IOSPlatformPage() {
+  if (Platform.OS === 'web') {
+    return (
+      <WebPageLayout>
+        <IOSDemoContent />
+      </WebPageLayout>
+    );
+  }
+
+  return (
+    <MobilePageLayout pageTitle="iOS Platform" showBottomNav={false}>
+      <IOSDemoContent />
+    </MobilePageLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#0B1426',
+    minHeight: '100%',
   },
-  header: {
-    backgroundColor: '#8b5cf6',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  content: {
+    padding: 24,
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: -0.3,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   subtitle: {
     fontSize: 18,
-    color: '#c4b5fd',
+    color: '#9CA3AF',
     textAlign: 'center',
+    marginBottom: 40,
+    fontWeight: '500',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(156, 163, 175, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
-  content: {
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  featureSection: {
+    marginBottom: 40,
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 24,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   featureCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: '#1F2937',
+    borderRadius: 14,
     padding: 24,
-    marginBottom: 16,
+    marginBottom: 20,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+  },
+  featureIcon: {
+    fontSize: 32,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   featureTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   featureDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  navigationSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
-  backButton: {
-    backgroundColor: '#8b5cf6',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  backButtonText: {
-    color: '#ffffff',
+    fontSize: 16,
+    color: '#9CA3AF',
+    lineHeight: 24,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '500',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(156, 163, 175, 0.05)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  demoButton: {
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignSelf: 'center',
+    elevation: 3,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  demoButtonText: {
+    color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
 }); 

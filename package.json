@@ -9,6 +9,9 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@tamagui/animations-react-native": "^1.132.15",
+    "@tamagui/config": "^1.132.15",
+    "@tamagui/core": "^1.132.15",
     "@types/react": "^19.0.14",
     "expo": "~53.0.20",
     "expo-constants": "^17.1.7",

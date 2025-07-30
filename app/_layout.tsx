@@ -1,59 +1,22 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-// import '../global.css';
+import { Platform } from 'react-native';
 
 export default function RootLayout() {
   return (
-    <>
-      <StatusBar style="auto" />
-      <Stack>
-        <Stack.Screen 
-          name="index" 
-          options={{ 
-            title: 'Octopus Finance AI Advisor',
-            headerStyle: {
-              backgroundColor: '#2563eb',
-            },
-            headerTintColor: '#fff',
-            headerTitleStyle: {
-              fontWeight: 'bold',
-            },
-          }} 
-        />
-        <Stack.Screen 
-          name="web" 
-          options={{ 
-            title: 'Web Platform',
-            headerStyle: { backgroundColor: '#10b981' },
-            headerTintColor: '#fff',
-          }} 
-        />
-        <Stack.Screen 
-          name="mobile" 
-          options={{ 
-            title: 'Mobile Platform',
-            headerStyle: { backgroundColor: '#f59e0b' },
-            headerTintColor: '#fff',
-          }} 
-        />
-        <Stack.Screen 
-          name="ios" 
-          options={{ 
-            title: 'iOS Platform',
-            headerStyle: { backgroundColor: '#8b5cf6' },
-            headerTintColor: '#fff',
-          }} 
-        />
-        <Stack.Screen 
-          name="android" 
-          options={{ 
-            title: 'Android Platform',
-            headerStyle: { backgroundColor: '#ef4444' },
-            headerTintColor: '#fff',
-          }} 
-        />
-      </Stack>
-    </>
+    <Stack
+      screenOptions={{
+        headerShown: false, // We'll handle headers in our own layouts
+        gestureEnabled: Platform.OS === 'ios',
+        animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(dashboard)" />
+      <Stack.Screen name="web" />
+      <Stack.Screen name="mobile" />
+      <Stack.Screen name="ios" />
+      <Stack.Screen name="android" />
+    </Stack>
   );
 } 

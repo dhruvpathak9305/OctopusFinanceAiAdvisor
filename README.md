@@ -136,9 +136,9 @@ const MyComponent = () => {
 
 ## 🔧 **Getting Started**
 
-```bash
+   ```bash
 # Install dependencies
-pnpm install
+   pnpm install
 
 # Start development server
 pnpm start

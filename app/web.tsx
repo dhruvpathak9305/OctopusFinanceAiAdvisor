@@ -1,240 +1,180 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { Platform } from 'react-native';
+import { MobilePageLayout } from '../components/layout/MobilePageLayout';
+import { WebPageLayout } from '../components/layout/WebPageLayout';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
-export default function WebPlatform() {
+const WebDemoContent = () => {
+  const handleGetStarted = () => {
+    router.push('/(dashboard)');
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <StatusBar style="auto" />
-      
-      {/* Header Section */}
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          🌐 Web Platform
-        </Text>
-        <Text style={styles.subtitle}>
-          Full-featured web experience
-        </Text>
-      </View>
-
-      {/* Features Grid */}
-      <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>
-          Web Features
-        </Text>
+    <View style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.title}>🌐 Web Platform Demo</Text>
+        <Text style={styles.subtitle}>Desktop-Optimized Experience</Text>
         
-        <View style={styles.featuresContainer}>
+        <View style={styles.featureSection}>
+          <Text style={styles.sectionTitle}>Web Features</Text>
+          
           <View style={styles.featureCard}>
-            <Text style={styles.featureTitle}>
-              💻 Desktop Optimized
-            </Text>
+            <Text style={styles.featureIcon}>💻</Text>
+            <Text style={styles.featureTitle}>Large Screen Support</Text>
             <Text style={styles.featureDescription}>
-              Large screen layouts with advanced data visualization and multi-panel views
+              Optimized for desktop and laptop screens with multi-column layouts
             </Text>
           </View>
-
+          
           <View style={styles.featureCard}>
-            <Text style={styles.featureTitle}>
-              📊 Advanced Analytics
-            </Text>
+            <Text style={styles.featureIcon}>🖱️</Text>
+            <Text style={styles.featureTitle}>Mouse Interactions</Text>
             <Text style={styles.featureDescription}>
-              Comprehensive charts, graphs, and detailed financial analysis tools
+              Hover effects, right-click menus, and precise cursor interactions
             </Text>
           </View>
-
+          
           <View style={styles.featureCard}>
-            <Text style={styles.featureTitle}>
-              🔗 Browser Integration
-            </Text>
+            <Text style={styles.featureIcon}>⌨️</Text>
+            <Text style={styles.featureTitle}>Keyboard Shortcuts</Text>
             <Text style={styles.featureDescription}>
-              Seamless integration with browser features, bookmarks, and extensions
-            </Text>
-          </View>
-
-          <View style={styles.featureCard}>
-            <Text style={styles.featureTitle}>
-              ⚡ Real-time Updates
-            </Text>
-            <Text style={styles.featureDescription}>
-              Live market data, instant notifications, and real-time portfolio tracking
+              Full keyboard navigation and productivity shortcuts
             </Text>
           </View>
         </View>
+        
+        <TouchableOpacity style={styles.demoButton} onPress={handleGetStarted}>
+          <Text style={styles.demoButtonText}>Try Dashboard →</Text>
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+};
 
-      {/* Demo Section */}
-      <View style={styles.demoSection}>
-        <Text style={styles.demoTitle}>
-          🎯 Demo Dashboard
-        </Text>
-        <View style={styles.demoStats}>
-          <Text style={styles.portfolioValue}>Portfolio Value: $125,430</Text>
-          <Text style={styles.todayGain}>Today's Gain: +$2,340 (+1.9%)</Text>
-        </View>
-        <View style={styles.demoButtons}>
-          <View style={styles.demoButton}>
-            <Text style={styles.demoButtonText}>Stocks</Text>
-            <Text style={styles.demoButtonValue}>65%</Text>
-          </View>
-          <View style={styles.demoButton}>
-            <Text style={styles.demoButtonText}>Bonds</Text>
-            <Text style={styles.demoButtonValue}>25%</Text>
-          </View>
-          <View style={styles.demoButton}>
-            <Text style={styles.demoButtonText}>Crypto</Text>
-            <Text style={styles.demoButtonValue}>10%</Text>
-          </View>
-        </View>
-      </View>
+export default function WebPlatformPage() {
+  if (Platform.OS === 'web') {
+    return (
+      <WebPageLayout>
+        <WebDemoContent />
+      </WebPageLayout>
+    );
+  }
 
-      {/* Navigation */}
-      <View style={styles.navigationSection}>
-        <Link href="/" asChild>
-          <TouchableOpacity style={styles.backButton}>
-            <Text style={styles.backButtonText}>
-              ← Back to Home
-            </Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-    </ScrollView>
+  return (
+    <MobilePageLayout pageTitle="Web Platform" showBottomNav={false}>
+      <WebDemoContent />
+    </MobilePageLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#0B1426',
+    minHeight: '100%',
   },
-  header: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  content: {
+    padding: 24,
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: -0.3,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   subtitle: {
     fontSize: 18,
-    color: '#a7f3d0',
+    color: '#9CA3AF',
     textAlign: 'center',
+    marginBottom: 40,
+    fontWeight: '500',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(156, 163, 175, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
-  featuresSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  featureSection: {
+    marginBottom: 40,
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 24,
-  },
-  featuresContainer: {
-    gap: 16,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   featureCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
+    backgroundColor: '#1F2937',
+    borderRadius: 14,
     padding: 24,
+    marginBottom: 20,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: '#059669',
-    marginBottom: 16,
+    shadowRadius: 4,
+  },
+  featureIcon: {
+    fontSize: 32,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   featureTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   featureDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  demoSection: {
-    marginHorizontal: 24,
-    marginBottom: 32,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  demoTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 16,
-  },
-  demoStats: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-  },
-  portfolioValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#059669',
-  },
-  todayGain: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  demoButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    color: '#9CA3AF',
+    lineHeight: 24,
+    textAlign: 'center',
+    fontWeight: '500',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(156, 163, 175, 0.05)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   demoButton: {
-    backgroundColor: '#dcfce7',
-    borderRadius: 8,
-    padding: 12,
-    flex: 1,
-    marginHorizontal: 4,
-    alignItems: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignSelf: 'center',
+    elevation: 3,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   demoButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#166534',
-  },
-  demoButtonValue: {
-    fontSize: 14,
-    color: '#059669',
-  },
-  navigationSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
-  backButton: {
-    backgroundColor: '#059669',
-    borderRadius: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  backButtonText: {
-    color: '#ffffff',
-    textAlign: 'center',
-    fontWeight: '600',
+    color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
 }); 

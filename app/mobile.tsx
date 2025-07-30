@@ -1,189 +1,180 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { Platform } from 'react-native';
+import { MobilePageLayout } from '../components/layout/MobilePageLayout';
+import { WebPageLayout } from '../components/layout/WebPageLayout';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
-export default function MobilePlatform() {
+const MobileDemoContent = () => {
+  const handleGetStarted = () => {
+    router.push('/(dashboard)');
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <StatusBar style="auto" />
-      
-      {/* Header Section */}
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          📱 Mobile Platform
-        </Text>
-        <Text style={styles.subtitle}>
-          Universal mobile experience
-        </Text>
-      </View>
-
-      {/* Quick Stats */}
-      <View style={styles.statsSection}>
-        <Text style={styles.statsTitle}>
-          📈 Quick Portfolio Overview
-        </Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>$89.2K</Text>
-            <Text style={styles.statLabel}>Total Value</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>+5.7%</Text>
-            <Text style={styles.statLabel}>Today</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Holdings</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Mobile Features */}
-      <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>
-          Mobile Features
-        </Text>
+    <View style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.title}>📱 Mobile Platform Demo</Text>
+        <Text style={styles.subtitle}>Touch-Optimized Experience</Text>
         
-        <View style={styles.featureCard}>
-          <Text style={styles.featureTitle}>
-            👆 Touch-Optimized
-          </Text>
-          <Text style={styles.featureDescription}>
-            Intuitive gestures, swipe actions, and touch-friendly interface design
-          </Text>
-        </View>
-
-        <View style={styles.featureCard}>
-          <Text style={styles.featureTitle}>
-            📲 Push Notifications
-          </Text>
-          <Text style={styles.featureDescription}>
-            Instant alerts for market changes, portfolio updates, and AI recommendations
-          </Text>
-        </View>
-      </View>
-
-      {/* Navigation */}
-      <View style={styles.navigationSection}>
-        <Link href="/" asChild>
-          <TouchableOpacity style={styles.backButton}>
-            <Text style={styles.backButtonText}>
-              ← Back to Home
+        <View style={styles.featureSection}>
+          <Text style={styles.sectionTitle}>Mobile Features</Text>
+          
+          <View style={styles.featureCard}>
+            <Text style={styles.featureIcon}>👆</Text>
+            <Text style={styles.featureTitle}>Touch Gestures</Text>
+            <Text style={styles.featureDescription}>
+              Intuitive swipe, pinch, and tap gestures for seamless navigation
             </Text>
-          </TouchableOpacity>
-        </Link>
+          </View>
+          
+          <View style={styles.featureCard}>
+            <Text style={styles.featureIcon}>📳</Text>
+            <Text style={styles.featureTitle}>Haptic Feedback</Text>
+            <Text style={styles.featureDescription}>
+              Tactile responses for button presses and important interactions
+            </Text>
+          </View>
+          
+          <View style={styles.featureCard}>
+            <Text style={styles.featureIcon}>🔔</Text>
+            <Text style={styles.featureTitle}>Push Notifications</Text>
+            <Text style={styles.featureDescription}>
+              Stay updated with real-time alerts and financial insights
+            </Text>
+          </View>
+        </View>
+        
+        <TouchableOpacity style={styles.demoButton} onPress={handleGetStarted}>
+          <Text style={styles.demoButtonText}>Try Dashboard →</Text>
+        </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
+  );
+};
+
+export default function MobilePlatformPage() {
+  if (Platform.OS === 'web') {
+    return (
+      <WebPageLayout>
+        <MobileDemoContent />
+      </WebPageLayout>
+    );
+  }
+
+  return (
+    <MobilePageLayout pageTitle="Mobile Platform" showBottomNav={false}>
+      <MobileDemoContent />
+    </MobilePageLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#0B1426',
+    minHeight: '100%',
   },
-  header: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  content: {
+    padding: 24,
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: -0.3,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   subtitle: {
     fontSize: 18,
-    color: '#fde68a',
+    color: '#9CA3AF',
     textAlign: 'center',
+    marginBottom: 40,
+    fontWeight: '500',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(156, 163, 175, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
-  statsSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginTop: 24,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statsTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#059669',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  featuresSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  featureSection: {
+    marginBottom: 40,
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 24,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   featureCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: '#1F2937',
+    borderRadius: 14,
+    padding: 24,
+    marginBottom: 20,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
+    shadowRadius: 4,
+  },
+  featureIcon: {
+    fontSize: 32,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   featureTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   featureDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  navigationSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
-  backButton: {
-    backgroundColor: '#f59e0b',
-    borderRadius: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  backButtonText: {
-    color: '#ffffff',
+    fontSize: 16,
+    color: '#9CA3AF',
+    lineHeight: 24,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '500',
+    letterSpacing: 0.1,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(156, 163, 175, 0.05)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  demoButton: {
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignSelf: 'center',
+    elevation: 3,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  demoButtonText: {
+    color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    // Enhanced font rendering
+    textShadowColor: 'rgba(255, 255, 255, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
 }); 
