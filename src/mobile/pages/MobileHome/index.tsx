@@ -1,14 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-export const MobileHomeContent: React.FC = () => {
+const MobileHome: React.FC = () => {
+  const navigation = useNavigation();
+
   const handleGetStarted = () => {
-    router.push('/(dashboard)');
+    // Navigate to Dashboard within the mobile app
+    navigation.navigate('Dashboard' as never);
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       {/* Hero Section */}
       <View style={styles.heroSection}>
         <Text style={styles.heroTitle}>Take control of</Text>
@@ -175,12 +178,13 @@ export const MobileHomeContent: React.FC = () => {
           <Text style={styles.plansButtonText}>View Plans</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: '#0B1426',
   },
   heroSection: {
@@ -614,4 +618,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
-}); 
+});
+
+export default MobileHome; 
