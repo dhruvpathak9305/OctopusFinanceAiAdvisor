@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-navigation/stack": "^7.4.4",
+    "@supabase/supabase-js": "^2.53.0",
     "@tamagui/animations-react-native": "^1.132.15",
     "@tamagui/config": "^1.132.15",
     "@tamagui/core": "^1.132.15",
@@ -18,9 +19,13 @@
     "date-fns": "^4.1.0",
     "expo": "~53.0.20",
     "expo-constants": "^17.1.7",
+    "expo-file-system": "^18.1.11",
+    "expo-image-picker": "^16.1.4",
     "expo-linking": "^7.1.7",
     "expo-router": "^5.1.4",
+    "expo-secure-store": "^14.2.3",
     "expo-status-bar": "~2.2.3",
+    "lucide-react-native": "^0.535.0",
     "react": "19.0.0",
     "react-dom": "^19.0.0",
     "react-native": "0.79.5",
@@ -31,12 +36,15 @@
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "^4.13.1",
     "react-native-svg": "^15.12.0",
-    "react-native-vector-icons": "^10.3.0",
+    "react-native-toast-message": "^2.3.3",
     "react-native-web": "^0.20.0",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "@types/jest": "^30.0.0",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "vitest": "^3.2.4"
   },
   "private": true
 }
