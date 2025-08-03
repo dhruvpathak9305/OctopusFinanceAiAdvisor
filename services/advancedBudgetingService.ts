@@ -177,11 +177,17 @@ export const advancedBudgetingService = {
         await Promise.all(futurePeriods);
       }
 
-      toast.success('Budget settings saved successfully');
+      Toast.show({
+        type: 'success',
+        text1: 'Budget settings saved successfully'
+      });
       return period;
     } catch (error) {
       console.error('Error saving budget settings:', error);
-      toast.error('Failed to save budget settings');
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to save budget settings'
+      });
       throw error;
     }
   },

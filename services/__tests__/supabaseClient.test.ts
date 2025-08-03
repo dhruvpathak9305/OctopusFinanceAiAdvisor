@@ -46,8 +46,8 @@ describe('supabaseClient', () => {
 
   it('should create Supabase client with environment variables', () => {
     // Set up environment variables
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 
     // Re-import the module to trigger initialization with new env vars
     jest.isolateModules(() => {
@@ -60,23 +60,27 @@ describe('supabaseClient', () => {
     );
   });
 
-  it('should create Supabase client with empty strings when env vars are missing', () => {
+  it('should create Supabase client with fallback values when env vars are missing', () => {
     // Remove environment variables
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+    delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
     // Re-import the module to trigger initialization
     jest.isolateModules(() => {
       require('../supabaseClient');
     });
 
-    expect(createClient).toHaveBeenCalledWith('', '');
+    // Should use fallback values instead of empty strings
+    expect(createClient).toHaveBeenCalledWith(
+      'https://fzzbfgnmbchhmqepwmer.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6emJmZ25tYmNoaG1xZXB3bWVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4NDMyMTksImV4cCI6MjA1OTQxOTIxOX0.T47MLWYCH5xIvk9QEAYNpqwOSrm1AiWpBbZjiRmNn0U'
+    );
   });
 
   it('should export a valid supabase client instance', () => {
     // Set up environment variables for this test
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 
     // Import the client
     const { supabase } = require('../supabaseClient');
@@ -87,8 +91,8 @@ describe('supabaseClient', () => {
 
   it('should handle client methods', () => {
     // Set up environment variables for this test
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 
     // Import the client
     const { supabase } = require('../supabaseClient');

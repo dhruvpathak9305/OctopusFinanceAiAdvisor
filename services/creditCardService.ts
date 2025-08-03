@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase/client";
-import { toast } from "sonner";
+import Toast from 'react-native-toast-message';
 import type { Database } from "../types/supabase";
 import { 
   getTableMap, 
@@ -10,11 +10,11 @@ import {
 export interface CreditCard {
   id: string;
   name: string;
-  bank: string;
-  logoUrl?: string;
-  lastFourDigits: string;
+  institution: string;
+  lastFourDigits: number;
   creditLimit: number;
   currentBalance: number;
+  logoUrl?: string;
   dueDate: string;
   billingCycle?: string;
 }
@@ -31,18 +31,18 @@ const getTableMapping = (isDemo: boolean): TableMap => {
   return tableMap;
 };
 
-// Maps the database credit card to the application model
+// Maps the database credit card to the application credit card model
 const mapDbCreditCardToModel = (dbCard: Database["public"]["Tables"]["credit_cards"]["Row"]): CreditCard => {
   return {
     id: dbCard.id,
     name: dbCard.name,
-    bank: dbCard.institution || "",
-    logoUrl: dbCard.logo_url,
-    lastFourDigits: dbCard.last_four_digits.toString(),
+    institution: dbCard.institution,
+    lastFourDigits: dbCard.last_four_digits,
     creditLimit: dbCard.credit_limit,
     currentBalance: dbCard.current_balance,
-    dueDate: dbCard.due_date,
-    billingCycle: dbCard.billing_cycle,
+    logoUrl: dbCard.logo_url || undefined,
+    dueDate: dbCard.due_date || new Date().toISOString().split('T')[0],
+    billingCycle: dbCard.billing_cycle || undefined,
   };
 };
 
@@ -50,7 +50,7 @@ const mapDbCreditCardToModel = (dbCard: Database["public"]["Tables"]["credit_car
 const mapModelToDbCreditCard = (card: Omit<CreditCard, 'id'>, userId: string) => {
   return {
     name: card.name,
-    institution: card.bank,
+    institution: card.institution,
     logo_url: card.logoUrl,
     last_four_digits: Number(card.lastFourDigits),
     credit_limit: card.creditLimit,
@@ -81,14 +81,16 @@ export const fetchCreditCards = async (isDemo: boolean = false): Promise<CreditC
     
     if (error) {
       console.error("Error fetching credit cards:", error);
-      toast.error("Failed to fetch credit cards", {
-        description: error.message
+      Toast.show({
+        type: "error",
+        text1: "Failed to fetch credit cards",
+        text2: error.message
       });
       throw error;
     }
     
     // Map and return the credit cards
-    return (data || []).map(card => mapDbCreditCardToModel(card));
+    return (data || []).map((card: any) => mapDbCreditCardToModel(card));
   } catch (error) {
     console.error("Error in fetchCreditCards:", error);
     throw error;
@@ -119,13 +121,18 @@ export const addCreditCard = async (card: Omit<CreditCard, 'id'>, isDemo: boolea
     
     if (error) {
       console.error("Error adding credit card:", error);
-      toast.error("Failed to add credit card", {
-        description: error.message
+      Toast.show({
+        type: "error",
+        text1: "Failed to add credit card",
+        text2: error.message
       });
       throw error;
     }
     
-    toast.success("Credit card added successfully");
+    Toast.show({
+      type: "success",
+      text1: "Credit card added successfully"
+    });
     return mapDbCreditCardToModel(data);
   } catch (error) {
     console.error("Error in addCreditCard:", error);
@@ -148,7 +155,7 @@ export const updateCreditCard = async (id: string, updates: Partial<CreditCard>,
     // Convert application model to database model
     const dbUpdates: Partial<Database["public"]["Tables"]["credit_cards"]["Update"]> = {};
     if ('name' in updates) dbUpdates.name = updates.name;
-    if ('bank' in updates) dbUpdates.institution = updates.bank;
+    if ('institution' in updates) dbUpdates.institution = updates.institution;
     if ('logoUrl' in updates) dbUpdates.logo_url = updates.logoUrl;
     if ('lastFourDigits' in updates) dbUpdates.last_four_digits = Number(updates.lastFourDigits);
     if ('creditLimit' in updates) dbUpdates.credit_limit = updates.creditLimit;
@@ -167,13 +174,18 @@ export const updateCreditCard = async (id: string, updates: Partial<CreditCard>,
     
     if (error) {
       console.error("Error updating credit card:", error);
-      toast.error("Failed to update credit card", {
-        description: error.message
+      Toast.show({
+        type: "error",
+        text1: "Failed to update credit card",
+        text2: error.message
       });
       throw error;
     }
     
-    toast.success("Credit card updated successfully");
+    Toast.show({
+      type: "success",
+      text1: "Credit card updated successfully"
+    });
     return mapDbCreditCardToModel(data);
   } catch (error) {
     console.error("Error in updateCreditCard:", error);
@@ -202,13 +214,18 @@ export const deleteCreditCard = async (id: string, isDemo: boolean = false): Pro
     
     if (error) {
       console.error("Error deleting credit card:", error);
-      toast.error("Failed to delete credit card", {
-        description: error.message
+      Toast.show({
+        type: "error",
+        text1: "Failed to delete credit card",
+        text2: error.message
       });
       throw error;
     }
     
-    toast.success("Credit card deleted successfully");
+    Toast.show({
+      type: "success",
+      text1: "Credit card deleted successfully"
+    });
   } catch (error) {
     console.error("Error in deleteCreditCard:", error);
     throw error;
@@ -222,7 +239,10 @@ export const fetchCreditCardsHistory = async (months: number = 12, isDemo: boole
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      toast.error("User not authenticated");
+      Toast.show({
+        type: "error",
+        text1: "User not authenticated"
+      });
       throw new Error("User not authenticated");
     }
     

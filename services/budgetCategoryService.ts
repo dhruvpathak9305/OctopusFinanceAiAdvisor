@@ -1,7 +1,8 @@
 import { supabase } from "../lib/supabase/client";
 import { BudgetCategory, BudgetStatus } from "../types/budget";
 import { mapDbCategoryToModel } from "../utils/budgetMappers";
-import { toast } from "sonner";   
+import Toast from 'react-native-toast-message';
+import type { Database } from "../types/supabase";
 import { 
   getTableMap, 
   validateTableConsistency, 
@@ -21,85 +22,32 @@ const getTableMapping = (isDemo: boolean): TableMap => {
 };
 
 // Fetch budget categories and their subcategories
-export const fetchBudgetCategories = async (isDemo: boolean = false) => {
+export const fetchBudgetCategories = async (isDemo: boolean = false): Promise<BudgetCategory[]> => {
   try {
-    // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       throw new Error("User not authenticated");
     }
     
-    const tableMap = getTableMapping(isDemo);
+    const tableMap = getTableMap(isDemo);
     
-    // Fetch budget categories using dynamic table name
-    const { data: categoriesData, error: categoriesError } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from(tableMap.budget_categories)
       .select('*')
       .eq('user_id', user.id)
       .order('display_order', { ascending: true });
-    
-    if (categoriesError) {
-      console.error("Error fetching budget categories:", categoriesError);
-      throw categoriesError;
+
+    if (error) {
+      console.error("Error fetching budget categories:", error);
+      throw error;
     }
-    
-    // For each category, fetch its subcategories
-    const categoriesWithSubcategories = await Promise.all((categoriesData || []).map(async (category: any) => {
-      const { data: subcategories, error: subcategoriesError } = await (supabase as any)
-        .from(tableMap.budget_subcategories)
-        .select('*')
-        .eq('category_id', category.id);
-      
-      if (subcategoriesError) {
-        console.error("Error fetching subcategories:", subcategoriesError);
-        return mapDbCategoryToModel(category, []);
-      }
-      
-      return mapDbCategoryToModel(category, subcategories || []);
-    }));
-    
-    // If no categories exist, initialize with default data
-    if (categoriesWithSubcategories.length === 0) {
-      const defaultCategoryData = [
-        {
-          name: "Needs",
-          budget_limit: 2500,
-          bg_color: "bg-teal",
-          ring_color: "#0F766E",
-        },
-        {
-          name: "Wants",
-          budget_limit: 1000,
-          bg_color: "bg-gold",
-          ring_color: "#F59E0B",
-        },
-        {
-          name: "Save",
-          budget_limit: 1500,
-          bg_color: "bg-emerald",
-          ring_color: "#10B981",
-        },
-      ];
-      
-      // Create default categories in database
-      for (const categoryData of defaultCategoryData) {
-        await createCategoryInDB({
-          name: categoryData.name,
-          limit: categoryData.budget_limit,
-          bgColor: categoryData.bg_color,
-          ringColor: categoryData.ring_color,
-        }, isDemo);
-      }
-      
-      // Fetch again to get the created data with IDs
-      return fetchBudgetCategories(isDemo);
-    }
-    
-    return categoriesWithSubcategories;
-  } catch (error) {
-    console.error("Error in fetchBudgetCategories:", error);
-    throw error;
+
+    // Map the database data to BudgetCategory type
+    return (data || []).map((category: any) => mapDbCategoryToModel(category, []));
+  } catch (err) {
+    console.error("Error fetching budget categories:", err);
+    throw err;
   }
 };
 
@@ -131,7 +79,10 @@ export const createCategoryInDB = async (category: Partial<BudgetCategory>, isDe
     return data;
   } catch (err) {
     console.error("Error creating category:", err);
-    toast.error("Failed to create budget category");
+    Toast.show({
+      type: "error",
+      text1: "Failed to create budget category",
+    });
     throw err;
   }
 };

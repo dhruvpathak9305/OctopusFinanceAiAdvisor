@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.1",
     "@react-navigation/stack": "^7.4.4",
     "@supabase/supabase-js": "^2.53.0",
     "@tamagui/animations-react-native": "^1.132.15",
@@ -17,6 +18,7 @@
     "@tanstack/react-query": "^5.83.0",
     "@types/react": "^19.0.14",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.1",
     "expo": "~53.0.20",
     "expo-constants": "^17.1.7",
     "expo-file-system": "^18.1.11",
@@ -26,24 +28,28 @@
     "expo-secure-store": "^14.2.3",
     "expo-status-bar": "~2.2.3",
     "lucide-react-native": "^0.535.0",
-    "react": "19.0.0",
+    "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-native": "0.79.5",
+    "react-hook-form": "^7.61.1",
+    "react-native": "^0.79.5",
     "react-native-chart-kit": "^6.12.0",
-    "react-native-gesture-handler": "^2.27.2",
+    "react-native-gesture-handler": "~2.24.0",
     "react-native-progress": "^5.0.1",
-    "react-native-reanimated": "^3.17.5",
+    "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "^4.13.1",
     "react-native-svg": "^15.12.0",
     "react-native-toast-message": "^2.3.3",
     "react-native-web": "^0.20.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "zod": "^4.0.14"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/jest": "^30.0.0",
+    "ansi-regex": "^5.0.1",
     "babel-plugin-module-resolver": "^5.0.2",
+    "strip-ansi": "^6.0.1",
     "vitest": "^3.2.4"
   },
   "private": true

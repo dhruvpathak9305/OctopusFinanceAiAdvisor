@@ -1,24 +1,4 @@
-// Export Supabase client and utilities
-export { 
-  supabase, 
-  isSupabaseInitialized, 
-  getCurrentUser,
-  handleSupabaseError,
-  retrySupabaseOperation
-} from './client';
-
-// Export configuration
-export * from './config';
-
-// Export database types
+// Export Supabase client and types
+export { supabase } from './client';
 export type { Database } from '../../types/supabase';
-
-// Re-export commonly used Supabase types
-export type { 
-  User, 
-  Session, 
-  AuthError,
-  SupabaseClient,
-  PostgrestError,
-  RealtimeChannel
-} from '@supabase/supabase-js';
+export type { User, Session, AuthError } from '@supabase/supabase-js';

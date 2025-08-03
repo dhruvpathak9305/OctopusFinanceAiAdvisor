@@ -101,28 +101,33 @@ export const fetchAccounts = async (isDemo: boolean = false): Promise<Account[]>
       .from(tableMap.accounts)
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
-      console.error("Error fetching accounts:", error);
-      toast.error("Failed to fetch accounts", {
-        description: error.message
+      console.error('Error fetching accounts:', error);
+      Toast.show({
+        type: 'error',
+        text1: "Failed to fetch accounts",
+        text2: error.message
       });
-      throw error;
+      return [];
     }
-    
-    // Map and return the accounts
-    return (data || []).map(account => mapDbAccountToModel(account));
+
+    return (data || []).map((account: any) => mapDbAccountToModel(account));
   } catch (error) {
-    console.error("Error in fetchAccounts:", error);
-    throw error;
+    console.error('Error in fetchAccounts:', error);
+    Toast.show({
+      type: 'error',
+      text1: "Failed to fetch accounts",
+      text2: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return [];
   }
 };
 
 // Add a new account
 export const addAccount = async (account: Account, isDemo: boolean = false): Promise<Account> => {
   try {
-    // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -130,29 +135,37 @@ export const addAccount = async (account: Account, isDemo: boolean = false): Pro
     }
     
     const tableMap = getTableMapping(isDemo);
-    
-    // Map the account to the database model
     const dbAccount = mapModelToDbAccount(account, user.id);
     
-    // Insert the account into the database using dynamic table name
     const { data, error } = await (supabase as any)
       .from(tableMap.accounts)
-      .insert(dbAccount)
+      .insert([dbAccount])
       .select()
       .single();
-    
+
     if (error) {
-      console.error("Error adding account:", error);
-      toast.error("Failed to add account", {
-        description: error.message
+      console.error('Error adding account:', error);
+      Toast.show({
+        type: 'error',
+        text1: "Failed to add account",
+        text2: error.message
       });
       throw error;
     }
-    
-    toast.success("Account added successfully");
+
+    Toast.show({
+      type: 'success',
+      text1: "Account added successfully"
+    });
+
     return mapDbAccountToModel(data);
   } catch (error) {
-    console.error("Error in addAccount:", error);
+    console.error('Error in addAccount:', error);
+    Toast.show({
+      type: 'error',
+      text1: "Failed to add account",
+      text2: error instanceof Error ? error.message : 'Unknown error'
+    });
     throw error;
   }
 };
@@ -160,11 +173,6 @@ export const addAccount = async (account: Account, isDemo: boolean = false): Pro
 // Update an existing account
 export const updateAccount = async (account: Account, isDemo: boolean = false): Promise<Account> => {
   try {
-    if (!account.id) {
-      throw new Error("Account ID is required for updates");
-    }
-    
-    // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -172,11 +180,8 @@ export const updateAccount = async (account: Account, isDemo: boolean = false): 
     }
     
     const tableMap = getTableMapping(isDemo);
-    
-    // Map the account to the database model
     const dbAccount = mapModelToDbAccount(account, user.id);
     
-    // Update the account in the database using dynamic table name
     const { data, error } = await (supabase as any)
       .from(tableMap.accounts)
       .update(dbAccount)
@@ -184,19 +189,30 @@ export const updateAccount = async (account: Account, isDemo: boolean = false): 
       .eq('user_id', user.id)
       .select()
       .single();
-    
+
     if (error) {
-      console.error("Error updating account:", error);
-      toast.error("Failed to update account", {
-        description: error.message
+      console.error('Error updating account:', error);
+      Toast.show({
+        type: 'error',
+        text1: "Failed to update account",
+        text2: error.message
       });
       throw error;
     }
-    
-    toast.success("Account updated successfully");
+
+    Toast.show({
+      type: 'success',
+      text1: "Account updated successfully"
+    });
+
     return mapDbAccountToModel(data);
   } catch (error) {
-    console.error("Error in updateAccount:", error);
+    console.error('Error in updateAccount:', error);
+    Toast.show({
+      type: 'error',
+      text1: "Failed to update account",
+      text2: error instanceof Error ? error.message : 'Unknown error'
+    });
     throw error;
   }
 };
@@ -204,7 +220,6 @@ export const updateAccount = async (account: Account, isDemo: boolean = false): 
 // Delete an account
 export const deleteAccount = async (accountId: string, isDemo: boolean = false): Promise<void> => {
   try {
-    // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -213,120 +228,116 @@ export const deleteAccount = async (accountId: string, isDemo: boolean = false):
     
     const tableMap = getTableMapping(isDemo);
     
-    // Delete the account from the database using dynamic table name
     const { error } = await (supabase as any)
       .from(tableMap.accounts)
       .delete()
       .eq('id', accountId)
       .eq('user_id', user.id);
-    
+
     if (error) {
-      console.error("Error deleting account:", error);
-      toast.error("Failed to delete account", {
-        description: error.message
+      console.error('Error deleting account:', error);
+      Toast.show({
+        type: 'error',
+        text1: "Failed to delete account",
+        text2: error.message
       });
       throw error;
     }
-    
-    toast.success("Account deleted successfully");
+
+    Toast.show({
+      type: 'success',
+      text1: "Account deleted successfully"
+    });
   } catch (error) {
-    console.error("Error in deleteAccount:", error);
+    console.error('Error in deleteAccount:', error);
+    Toast.show({
+      type: 'error',
+      text1: "Failed to delete account",
+      text2: error instanceof Error ? error.message : 'Unknown error'
+    });
     throw error;
   }
 };
 
-// Add this function to fetch account balance history
+// Fetch account balance history for charts
 export const fetchAccountsHistory = async (months: number = 12, isDemo: boolean = false): Promise<{ date: string; value: number }[]> => {
   try {
-    // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      toast.error("User not authenticated");
-      throw new Error("User not authenticated");
+      Toast.show({
+        type: 'error',
+        text1: "User not authenticated"
+      });
+      return generatePlaceholderHistory(months);
     }
     
     const tableMap = getTableMapping(isDemo);
     
-    // Fetch account transactions with timestamps to build a historical view
-    // In a real app, you might have a dedicated table for historical balances
-    // This is a simplified implementation that constructs history from transactions
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+    
     const { data, error } = await (supabase as any)
-      .from(tableMap.transactions)
-      .select('*')
+      .from(tableMap.account_balance_history)
+      .select('snapshot_date, balance')
       .eq('user_id', user.id)
-      .order('date', { ascending: true });
-    
+      .gte('snapshot_date', startDate.toISOString().split('T')[0])
+      .lte('snapshot_date', endDate.toISOString().split('T')[0])
+      .order('snapshot_date', { ascending: true });
+
     if (error) {
-      console.error("Error fetching account history:", error);
-      toast.error("Failed to fetch account history", {
-        description: error.message
+      console.error('Error fetching account history:', error);
+      Toast.show({
+        type: 'error',
+        text1: "Failed to fetch account history",
+        text2: error.message
       });
-      throw error;
+      return generatePlaceholderHistory(months);
     }
-    
-    // Construct a timeline of balances
-    const now = new Date();
-    const history: { date: string; value: number }[] = [];
-    let runningBalance = 0;
-    
-    // Create data points for each month
-    for (let i = months - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthString = date.toISOString().slice(0, 7); // YYYY-MM format
-      
-      // Find transactions for this month
-      const monthTransactions = (data || []).filter((transaction: any) => {
-        const transactionDate = new Date(transaction.date);
-        const transactionMonth = transactionDate.toISOString().slice(0, 7);
-        return transactionMonth === monthString;
-      });
-      
-      // Calculate balance change for the month
-      const monthChange = monthTransactions.reduce((sum: number, tx: any) => {
-        if (tx.type === 'income') {
-          return sum + tx.amount;
-        } else if (tx.type === 'expense') {
-          return sum - tx.amount;
-        }
-        return sum;
-      }, 0);
-      
-      runningBalance += monthChange;
-      
-      history.push({
-        date: date.toLocaleDateString('en-US', { month: 'short' }),
-        value: Math.max(0, runningBalance) // Ensure non-negative balance
-      });
-    }
-    
-    return history.length > 0 ? history : generatePlaceholderHistory(months);
+
+    // Group by date and sum balances
+    const balanceByDate = new Map<string, number>();
+    data?.forEach((record: any) => {
+      const date = record.snapshot_date;
+      const currentBalance = balanceByDate.get(date) || 0;
+      balanceByDate.set(date, currentBalance + record.balance);
+    });
+
+    // Convert to array and sort by date
+    return Array.from(balanceByDate.entries())
+      .map(([date, balance]) => ({ date, value: balance }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   } catch (error) {
-    console.error("Error in fetchAccountsHistory:", error);
-    // Return placeholder data on error
+    console.error('Error in fetchAccountsHistory:', error);
+    Toast.show({
+      type: 'error',
+      text1: "Failed to fetch account history",
+      text2: error instanceof Error ? error.message : 'Unknown error'
+    });
     return generatePlaceholderHistory(months);
   }
 };
 
-// Generate placeholder history data
+// Generate placeholder data for charts when no real data is available
 const generatePlaceholderHistory = (months: number = 12): { date: string; value: number }[] => {
-  const history: { date: string; value: number }[] = [];
-  const now = new Date();
+  const history = [];
+  const today = new Date();
   
   for (let i = months - 1; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const baseValue = 2000 + Math.random() * 3000; // Random value between 2000-5000
-    
+    const date = new Date(today);
+    date.setMonth(date.getMonth() - i);
     history.push({
-      date: date.toLocaleDateString('en-US', { month: 'short' }),
-      value: Math.round(baseValue)
+      date: date.toISOString().split('T')[0],
+      value: Math.random() * 10000 + 5000 // Random balance between 5000-15000
     });
   }
   
   return history;
 };
 
-// Fetch account balance history from dedicated history table
+// Fetch account balance history for a specific user (for admin purposes)
 export async function fetchAccountBalanceHistory(userId: string, months: number = 12, isDemo: boolean = false): Promise<{ date: string; value: number }[]> {
   try {
     const tableMap = getTableMapping(isDemo);
@@ -334,33 +345,35 @@ export async function fetchAccountBalanceHistory(userId: string, months: number 
     // Calculate date range
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setMonth(endDate.getMonth() - months);
+    startDate.setMonth(startDate.getMonth() - months);
     
-    // Use dynamic table name for account balance history
     const { data, error } = await (supabase as any)
-      .from(tableMap.account_balance_history || 'account_balance_history')
-      .select('snapshot_date, total_balance')
+      .from(tableMap.account_balance_history)
+      .select('snapshot_date, balance')
       .eq('user_id', userId)
-      .gte('snapshot_date', startDate.toISOString())
-      .lte('snapshot_date', endDate.toISOString())
+      .gte('snapshot_date', startDate.toISOString().split('T')[0])
+      .lte('snapshot_date', endDate.toISOString().split('T')[0])
       .order('snapshot_date', { ascending: true });
 
     if (error) {
-      console.error("Error fetching account balance history:", error);
-      throw error;
-    }
-
-    if (!data || data.length === 0) {
+      console.error('Error fetching account balance history:', error);
       return generatePlaceholderHistory(months);
     }
 
-    // Transform data to expected format
-    return data.map((row: any) => ({
-      date: new Date(row.snapshot_date).toLocaleDateString('en-US', { month: 'short' }),
-      value: row.total_balance
-    }));
+    // Group by date and sum balances
+    const balanceByDate = new Map<string, number>();
+    data?.forEach((record: any) => {
+      const date = record.snapshot_date;
+      const currentBalance = balanceByDate.get(date) || 0;
+      balanceByDate.set(date, currentBalance + record.balance);
+    });
+
+    // Convert to array and sort by date
+    return Array.from(balanceByDate.entries())
+      .map(([date, balance]) => ({ date, value: balance }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   } catch (error) {
-    console.error("Error in fetchAccountBalanceHistory:", error);
+    console.error('Error in fetchAccountBalanceHistory:', error);
     return generatePlaceholderHistory(months);
   }
 } 

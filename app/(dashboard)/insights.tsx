@@ -1,11 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function MobilePage() {
+export default function InsightsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Mobile App</Text>
-      <Text style={styles.subtitle}>Mobile functionality coming soon</Text>
+      <Text style={styles.title}>AI-Powered Insights</Text>
+      <Text style={styles.subtitle}>Coming Soon</Text>
+      <Text style={styles.description}>
+        Intelligent financial insights and recommendations powered by AI will be available here.
+      </Text>
     </View>
   );
 }
@@ -25,8 +28,14 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#666',
+    marginBottom: 20,
+  },
+  description: {
+    fontSize: 16,
     textAlign: 'center',
+    color: '#888',
+    lineHeight: 24,
   },
 }); 

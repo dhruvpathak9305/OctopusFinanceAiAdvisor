@@ -62,30 +62,6 @@ export interface ChartData {
   label?: string;
 }
 
-// Supabase related types
-export interface SupabaseConfig {
-  url: string;
-  anonKey: string;
-}
-
-export interface DatabaseError {
-  message: string;
-  details?: string;
-  hint?: string;
-  code?: string;
-}
-
-// Message types for chat
-export interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp?: Date;
-}
-
-// Toast notification types
-export interface ToastConfig {
-  title?: string;
-  description?: string;
-  variant?: 'default' | 'destructive' | 'success';
-  duration?: number;
-} 
+// Supabase types
+export type { Database } from './supabase';
+export type { User, Session, AuthError } from '@supabase/supabase-js'; 

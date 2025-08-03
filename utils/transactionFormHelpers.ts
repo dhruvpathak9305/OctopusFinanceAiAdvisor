@@ -11,10 +11,7 @@ export const fetchCategories = async (): Promise<Category[]> => {
       .select('*')
       .order('name');
     
-    if (error) {
-      console.error('Error fetching categories:', error);
-      throw error;
-    }
+    if (error) throw error;
     return data || [];
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -38,10 +35,7 @@ export const fetchSubcategories = async (categoryId?: string | null): Promise<Su
     
     const { data, error } = await query;
     
-    if (error) {
-      console.error('Error fetching subcategories:', error);
-      throw error;
-    }
+    if (error) throw error;
     return data || [];
   } catch (error) {
     console.error('Error fetching subcategories:', error);
@@ -78,10 +72,7 @@ export const createCategory = async (
       .select()
       .single();
     
-    if (error) {
-      console.error('Error creating category:', error);
-      throw error;
-    }
+    if (error) throw error;
     return data;
   } catch (error) {
     console.error('Error creating category:', error);
@@ -116,10 +107,7 @@ export const createSubcategory = async (
       .select()
       .single();
     
-    if (error) {
-      console.error('Error creating subcategory:', error);
-      throw error;
-    }
+    if (error) throw error;
     return data;
   } catch (error) {
     console.error('Error creating subcategory:', error);
