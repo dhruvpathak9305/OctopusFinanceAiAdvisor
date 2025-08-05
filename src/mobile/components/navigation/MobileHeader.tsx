@@ -6,8 +6,11 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute, useNavigationState } from '@react-navigation/native';
+import { useUnifiedAuth } from '../../../../contexts/UnifiedAuthContext';
+import { useTheme, darkTheme, lightTheme } from '../../../../contexts/ThemeContext';
 
 interface MobileHeaderProps {
   title?: string;
@@ -20,6 +23,9 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
 }) => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { isAuthenticated, signOut } = useUnifiedAuth();
+  const { isDark, toggleTheme } = useTheme();
+  const theme = isDark ? darkTheme : lightTheme;
   
   // Get navigation state to determine if we can go back
   const navigationState = useNavigationState(state => state);
@@ -58,6 +64,21 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
     navigation.navigate('Auth' as never);
   };
 
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive',
+          onPress: () => signOut()
+        },
+      ]
+    );
+  };
+
   const handleBackPress = () => {
     if (canGoBack) {
       navigation.goBack();
@@ -73,17 +94,17 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="#0B1426" />
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.background} />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
           {/* Left side - Back Button + Logo and Title */}
           <View style={styles.leftSection}>
             {canGoBack && (
               <TouchableOpacity 
-                style={styles.backButton}
+                style={[styles.backButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
                 onPress={handleBackPress}
               >
-                <Text style={styles.backArrow}>←</Text>
+                <Text style={[styles.backArrow, { color: theme.primary }]}>←</Text>
               </TouchableOpacity>
             )}
             
@@ -92,7 +113,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
               onPress={handleLogoPress}
             >
               <Text style={styles.icon}>{pageInfo.icon}</Text>
-              <Text style={styles.title} numberOfLines={1}>
+              <Text style={[styles.title, { color: theme.primary }]} numberOfLines={1}>
                 {currentTitle}
               </Text>
             </TouchableOpacity>
@@ -100,27 +121,41 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
 
           {/* Right side - Actions */}
           <View style={styles.rightSection}>
-            {/* Theme Toggle Placeholder */}
-            <TouchableOpacity style={styles.themeToggle}>
-              <Text style={styles.themeIcon}>🌙</Text>
+            {/* Theme Toggle */}
+            <TouchableOpacity 
+              style={[styles.themeToggle, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              onPress={toggleTheme}
+            >
+              <Text style={styles.themeIcon}>
+                {isDark ? '☀️' : '🌙'}
+              </Text>
             </TouchableOpacity>
 
-            {showSignIn && (
-              <View style={styles.authButtons}>
-                <TouchableOpacity 
-                  style={styles.loginButton}
-                  onPress={handleSignIn}
-                >
-                  <Text style={styles.loginText}>Login</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.signupButton}
-                  onPress={handleSignUp}
-                >
-                  <Text style={styles.signupText}>Sign up</Text>
-                </TouchableOpacity>
-              </View>
+            {isAuthenticated ? (
+              <TouchableOpacity 
+                style={styles.signupButton}
+                onPress={handleSignOut}
+              >
+                <Text style={[styles.signupText, { color: theme.text }]}>Sign out</Text>
+              </TouchableOpacity>
+            ) : (
+              showSignIn && (
+                <View style={styles.authButtons}>
+                  <TouchableOpacity 
+                    style={styles.loginButton}
+                    onPress={handleSignIn}
+                  >
+                    <Text style={[styles.loginText, { color: theme.textSecondary }]}>Login</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.signupButton}
+                    onPress={handleSignUp}
+                  >
+                    <Text style={[styles.signupText, { color: theme.text }]}>Sign up</Text>
+                  </TouchableOpacity>
+                </View>
+              )
             )}
           </View>
         </View>
@@ -131,17 +166,16 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#0B1426',
+    // backgroundColor will be set dynamically
   },
   header: {
-    backgroundColor: '#0B1426',
+    // backgroundColor and borderBottomColor will be set dynamically
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -157,16 +191,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1F2937',
+    // backgroundColor and borderColor will be set dynamically
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#374151',
   },
   backArrow: {
     fontSize: 18,
-    color: '#10B981',
+    // color will be set dynamically
     fontWeight: '600',
   },
   logoSection: {
@@ -181,7 +214,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#10B981',
+    // color will be set dynamically
     flex: 1,
   },
   rightSection: {
@@ -193,11 +226,10 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1F2937',
+    // backgroundColor and borderColor will be set dynamically
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#374151',
   },
   themeIcon: {
     fontSize: 14,
@@ -214,18 +246,18 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    // color will be set dynamically
     fontWeight: '600',
   },
   signupButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#10B981',
+    backgroundColor: '#10B981', // Keep primary color consistent
   },
   signupText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    // color will be set dynamically
     fontWeight: '600',
   },
 });

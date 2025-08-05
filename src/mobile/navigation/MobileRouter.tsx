@@ -2,7 +2,10 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+
 import MobileHeader from '../components/navigation/MobileHeader';
+import MobileRequireAuth from '../../../components/auth/MobileRequireAuth';
+import { useTheme, darkTheme, lightTheme } from '../../../contexts/ThemeContext';
 
 // Import mobile pages that exist and work
 import MobileHome from '../pages/MobileHome';
@@ -46,19 +49,22 @@ const ScreenWithHeader: React.FC<{
 
 // Main Tab Navigator
 const MainTabNavigator: React.FC = () => {
+  const { isDark } = useTheme();
+  const theme = isDark ? darkTheme : lightTheme;
+  
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false, // Disable all React Navigation headers
         tabBarStyle: {
-          backgroundColor: '#0B1426',
-          borderTopColor: '#1F2937',
+          backgroundColor: theme.tabBar,
+          borderTopColor: theme.tabBarBorder,
           height: 90,
           paddingBottom: 25,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: '#10B981',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textSecondary,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
@@ -88,7 +94,9 @@ const MainTabNavigator: React.FC = () => {
       >
         {() => (
           <ScreenWithHeader>
-            <MobileDashboard />
+            <MobileRequireAuth>
+              <MobileDashboard />
+            </MobileRequireAuth>
           </ScreenWithHeader>
         )}
       </Tab.Screen>
@@ -102,7 +110,9 @@ const MainTabNavigator: React.FC = () => {
       >
         {() => (
           <ScreenWithHeader>
-            <MobilePortfolio />
+            <MobileRequireAuth>
+              <MobilePortfolio />
+            </MobileRequireAuth>
           </ScreenWithHeader>
         )}
       </Tab.Screen>
@@ -116,7 +126,9 @@ const MainTabNavigator: React.FC = () => {
       >
         {() => (
           <ScreenWithHeader>
-            <MobileGoals />
+            <MobileRequireAuth>
+              <MobileGoals />
+            </MobileRequireAuth>
           </ScreenWithHeader>
         )}
       </Tab.Screen>
@@ -130,7 +142,9 @@ const MainTabNavigator: React.FC = () => {
       >
         {() => (
           <ScreenWithHeader>
-            <MobileTransactions />
+            <MobileRequireAuth>
+              <MobileTransactions />
+            </MobileRequireAuth>
           </ScreenWithHeader>
         )}
       </Tab.Screen>
@@ -144,7 +158,9 @@ const MainTabNavigator: React.FC = () => {
       >
         {() => (
           <ScreenWithHeader>
-            <MobileSettings />
+            <MobileRequireAuth>
+              <MobileSettings />
+            </MobileRequireAuth>
           </ScreenWithHeader>
         )}
       </Tab.Screen>

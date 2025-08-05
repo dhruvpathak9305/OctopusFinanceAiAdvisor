@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/stack": "^7.4.4",
     "@supabase/supabase-js": "^2.53.0",
     "@tamagui/animations-react-native": "^1.132.15",

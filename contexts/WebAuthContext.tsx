@@ -1,11 +1,10 @@
-/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
+import { router } from "expo-router";
 import { supabase } from "../lib/supabase/client";
-import { useToast } from "../common/hooks/use-toast";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-interface AuthContextType {
+interface WebAuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
@@ -16,21 +15,41 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const WebAuthContext = createContext<WebAuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const WebAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+
+  // Helper function to manage session marker
+  const setSessionMarker = async (value: string | null) => {
+    try {
+      if (value) {
+        await AsyncStorage.setItem('octopusSession', value);
+      } else {
+        await AsyncStorage.removeItem('octopusSession');
+      }
+    } catch (error) {
+      console.log('Error managing session marker:', error);
+    }
+  };
+
+  const getSessionMarker = async (): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem('octopusSession');
+    } catch (error) {
+      console.log('Error getting session marker:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
-        console.log('Auth state change:', event, currentSession?.user?.email);
+        console.log('Web Auth state change:', event, currentSession?.user?.email);
         
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
@@ -38,29 +57,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (event === 'SIGNED_IN' && currentSession?.user) {
           // Clear any existing session marker
-          sessionStorage.removeItem('octopusSession');
+          setSessionMarker(null);
           
           // Redirect to dashboard on successful login
           setTimeout(() => {
-            navigate('/dashboard');
-            toast({
-              title: "Welcome back!",
-              description: "You have successfully logged in.",
-            });
+            router.push('/(dashboard)');
             // Mark that we're in an active session
-            sessionStorage.setItem('octopusSession', 'true');
+            setSessionMarker('true');
           }, 100);
         } else if (event === 'SIGNED_OUT') {
           // Clear session marker when signed out
-          sessionStorage.removeItem('octopusSession');
+          setSessionMarker(null);
           
           // Redirect to home page
           setTimeout(() => {
-            navigate('/');
-            toast({
-              title: "Logged out",
-              description: "You have been successfully logged out.",
-            });
+            router.push('/');
           }, 100);
         }
       }
@@ -68,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Then check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      console.log('Initial session check:', currentSession?.user?.email);
+      console.log('Web Initial session check:', currentSession?.user?.email);
       
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
@@ -76,14 +87,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Set session marker if we restored a session
       if (currentSession) {
-        sessionStorage.setItem('octopusSession', 'true');
+        setSessionMarker('true');
       }
       
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, toast]);
+  }, []);
 
   const signUp = async (email: string, password: string) => {
     try {
@@ -94,27 +105,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
-      toast({
-        title: "Check your email",
-        description: "We've sent you a confirmation link.",
-      });
+      // Show success message (you can implement a toast system for web)
+      console.log('Sign up successful, check your email');
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "An error occurred during sign up.";
-      toast({
-        title: "Sign up failed",
-        description: msg,
-        variant: "destructive",
-      });
+      console.error('Sign up failed:', msg);
       throw error;
     }
   };
 
   const signIn = async (email: string, password: string, rememberMe: boolean) => {
     try {
-      console.log('Attempting sign in for:', email);
+      console.log('Web: Attempting sign in for:', email);
       
       // Clear any existing session marker before new login attempt
-      sessionStorage.removeItem('octopusSession');
+      await setSessionMarker(null);
       
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -122,41 +127,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.log('Sign in error:', error.message);
+        console.log('Web: Sign in error:', error.message);
         throw error;
       }
       
-      console.log('Sign in successful for:', email);
+      console.log('Web: Sign in successful for:', email);
       // The onAuthStateChange will handle the redirect and session marking
     } catch (error: unknown) {
-      console.log('Sign in caught error:', error);
+      console.log('Web: Sign in caught error:', error);
       const msg = error instanceof Error ? error.message : "Invalid email or password.";
-      toast({
-        title: "Login failed",
-        description: msg,
-        variant: "destructive",
-      });
+      console.error('Web: Login failed:', msg);
       throw error;
     }
   };
 
   const signOut = async () => {
     try {
-      console.log('Attempting sign out');
+      console.log('Web: Attempting sign out');
+      
+      // Check if we have a valid session before attempting to sign out
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession) {
+        console.log('Web: No active session to sign out from');
+        return;
+      }
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      console.log('Sign out successful');
+      console.log('Web: Sign out successful');
       // Clear session marker on explicit sign out
-      sessionStorage.removeItem('octopusSession');
+      await setSessionMarker(null);
     } catch (error: unknown) {
-      console.log('Sign out error:', error);
+      console.log('Web: Sign out error:', error);
       const msg = error instanceof Error ? error.message : "An error occurred during sign out.";
-      toast({
-        title: "Sign out failed",
-        description: msg,
-        variant: "destructive",
-      });
+      console.error('Web: Sign out failed:', msg);
       throw error;
     }
   };
@@ -169,17 +175,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       
-      toast({
-        title: "Password reset email sent",
-        description: "Check your email for the password reset link.",
-      });
+      console.log('Password reset email sent');
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "An error occurred while sending the reset email.";
-      toast({
-        title: "Password reset failed",
-        description: msg,
-        variant: "destructive",
-      });
+      console.error('Password reset failed:', msg);
       throw error;
     }
   };
@@ -195,13 +194,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <WebAuthContext.Provider value={value}>{children}</WebAuthContext.Provider>;
 };
 
-export function useAuth() {
-  const context = useContext(AuthContext);
+export function useWebAuth() {
+  const context = useContext(WebAuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useWebAuth must be used within a WebAuthProvider");
   }
   return context;
-}
+} 

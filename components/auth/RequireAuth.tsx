@@ -8,14 +8,18 @@ interface RequireAuthProps {
 }
 
 export default function RequireAuth({ children }: RequireAuthProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth", { state: { from: location.pathname } });
+    if (!loading && !isAuthenticated) {
+      // Redirect to login page and save the current path for after login
+      navigate("/login", { 
+        state: { from: window.location.pathname },
+        replace: true 
+      });
     }
-  }, [user, loading, navigate]);
+  }, [isAuthenticated, loading, navigate]);
 
   if (loading) {
     return (
@@ -28,7 +32,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return null;
   }
 

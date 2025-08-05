@@ -5,488 +5,369 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useUnifiedAuth } from '../../../../contexts/UnifiedAuthContext';
 
-// Form validation types
-interface LoginForm {
+interface FormData {
   email: string;
   password: string;
-  rememberMe: boolean;
+  confirmPassword?: string;
 }
 
-interface SignupForm {
-  email: string;
-  password: string;
-  confirmPassword: string;
-  acceptTerms: boolean;
-}
-
-interface ForgotPasswordForm {
-  email: string;
-}
-
-const MobileAuthForm: React.FC = () => {
-  const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState<'login' | 'signup' | 'forgot'>('login');
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Form states
-  const [loginForm, setLoginForm] = useState<LoginForm>({
-    email: '',
-    password: '',
-    rememberMe: false,
-  });
-  
-  const [signupForm, setSignupForm] = useState<SignupForm>({
+export default function MobileAuthForm() {
+  const { signIn, signUp, resetPassword } = useUnifiedAuth();
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
     confirmPassword: '',
-    acceptTerms: false,
   });
-  
-  const [forgotPasswordForm, setForgotPasswordForm] = useState<ForgotPasswordForm>({
-    email: '',
-  });
+  const [errors, setErrors] = useState<Partial<FormData>>({});
 
-  const handleLogin = async () => {
-    if (!loginForm.email || !loginForm.password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password: string) => {
+    return password.length >= 8;
+  };
+
+  const validateForm = () => {
+    const newErrors: Partial<FormData> = {};
+
+    if (!formData.email) {
+      newErrors.email = 'Email is required';
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email';
     }
 
-    setIsLoading(true);
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (mode === 'signup' && !validatePassword(formData.password)) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+
+    if (mode === 'signup') {
+      if (!formData.confirmPassword) {
+        newErrors.confirmPassword = 'Please confirm your password';
+      } else if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Navigate to dashboard on success
-      navigation.navigate('Dashboard' as never);
+      if (mode === 'login') {
+        await signIn(formData.email, formData.password);
+      } else if (mode === 'signup') {
+        await signUp(formData.email, formData.password);
+        Alert.alert(
+          'Account Created',
+          'Please check your email for verification before logging in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => setMode('login'),
+            },
+          ]
+        );
+      } else if (mode === 'forgot') {
+        await resetPassword(formData.email);
+        Alert.alert(
+          'Reset Link Sent',
+          'Please check your email for the password reset link.',
+          [
+            {
+              text: 'OK',
+              onPress: () => setMode('login'),
+            },
+          ]
+        );
+      }
     } catch (error) {
-      Alert.alert('Error', 'Login failed. Please try again.');
+      // Error handling is done in the auth context
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleSignup = async () => {
-    if (!signupForm.email || !signupForm.password || !signupForm.confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (signupForm.password !== signupForm.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
-    if (!signupForm.acceptTerms) {
-      Alert.alert('Error', 'Please accept the terms and conditions');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => setActiveTab('login') }
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Signup failed. Please try again.');
-    } finally {
-      setIsLoading(false);
+  const updateFormData = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!forgotPasswordForm.email) {
-      Alert.alert('Error', 'Please enter your email address');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      Alert.alert('Success', 'Password reset instructions sent to your email!', [
-        { text: 'OK', onPress: () => setActiveTab('login') }
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to send reset email. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSocialLogin = (provider: string) => {
-    Alert.alert('Coming Soon', `${provider} login will be available soon!`);
-  };
-
-  const renderTabButton = (tab: 'login' | 'signup' | 'forgot', label: string) => (
-    <TouchableOpacity
-      style={[styles.tabButton, activeTab === tab && styles.activeTabButton]}
-      onPress={() => setActiveTab(tab)}
-    >
-      <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
+  const renderInput = (
+    field: keyof FormData,
+    placeholder: string,
+    secureTextEntry = false
+  ) => (
+    <View style={styles.inputContainer}>
+      <TextInput
+        style={[styles.input, errors[field] && styles.inputError]}
+        placeholder={placeholder}
+        placeholderTextColor="#9CA3AF"
+        value={formData[field]}
+        onChangeText={(value) => updateFormData(field, value)}
+        secureTextEntry={secureTextEntry}
+        autoCapitalize="none"
+        keyboardType={field === 'email' ? 'email-address' : 'default'}
+      />
+      {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
+    </View>
   );
 
-  const renderLoginForm = () => (
-    <View style={styles.formContainer}>
-      <Text style={styles.formTitle}>Welcome Back</Text>
-      <Text style={styles.formSubtitle}>Sign in to your account</Text>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Email</Text>
-        <TextInput
-          style={styles.textInput}
-          value={loginForm.email}
-          onChangeText={(text) => setLoginForm({ ...loginForm, email: text })}
-          placeholder="Enter your email"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+  const renderForgotPassword = () => (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Reset Password</Text>
+        <Text style={styles.subtitle}>Enter your email and we'll send you a reset link</Text>
       </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Password</Text>
-        <TextInput
-          style={styles.textInput}
-          value={loginForm.password}
-          onChangeText={(text) => setLoginForm({ ...loginForm, password: text })}
-          placeholder="Enter your password"
-          placeholderTextColor="#9CA3AF"
-          secureTextEntry
-        />
-      </View>
-
-      <View style={styles.checkboxContainer}>
-        <TouchableOpacity
-          style={styles.checkbox}
-          onPress={() => setLoginForm({ ...loginForm, rememberMe: !loginForm.rememberMe })}
-        >
-          {loginForm.rememberMe && <Text style={styles.checkboxCheck}>✓</Text>}
-        </TouchableOpacity>
-        <Text style={styles.checkboxLabel}>Remember me</Text>
-      </View>
+      {renderInput('email', 'Enter your email')}
 
       <TouchableOpacity
-        style={[styles.primaryButton, isLoading && styles.disabledButton]}
-        onPress={handleLogin}
-        disabled={isLoading}
+        style={[styles.button, isSubmitting && styles.buttonDisabled]}
+        onPress={handleSubmit}
+        disabled={isSubmitting}
       >
-        <Text style={styles.primaryButtonText}>
-          {isLoading ? 'Signing in...' : 'Sign In'}
-        </Text>
+        {isSubmitting ? (
+          <ActivityIndicator color="#000000" />
+        ) : (
+          <Text style={styles.buttonText}>Send Reset Link</Text>
+        )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => setActiveTab('forgot')}>
-        <Text style={styles.linkText}>Forgot your password?</Text>
+      <TouchableOpacity
+        style={styles.linkButton}
+        onPress={() => setMode('login')}
+      >
+        <Text style={styles.linkText}>Back to Login</Text>
       </TouchableOpacity>
     </View>
   );
 
-  const renderSignupForm = () => (
-    <View style={styles.formContainer}>
-      <Text style={styles.formTitle}>Create Account</Text>
-      <Text style={styles.formSubtitle}>Join OctopusFinancer today</Text>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Email</Text>
-        <TextInput
-          style={styles.textInput}
-          value={signupForm.email}
-          onChangeText={(text) => setSignupForm({ ...signupForm, email: text })}
-          placeholder="Enter your email"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Password</Text>
-        <TextInput
-          style={styles.textInput}
-          value={signupForm.password}
-          onChangeText={(text) => setSignupForm({ ...signupForm, password: text })}
-          placeholder="Create a password"
-          placeholderTextColor="#9CA3AF"
-          secureTextEntry
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Confirm Password</Text>
-        <TextInput
-          style={styles.textInput}
-          value={signupForm.confirmPassword}
-          onChangeText={(text) => setSignupForm({ ...signupForm, confirmPassword: text })}
-          placeholder="Confirm your password"
-          placeholderTextColor="#9CA3AF"
-          secureTextEntry
-        />
-      </View>
-
-      <View style={styles.checkboxContainer}>
+  const renderLoginSignup = () => (
+    <View style={styles.container}>
+      <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={styles.checkbox}
-          onPress={() => setSignupForm({ ...signupForm, acceptTerms: !signupForm.acceptTerms })}
+          style={[styles.tab, mode === 'login' && styles.activeTab]}
+          onPress={() => setMode('login')}
         >
-          {signupForm.acceptTerms && <Text style={styles.checkboxCheck}>✓</Text>}
+          <Text style={[styles.tabText, mode === 'login' && styles.activeTabText]}>
+            Sign In
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.checkboxLabel}>I accept the terms and conditions</Text>
+        <TouchableOpacity
+          style={[styles.tab, mode === 'signup' && styles.activeTab]}
+          onPress={() => setMode('signup')}
+        >
+          <Text style={[styles.tabText, mode === 'signup' && styles.activeTabText]}>
+            Sign Up
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[styles.primaryButton, isLoading && styles.disabledButton]}
-        onPress={handleSignup}
-        disabled={isLoading}
-      >
-        <Text style={styles.primaryButtonText}>
-          {isLoading ? 'Creating Account...' : 'Create Account'}
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          {mode === 'login' ? 'Welcome Back' : 'Create Account'}
         </Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderForgotPasswordForm = () => (
-    <View style={styles.formContainer}>
-      <Text style={styles.formTitle}>Reset Password</Text>
-      <Text style={styles.formSubtitle}>Enter your email to receive reset instructions</Text>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Email</Text>
-        <TextInput
-          style={styles.textInput}
-          value={forgotPasswordForm.email}
-          onChangeText={(text) => setForgotPasswordForm({ ...forgotPasswordForm, email: text })}
-          placeholder="Enter your email"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+        <Text style={styles.subtitle}>
+          {mode === 'login' 
+            ? 'Sign in to your account' 
+            : 'Join OctopusFinancer today'
+          }
+        </Text>
       </View>
 
+      {renderInput('email', 'Enter your email')}
+      {renderInput('password', 'Enter your password', true)}
+      
+      {mode === 'signup' && renderInput('confirmPassword', 'Confirm your password', true)}
+
+      {mode === 'login' && (
+        <TouchableOpacity
+          style={styles.forgotPassword}
+          onPress={() => setMode('forgot')}
+        >
+          <Text style={styles.linkText}>Forgot your password?</Text>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity
-        style={[styles.primaryButton, isLoading && styles.disabledButton]}
-        onPress={handleForgotPassword}
-        disabled={isLoading}
+        style={[styles.button, isSubmitting && styles.buttonDisabled]}
+        onPress={handleSubmit}
+        disabled={isSubmitting}
       >
-        <Text style={styles.primaryButtonText}>
-          {isLoading ? 'Sending...' : 'Send Reset Instructions'}
-        </Text>
+        {isSubmitting ? (
+          <ActivityIndicator color="#000000" />
+        ) : (
+          <Text style={styles.buttonText}>
+            {mode === 'login' ? 'Sign In' : 'Create Account'}
+          </Text>
+        )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => setActiveTab('login')}>
-        <Text style={styles.linkText}>Back to Sign In</Text>
-      </TouchableOpacity>
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <View style={styles.socialButtons}>
+        <TouchableOpacity style={styles.socialButton}>
+          <Text style={styles.socialButtonText}>Google</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.socialButton}>
+          <Text style={styles.socialButtonText}>Apple</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Tab Navigation */}
-      {activeTab !== 'forgot' && (
-        <View style={styles.tabContainer}>
-          {renderTabButton('login', 'Sign In')}
-          {renderTabButton('signup', 'Sign Up')}
-        </View>
-      )}
-
-      {/* Form Content */}
-      {activeTab === 'login' && renderLoginForm()}
-      {activeTab === 'signup' && renderSignupForm()}
-      {activeTab === 'forgot' && renderForgotPasswordForm()}
-
-      {/* Social Login Options */}
-      {activeTab !== 'forgot' && (
-        <View style={styles.socialContainer}>
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>Or continue with</Text>
-            <View style={styles.divider} />
-          </View>
-
-          <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => handleSocialLogin('Google')}
-            >
-              <Text style={styles.socialButtonText}>📧 Google</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => handleSocialLogin('Apple')}
-            >
-              <Text style={styles.socialButtonText}>🍎 Apple</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-    </KeyboardAvoidingView>
+    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {mode === 'forgot' ? renderForgotPassword() : renderLoginSignup()}
+    </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
+  scrollView: {
     flex: 1,
+  },
+  container: {
+    padding: 16,
   },
   tabContainer: {
     flexDirection: 'row',
     marginBottom: 24,
-    backgroundColor: '#374151',
+    backgroundColor: '#1F2937',
     borderRadius: 8,
     padding: 4,
   },
-  tabButton: {
+  tab: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
+    paddingVertical: 12,
     alignItems: 'center',
+    borderRadius: 6,
   },
-  activeTabButton: {
+  activeTab: {
     backgroundColor: '#10B981',
   },
-  tabButtonText: {
+  tabText: {
+    color: '#9CA3AF',
     fontSize: 14,
     fontWeight: '600',
-    color: '#9CA3AF',
   },
-  activeTabButtonText: {
-    color: '#FFFFFF',
+  activeTabText: {
+    color: '#000000',
   },
-  formContainer: {
+  header: {
     marginBottom: 24,
   },
-  formTitle: {
+  title: {
     fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
-    textAlign: 'center',
     marginBottom: 8,
   },
-  formSubtitle: {
+  subtitle: {
     fontSize: 14,
     color: '#9CA3AF',
-    textAlign: 'center',
-    marginBottom: 24,
   },
   inputContainer: {
     marginBottom: 16,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  textInput: {
-    backgroundColor: '#374151',
+  input: {
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#374151',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 16,
     color: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#4B5563',
+    fontSize: 16,
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
+  inputError: {
+    borderColor: '#EF4444',
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#10B981',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
   },
-  checkboxCheck: {
-    color: '#10B981',
-    fontSize: 14,
-    fontWeight: 'bold',
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 16,
   },
-  checkboxLabel: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    flex: 1,
-  },
-  primaryButton: {
+  button: {
     backgroundColor: '#10B981',
     borderRadius: 8,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
   },
-  disabledButton: {
-    backgroundColor: '#6B7280',
+  buttonDisabled: {
+    opacity: 0.6,
   },
-  primaryButtonText: {
+  buttonText: {
+    color: '#000000',
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+  },
+  linkButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   linkText: {
-    fontSize: 14,
     color: '#10B981',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  socialContainer: {
-    marginTop: 24,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+    fontSize: 14,
   },
   divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
     flex: 1,
     height: 1,
     backgroundColor: '#374151',
   },
   dividerText: {
-    fontSize: 12,
     color: '#9CA3AF',
-    paddingHorizontal: 16,
+    fontSize: 12,
+    marginHorizontal: 16,
   },
-  socialButtonsContainer: {
+  socialButtons: {
     flexDirection: 'row',
     gap: 12,
   },
   socialButton: {
     flex: 1,
-    backgroundColor: '#374151',
+    borderWidth: 1,
+    borderColor: '#374151',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#4B5563',
   },
   socialButtonText: {
+    color: '#9CA3AF',
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: '500',
   },
-});
-
-export default MobileAuthForm; 
+}); 

@@ -1,22 +1,41 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const MobileHome: React.FC = () => {
   const navigation = useNavigation();
+  const { isDark, toggleTheme } = useTheme();
 
   const handleGetStarted = () => {
     // Navigate to Dashboard within the mobile app
     navigation.navigate('Dashboard' as never);
   };
 
+  // Get theme colors
+  const colors = isDark ? {
+    background: '#0B1426',
+    surface: '#1F2937',
+    text: '#FFFFFF',
+    textSecondary: '#9CA3AF',
+    border: '#374151',
+    card: '#1F2937',
+  } : {
+    background: '#FFFFFF',
+    surface: '#F9FAFB',
+    text: '#111827',
+    textSecondary: '#6B7280',
+    border: '#E5E7EB',
+    card: '#FFFFFF',
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Hero Section */}
       <View style={styles.heroSection}>
-        <Text style={styles.heroTitle}>Take control of</Text>
+        <Text style={[styles.heroTitle, { color: colors.text }]}>Take control of</Text>
         <Text style={styles.heroTitleAccent}>your financial future</Text>
-        <Text style={styles.heroSubtitle}>
+        <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
           OctopusFinancer helps you track, budget, and optimize your finances with powerful AI insights.
         </Text>
         
@@ -25,8 +44,8 @@ const MobileHome: React.FC = () => {
           <View style={styles.featureItem}>
             <Text style={styles.featureIcon}>📈</Text>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Smart Transaction Analysis</Text>
-              <Text style={styles.featureDescription}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>Smart Transaction Analysis</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
                 Automatically categorize and analyze your spending patterns
               </Text>
             </View>
@@ -35,8 +54,8 @@ const MobileHome: React.FC = () => {
           <View style={styles.featureItem}>
             <Text style={styles.featureIcon}>🤖</Text>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>AI Financial Advisor</Text>
-              <Text style={styles.featureDescription}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>AI Financial Advisor</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
                 Get personalized recommendations to improve your financial health
               </Text>
             </View>
@@ -45,8 +64,8 @@ const MobileHome: React.FC = () => {
           <View style={styles.featureItem}>
             <Text style={styles.featureIcon}>🏛️</Text>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Multi-Account Management</Text>
-              <Text style={styles.featureDescription}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>Multi-Account Management</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
                 Connect and manage all your financial accounts in one place
               </Text>
             </View>
@@ -59,8 +78,8 @@ const MobileHome: React.FC = () => {
             <Text style={styles.tryDemoButtonText}>Try Demo →</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.learnMoreButton}>
-            <Text style={styles.learnMoreButtonText}>Learn More</Text>
+          <TouchableOpacity style={[styles.learnMoreButton, { borderColor: colors.border }]}>
+            <Text style={[styles.learnMoreButtonText, { color: colors.text }]}>Learn More</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -105,32 +124,32 @@ const MobileHome: React.FC = () => {
 
       {/* Powerful Features Section */}
       <View style={styles.featuresSection}>
-        <Text style={styles.featuresTitle}>Powerful Features for Better Finance</Text>
-        <Text style={styles.featuresSubtitle}>
+        <Text style={[styles.featuresTitle, { color: colors.text }]}>Powerful Features for Better Finance</Text>
+        <Text style={[styles.featuresSubtitle, { color: colors.textSecondary }]}>
           OctopusFinancer combines smart app automation with powerful insights.
         </Text>
         
         <View style={styles.featureCards}>
-          <View style={styles.featureCard}>
+          <View style={[styles.featureCard, { backgroundColor: colors.card }]}>
             <Text style={styles.cardIcon}>📊</Text>
-            <Text style={styles.cardTitle}>Smart Budgeting</Text>
-            <Text style={styles.cardDescription}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Smart Budgeting</Text>
+            <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
               Effortlessly create and manage budgets based on the 50/30/20 rule or customize to fit your financial goals.
             </Text>
           </View>
           
-          <View style={styles.featureCard}>
+          <View style={[styles.featureCard, { backgroundColor: colors.card }]}>
             <Text style={styles.cardIcon}>🧠</Text>
-            <Text style={styles.cardTitle}>AI-Powered Insights</Text>
-            <Text style={styles.cardDescription}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>AI-Powered Insights</Text>
+            <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
               Get personalized recommendations and insights powered by advanced AI patterns from your spending data.
             </Text>
           </View>
           
-          <View style={styles.featureCard}>
+          <View style={[styles.featureCard, { backgroundColor: colors.card }]}>
             <Text style={styles.cardIcon}>🏷️</Text>
-            <Text style={styles.cardTitle}>Automatic Categorization</Text>
-            <Text style={styles.cardDescription}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Automatic Categorization</Text>
+            <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
               Transactions are automatically categorized using machine learning, saving you hours of manual work.
             </Text>
           </View>
@@ -139,34 +158,34 @@ const MobileHome: React.FC = () => {
 
       {/* Testimonials */}
       <View style={styles.testimonialsSection}>
-        <Text style={styles.testimonialsTitle}>What Our Users Say</Text>
-        <Text style={styles.testimonialsSubtitle}>
+        <Text style={[styles.testimonialsTitle, { color: colors.text }]}>What Our Users Say</Text>
+        <Text style={[styles.testimonialsSubtitle, { color: colors.textSecondary }]}>
           Join thousands who've transformed their finances with OctopusFinancer.
         </Text>
         
         <View style={styles.testimonialCards}>
-          <View style={styles.testimonialCard}>
+          <View style={[styles.testimonialCard, { backgroundColor: colors.card }]}>
             <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
-            <Text style={styles.testimonialText}>
+            <Text style={[styles.testimonialText, { color: colors.text }]}>
               "OctopusFinancer helped me save an extra $470 each month by identifying unnecessary subscriptions."
             </Text>
-            <Text style={styles.testimonialAuthor}>Sarah J. Marketing Specialist</Text>
+            <Text style={[styles.testimonialAuthor, { color: colors.textSecondary }]}>Sarah J. Marketing Specialist</Text>
           </View>
           
-          <View style={styles.testimonialCard}>
+          <View style={[styles.testimonialCard, { backgroundColor: colors.card }]}>
             <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
-            <Text style={styles.testimonialText}>
+            <Text style={[styles.testimonialText, { color: colors.text }]}>
               "The AI categorization is incredibly accurate. I no longer spend hours organizing expenses."
             </Text>
-            <Text style={styles.testimonialAuthor}>Michael T. Software Engineer</Text>
+            <Text style={[styles.testimonialAuthor, { color: colors.textSecondary }]}>Michael T. Software Engineer</Text>
           </View>
         </View>
       </View>
 
       {/* CTA Section */}
-      <View style={styles.ctaSection}>
-        <Text style={styles.ctaTitle}>Ready to Transform Your Finances?</Text>
-        <Text style={styles.ctaSubtitle}>
+      <View style={[styles.ctaSection, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.ctaTitle, { color: colors.text }]}>Ready to Transform Your Finances?</Text>
+        <Text style={[styles.ctaSubtitle, { color: colors.textSecondary }]}>
           Join OctopusFinancer today and start your journey toward financial wellness with AI-powered insights.
         </Text>
         
@@ -174,8 +193,8 @@ const MobileHome: React.FC = () => {
           <Text style={styles.ctaButtonText}>Get Started For Free</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.plansButton}>
-          <Text style={styles.plansButtonText}>View Plans</Text>
+        <TouchableOpacity style={[styles.plansButton, { borderColor: colors.border }]}>
+          <Text style={[styles.plansButtonText, { color: colors.text }]}>View Plans</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -185,7 +204,7 @@ const MobileHome: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    // backgroundColor will be set dynamically
   },
   heroSection: {
     paddingHorizontal: 24,
@@ -194,7 +213,6 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 38,
     fontWeight: '800',
-    color: '#FFFFFF',
     lineHeight: 46,
     letterSpacing: -0.5,
     // Enhanced font rendering for crispness
@@ -216,7 +234,6 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: 17,
-    color: '#9CA3AF',
     lineHeight: 26,
     marginBottom: 40,
     fontWeight: '500',
@@ -245,7 +262,6 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 6,
     letterSpacing: 0.1,
     // Enhanced font rendering
@@ -255,7 +271,6 @@ const styles = StyleSheet.create({
   },
   featureDescription: {
     fontSize: 15,
-    color: '#9CA3AF',
     lineHeight: 22,
     fontWeight: '500',
     letterSpacing: 0.1,
@@ -294,14 +309,12 @@ const styles = StyleSheet.create({
   learnMoreButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#374151',
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 10,
     flex: 1,
   },
   learnMoreButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
@@ -406,7 +419,6 @@ const styles = StyleSheet.create({
   featuresTitle: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: -0.3,
@@ -417,7 +429,6 @@ const styles = StyleSheet.create({
   },
   featuresSubtitle: {
     fontSize: 17,
-    color: '#9CA3AF',
     textAlign: 'center',
     marginBottom: 36,
     lineHeight: 26,
@@ -432,7 +443,6 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   featureCard: {
-    backgroundColor: '#1F2937',
     borderRadius: 14,
     padding: 24,
     elevation: 2,
@@ -448,7 +458,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 12,
     letterSpacing: 0.1,
     // Enhanced font rendering
@@ -458,7 +467,6 @@ const styles = StyleSheet.create({
   },
   cardDescription: {
     fontSize: 15,
-    color: '#9CA3AF',
     lineHeight: 23,
     fontWeight: '500',
     letterSpacing: 0.1,
@@ -474,7 +482,6 @@ const styles = StyleSheet.create({
   testimonialsTitle: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: -0.3,
@@ -485,7 +492,6 @@ const styles = StyleSheet.create({
   },
   testimonialsSubtitle: {
     fontSize: 17,
-    color: '#9CA3AF',
     textAlign: 'center',
     marginBottom: 36,
     lineHeight: 26,
@@ -500,7 +506,6 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   testimonialCard: {
-    backgroundColor: '#1F2937',
     borderRadius: 14,
     padding: 24,
     elevation: 2,
@@ -515,7 +520,6 @@ const styles = StyleSheet.create({
   },
   testimonialText: {
     fontSize: 16,
-    color: '#FFFFFF',
     fontStyle: 'italic',
     lineHeight: 24,
     marginBottom: 16,
@@ -528,7 +532,6 @@ const styles = StyleSheet.create({
   },
   testimonialAuthor: {
     fontSize: 15,
-    color: '#9CA3AF',
     fontWeight: '700',
     letterSpacing: 0.1,
     // Enhanced font rendering
@@ -537,7 +540,6 @@ const styles = StyleSheet.create({
     textShadowRadius: 1,
   },
   ctaSection: {
-    backgroundColor: '#1F2937',
     marginHorizontal: 24,
     borderRadius: 16,
     padding: 28,
@@ -552,7 +554,6 @@ const styles = StyleSheet.create({
   ctaTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: -0.2,
@@ -563,7 +564,6 @@ const styles = StyleSheet.create({
   },
   ctaSubtitle: {
     fontSize: 16,
-    color: '#9CA3AF',
     textAlign: 'center',
     marginBottom: 28,
     lineHeight: 24,
@@ -601,14 +601,12 @@ const styles = StyleSheet.create({
   plansButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#374151',
     paddingHorizontal: 36,
     paddingVertical: 16,
     borderRadius: 12,
     width: '100%',
   },
   plansButtonText: {
-    color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',

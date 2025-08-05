@@ -2,21 +2,18 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MobileAuthForm from '../../components/auth/MobileAuthForm';
-// Note: These would need to be replaced with React Native context equivalents
-// import { useAuth } from '@/contexts/AuthContext';
+import { useUnifiedAuth } from '../../../../contexts/UnifiedAuthContext';
 
 const MobileAuth: React.FC = () => {
   const navigation = useNavigation();
-  // const { user, loading } = useAuth();
-  const loading = false; // Placeholder until auth context is implemented
-  const user = null; // Placeholder until auth context is implemented
+  const { user, loading, isAuthenticated } = useUnifiedAuth();
 
   // Redirect to dashboard if user is already logged in
   useEffect(() => {
-    if (!loading && user) {
-      navigation.navigate('Dashboard' as never);
+    if (!loading && isAuthenticated) {
+      navigation.navigate('Main' as never);
     }
-  }, [user, loading, navigation]);
+  }, [isAuthenticated, loading, navigation]);
 
   // Don't render the form until we've checked auth status
   if (loading) {
