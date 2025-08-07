@@ -117,6 +117,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({ className }
             )}
           </View>
         </View>
+
       </View>
       <Text style={[styles.billAmount, { color: getStatusColor(bill.status) }]}>{bill.amount}</Text>
     </TouchableOpacity>
@@ -441,4 +442,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UpcomingBillsSection; 
+export default UpcomingBillsSection; export default UpcomingBillsSection; 

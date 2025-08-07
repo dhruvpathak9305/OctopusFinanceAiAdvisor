@@ -5,156 +5,32 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   SafeAreaView,
 } from 'react-native';
+import { useTheme } from '../../../../contexts/ThemeContext';
 
-const { width } = Dimensions.get('window');
+// Import components
+import Header from './Header';
+import BudgetProgressSection from './BudgetProgressSection';
+import RecentTransactionsSection from './RecentTransactionsSection';
+import UpcomingBillsSection from './UpcomingBillsSection';
 
-// Mock financial data
-const financialData = {
-  netWorth: {
-    value: '$42,680',
-    change: '+3.6%',
-    trend: 'up',
-  },
-  accounts: {
-    value: '$4,000.00',
-    change: '+1.0%',
-    trend: 'up',
-  },
-  creditCardDebt: {
-    value: '$2,000.00',
-    change: '-2.7%',
-    trend: 'down',
-  },
-  monthlyIncome: {
-    value: '$4,850.00',
-    change: '+3.8%',
-    trend: 'up',
-  },
-  monthlyExpenses: {
-    value: '$3,280.45',
-    change: '+2.2%',
-    trend: 'up',
-  },
-};
+// Import Financial Summary cards
+import { 
+  NetWorthCard, 
+  AccountsCard, 
+  CreditCardCard, 
+  MonthlyIncomeCard, 
+  MonthlyExpenseCard 
+} from '../../components/FinancialSummary';
 
-// Mock transactions data
-const recentTransactions = [
-  { id: 1, category: 'Home Decor', date: 'May 14', amount: '$125.00', type: 'expense' },
-  { id: 2, category: 'Healthcare', date: 'May 13', amount: '$220.50', type: 'expense' },
-  { id: 3, category: 'Transportation', date: 'May 12', amount: '$45.00', type: 'expense' },
-  { id: 4, category: 'Utilities', date: 'May 11', amount: '$157.75', type: 'expense' },
-  { id: 5, category: 'Subscriptions', date: 'May 10', amount: '$15.99', type: 'expense' },
-];
-
-// Mock bills data
-const upcomingBills = [
-  { id: 1, name: 'Rent', amount: '$1,050.00', dueDate: 'Apr 30' },
-  { id: 2, name: 'Electricity', amount: '$85.32', dueDate: 'Apr 15' },
-  { id: 3, name: 'Internet', amount: '$65.99', dueDate: 'Apr 21' },
-];
-
-// Financial Summary Card Component
-const FinancialCard: React.FC<{
-  title: string;
-  value: string;
-  change: string;
-  trend: string;
-  icon: string;
-}> = ({ title, value, change, trend, icon }) => {
-  const isPositive = trend === 'up';
-  return (
-    <View style={styles.financialCard}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardIcon}>{icon}</Text>
-        <Text style={styles.cardTitle}>{title}</Text>
-      </View>
-      <Text style={styles.cardValue}>{value}</Text>
-      <Text style={[styles.cardChange, { color: isPositive ? '#10B981' : '#EF4444' }]}>
-        {isPositive ? '↗ ' : '↘ '}{change}
-      </Text>
-    </View>
-  );
-};
-
-// Budget Progress Component
-const BudgetProgressSection: React.FC = () => {
-  const budgetCategories = [
-    { name: 'Needs', percentage: 65, color: '#10B981' },
-    { name: 'Wants', percentage: 30, color: '#3B82F6' },
-    { name: 'Savings', percentage: 5, color: '#F59E0B' },
-  ];
-
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Budget Overview</Text>
-      {budgetCategories.map((category, index) => (
-        <View key={index} style={styles.budgetItem}>
-          <View style={styles.budgetHeader}>
-            <Text style={styles.budgetLabel}>{category.name}</Text>
-            <Text style={styles.budgetPercentage}>{category.percentage}%</Text>
-          </View>
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  width: `${category.percentage}%`,
-                  backgroundColor: category.color,
-                },
-              ]}
-            />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-};
-
-// Recent Transactions Component
-const RecentTransactionsSection: React.FC = () => {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Recent Transactions</Text>
-      {recentTransactions.map((transaction) => (
-        <View key={transaction.id} style={styles.transactionItem}>
-          <View style={styles.transactionLeft}>
-            <Text style={styles.transactionCategory}>{transaction.category}</Text>
-            <Text style={styles.transactionDate}>{transaction.date}</Text>
-          </View>
-          <Text style={[styles.transactionAmount, { color: '#EF4444' }]}>
-            -{transaction.amount}
-          </Text>
-        </View>
-      ))}
-      <TouchableOpacity style={styles.viewAllButton}>
-        <Text style={styles.viewAllText}>View All Transactions</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-// Upcoming Bills Component
-const UpcomingBillsSection: React.FC = () => {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Upcoming Bills</Text>
-      {upcomingBills.map((bill) => (
-        <View key={bill.id} style={styles.billItem}>
-          <View style={styles.billLeft}>
-            <Text style={styles.billName}>{bill.name}</Text>
-            <Text style={styles.billDueDate}>Due {bill.dueDate}</Text>
-          </View>
-          <Text style={styles.billAmount}>{bill.amount}</Text>
-        </View>
-      ))}
-      <TouchableOpacity style={styles.viewAllButton}>
-        <Text style={styles.viewAllText}>View All Bills</Text>
-      </TouchableOpacity>
-    </View>
-  );
+// Card background images - using placeholder URLs
+const cardBackgroundImages = {
+  netWorth: "https://readdy.ai/api/search-image?query=abstract%20financial%20chart%20with%20green%20upward%20trend%20line%20on%20soft%20white%20background%2C%20minimalist%20design%2C%20clean%20professional%20look%2C%20subtle%20grid%20pattern%2C%20financial%20data%20visualization%2C%20centered%20composition%2C%20high%20quality%20rendering&width=300&height=150&seq=1&orientation=landscape",
+  accounts: "https://readdy.ai/api/search-image?query=abstract%20banking%20chart%20with%20blue%20line%20graph%20on%20clean%20white%20background%2C%20minimalist%20financial%20data%20visualization%2C%20subtle%20grid%20pattern%2C%20professional%20look%2C%20centered%20composition%2C%20high%20quality%20rendering%2C%20soft%20gradients&width=300&height=150&seq=2&orientation=landscape",
+  creditCard: "https://readdy.ai/api/search-image?query=abstract%20credit%20card%20debt%20visualization%20with%20red%20downward%20trend%20line%20on%20clean%20white%20background%2C%20minimalist%20financial%20chart%2C%20subtle%20grid%20pattern%2C%20professional%20look%2C%20centered%20composition%2C%20high%20quality%20rendering&width=300&height=150&seq=3&orientation=landscape",
+  income: "https://readdy.ai/api/search-image?query=abstract%20income%20chart%20with%20green%20upward%20trend%20line%20on%20clean%20white%20background%2C%20minimalist%20financial%20visualization%2C%20subtle%20grid%20pattern%2C%20professional%20look%2C%20centered%20composition%2C%20high%20quality%20rendering%2C%20monthly%20data%20points&width=300&height=150&seq=4&orientation=landscape",
+  expenses: "https://readdy.ai/api/search-image?query=abstract%20expense%20chart%20with%20orange%20trend%20line%20on%20clean%20white%20background%2C%20minimalist%20financial%20visualization%2C%20subtle%20grid%20pattern%2C%20professional%20look%2C%20centered%20composition%2C%20high%20quality%20rendering%2C%20monthly%20spending%20visualization&width=300&height=150&seq=5&orientation=landscape"
 };
 
 // Tab Component
@@ -163,59 +39,70 @@ const TabButton: React.FC<{
   icon: string;
   isActive: boolean;
   onPress: () => void;
-}> = ({ title, icon, isActive, onPress }) => {
+  colors: {
+    background: string;
+    card: string;
+    text: string;
+    textSecondary: string;
+    border: string;
+    tabBackground: string;
+    activeTab: string;
+  };
+}> = ({ title, icon, isActive, onPress, colors }) => {
   return (
     <TouchableOpacity
-      style={[styles.tabButton, isActive && styles.activeTabButton]}
+      style={[
+        styles.tabButton, 
+        { backgroundColor: isActive ? colors.activeTab : 'transparent' }
+      ]}
       onPress={onPress}
     >
-      <Text style={[styles.tabIcon, isActive && styles.activeTabIcon]}>{icon}</Text>
-      <Text style={[styles.tabText, isActive && styles.activeTabText]}>{title}</Text>
+      <Text style={[styles.tabIcon, { color: isActive ? '#FFFFFF' : colors.text }]}>
+        {icon}
+      </Text>
+      <Text style={[styles.tabText, { color: isActive ? '#FFFFFF' : colors.text }]}>
+        {title}
+      </Text>
     </TouchableOpacity>
   );
 };
 
-const MobileDashboard: React.FC = () => {
+export default function MobileDashboard() {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('overview');
+  const [useTestData, setUseTestData] = useState(true);
+
+  const colors = isDark ? {
+    background: '#0B1426',
+    card: '#1F2937',
+    text: '#FFFFFF',
+    textSecondary: '#9CA3AF',
+    border: '#374151',
+    tabBackground: '#374151',
+    activeTab: '#10B981',
+  } : {
+    background: '#FFFFFF',
+    card: '#FFFFFF',
+    text: '#111827',
+    textSecondary: '#6B7280',
+    border: '#E5E7EB',
+    tabBackground: '#F3F4F6',
+    activeTab: '#10B981',
+  };
 
   const renderFinancialCards = () => {
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsContainer}>
-        <FinancialCard
-          title="Net Worth"
-          value={financialData.netWorth.value}
-          change={financialData.netWorth.change}
-          trend={financialData.netWorth.trend}
-          icon="💰"
-        />
-        <FinancialCard
-          title="Bank Accounts"
-          value={financialData.accounts.value}
-          change={financialData.accounts.change}
-          trend={financialData.accounts.trend}
-          icon="🏦"
-        />
-        <FinancialCard
-          title="Credit Card Debt"
-          value={financialData.creditCardDebt.value}
-          change={financialData.creditCardDebt.change}
-          trend={financialData.creditCardDebt.trend}
-          icon="💳"
-        />
-        <FinancialCard
-          title="Monthly Income"
-          value={financialData.monthlyIncome.value}
-          change={financialData.monthlyIncome.change}
-          trend={financialData.monthlyIncome.trend}
-          icon="📈"
-        />
-        <FinancialCard
-          title="Monthly Expenses"
-          value={financialData.monthlyExpenses.value}
-          change={financialData.monthlyExpenses.change}
-          trend={financialData.monthlyExpenses.trend}
-          icon="📊"
-        />
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={styles.cardsContainer}
+        contentContainerStyle={styles.cardsContent}
+      >
+        <NetWorthCard backgroundImage={cardBackgroundImages.netWorth} />
+        <AccountsCard backgroundImage={cardBackgroundImages.accounts} />
+        <CreditCardCard backgroundImage={cardBackgroundImages.creditCard} />
+        <MonthlyIncomeCard backgroundImage={cardBackgroundImages.income} />
+        <MonthlyExpenseCard backgroundImage={cardBackgroundImages.expenses} />
       </ScrollView>
     );
   };
@@ -227,25 +114,25 @@ const MobileDashboard: React.FC = () => {
           <>
             <BudgetProgressSection />
             <RecentTransactionsSection />
-            <UpcomingBillsSection />
+            <UpcomingBillsSection useTestData={useTestData} />
           </>
         );
       case 'sms':
         return (
-          <View style={styles.tabContentPlaceholder}>
+          <View style={[styles.tabContentPlaceholder, { backgroundColor: colors.card }]}>
             <Text style={styles.tabContentIcon}>💬</Text>
-            <Text style={styles.tabContentTitle}>SMS Analysis</Text>
-            <Text style={styles.tabContentText}>
+            <Text style={[styles.tabContentTitle, { color: colors.text }]}>SMS Analysis</Text>
+            <Text style={[styles.tabContentText, { color: colors.textSecondary }]}>
               AI-powered analysis of your transaction SMS messages coming soon.
             </Text>
           </View>
         );
       case 'advisor':
         return (
-          <View style={styles.tabContentPlaceholder}>
+          <View style={[styles.tabContentPlaceholder, { backgroundColor: colors.card }]}>
             <Text style={styles.tabContentIcon}>🤖</Text>
-            <Text style={styles.tabContentTitle}>Financial Advisor</Text>
-            <Text style={styles.tabContentText}>
+            <Text style={[styles.tabContentTitle, { color: colors.text }]}>Financial Advisor</Text>
+            <Text style={[styles.tabContentText, { color: colors.textSecondary }]}>
               Get personalized financial advice from our AI advisor.
             </Text>
           </View>
@@ -256,40 +143,41 @@ const MobileDashboard: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.subtitle}>Track, analyze, and optimize your finances</Text>
-        </View>
+        <Header />
 
         {/* Financial Summary Cards */}
         {renderFinancialCards()}
 
         {/* Tabs */}
-        <View style={styles.tabsContainer}>
+        <View style={[styles.tabsContainer, { backgroundColor: colors.tabBackground, borderColor: colors.border }]}>
           <TabButton
             title="Overview"
             icon="📊"
             isActive={activeTab === 'overview'}
             onPress={() => setActiveTab('overview')}
+            colors={colors}
           />
           <TabButton
             title="SMS Analysis"
             icon="💬"
             isActive={activeTab === 'sms'}
             onPress={() => setActiveTab('sms')}
+            colors={colors}
           />
           <TabButton
             title="AI Advisor"
             icon="🤖"
             isActive={activeTab === 'advisor'}
             onPress={() => setActiveTab('advisor')}
+            colors={colors}
           />
         </View>
 
         {/* Tab Content */}
-        <View style={styles.tabContent}>
+        <View style={[styles.tabContent, { backgroundColor: colors.background }]}>
           {renderTabContent()}
         </View>
       </ScrollView>
@@ -305,65 +193,23 @@ const MobileDashboard: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
   },
   scrollView: {
     flex: 1,
   },
-  header: {
-    padding: 20,
-    paddingBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
   cardsContainer: {
-    paddingHorizontal: 20,
     marginBottom: 20,
   },
-  financialCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 16,
-    marginRight: 12,
-    width: width * 0.7,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  cardTitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
-  cardValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  cardChange: {
-    fontSize: 14,
-    fontWeight: '600',
+  cardsContent: {
+    paddingHorizontal: 20,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#1F2937',
     margin: 20,
     marginBottom: 10,
     borderRadius: 8,
     padding: 4,
+    borderWidth: 1,
   },
   tabButton: {
     flex: 1,
@@ -372,134 +218,25 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
   },
-  activeTabButton: {
-    backgroundColor: '#374151',
-  },
   tabIcon: {
     fontSize: 16,
     marginBottom: 2,
   },
-  activeTabIcon: {
-    // Icon styling when active
-  },
   tabText: {
     fontSize: 11,
-    color: '#9CA3AF',
     fontWeight: '600',
-  },
-  activeTabText: {
-    color: '#10B981',
   },
   tabContent: {
     paddingHorizontal: 20,
   },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 16,
-  },
-  budgetItem: {
-    marginBottom: 16,
-  },
-  budgetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  budgetLabel: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  budgetPercentage: {
-    fontSize: 16,
-    color: '#10B981',
-    fontWeight: '700',
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#374151',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  transactionLeft: {
-    flex: 1,
-  },
-  transactionCategory: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  transactionDate: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  billItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  billLeft: {
-    flex: 1,
-  },
-  billName: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  billDueDate: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  billAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F59E0B',
-  },
-  viewAllButton: {
-    backgroundColor: '#374151',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  viewAllText: {
-    color: '#10B981',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   tabContentPlaceholder: {
     alignItems: 'center',
     paddingVertical: 40,
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   tabContentIcon: {
     fontSize: 48,
@@ -508,14 +245,13 @@ const styles = StyleSheet.create({
   tabContentTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 8,
   },
   tabContentText: {
     fontSize: 16,
-    color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 24,
+    paddingHorizontal: 20,
   },
   quickAddButton: {
     position: 'absolute',
@@ -538,6 +274,4 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
-});
-
-export default MobileDashboard; 
+}); 

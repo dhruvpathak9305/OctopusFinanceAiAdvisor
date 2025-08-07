@@ -22,13 +22,14 @@ export type MobileTabParamList = {
   Dashboard: undefined;
   Portfolio: undefined;
   Goals: undefined;
-  Transactions: undefined;
   Settings: undefined;
 };
 
 export type MobileStackParamList = {
   Main: undefined;
   Auth: undefined;
+  DashboardMain: undefined;
+  Transactions: undefined;
 };
 
 const Tab = createBottomTabNavigator<MobileTabParamList>();
@@ -44,6 +45,26 @@ const ScreenWithHeader: React.FC<{
       <MobileHeader showSignIn={showSignIn} />
       {children}
     </View>
+  );
+};
+
+// Dashboard Stack Navigator
+const DashboardStack: React.FC = () => {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen 
+        name="DashboardMain" 
+        component={MobileDashboard}
+      />
+      <Stack.Screen 
+        name="Transactions" 
+        component={MobileTransactions}
+      />
+    </Stack.Navigator>
   );
 };
 
@@ -95,7 +116,7 @@ const MainTabNavigator: React.FC = () => {
         {() => (
           <ScreenWithHeader>
             <MobileRequireAuth>
-              <MobileDashboard />
+              <DashboardStack />
             </MobileRequireAuth>
           </ScreenWithHeader>
         )}
@@ -128,22 +149,6 @@ const MainTabNavigator: React.FC = () => {
           <ScreenWithHeader>
             <MobileRequireAuth>
               <MobileGoals />
-            </MobileRequireAuth>
-          </ScreenWithHeader>
-        )}
-      </Tab.Screen>
-      
-      <Tab.Screen 
-        name="Transactions" 
-        options={{
-          title: 'Transactions',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>💳</Text>,
-        }}
-      >
-        {() => (
-          <ScreenWithHeader>
-            <MobileRequireAuth>
-              <MobileTransactions />
             </MobileRequireAuth>
           </ScreenWithHeader>
         )}
