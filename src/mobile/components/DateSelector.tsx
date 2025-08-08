@@ -230,10 +230,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    minHeight: 44,
+    minHeight: 36,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -241,12 +241,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   buttonIcon: {
-    fontSize: 16,
+    fontSize: 14,
     marginRight: 8,
   },
   buttonText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     flex: 1,
   },
   arrow: {

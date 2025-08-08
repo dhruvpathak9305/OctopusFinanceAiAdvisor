@@ -5,6 +5,8 @@ import { WebHomeContent } from '../components/pages/WebHomeContent';
 import MobileApp from '../src/mobile/MobileApp';
 import { UnifiedAuthProvider } from '../contexts/UnifiedAuthContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
+import { DemoModeProvider } from '../contexts/DemoModeContext';
+import { AccountsProvider } from '../contexts/AccountsContext';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
 export default function HomePage() {
@@ -13,11 +15,15 @@ export default function HomePage() {
     return (
       <ErrorBoundary>
         <ThemeProvider>
-          <UnifiedAuthProvider>
-            <WebPageLayout>
-              <WebHomeContent />
-            </WebPageLayout>
-          </UnifiedAuthProvider>
+          <DemoModeProvider>
+            <AccountsProvider>
+              <UnifiedAuthProvider>
+                <WebPageLayout>
+                  <WebHomeContent />
+                </WebPageLayout>
+              </UnifiedAuthProvider>
+            </AccountsProvider>
+          </DemoModeProvider>
         </ThemeProvider>
       </ErrorBoundary>
     );
@@ -27,9 +33,13 @@ export default function HomePage() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <UnifiedAuthProvider>
-          <MobileApp />
-        </UnifiedAuthProvider>
+        <DemoModeProvider>
+          <AccountsProvider>
+            <UnifiedAuthProvider>
+              <MobileApp />
+            </UnifiedAuthProvider>
+          </AccountsProvider>
+        </DemoModeProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

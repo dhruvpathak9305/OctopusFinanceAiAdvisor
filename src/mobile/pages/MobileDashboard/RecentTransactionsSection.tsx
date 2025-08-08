@@ -10,12 +10,15 @@ import {
 } from 'react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { useDemoMode } from '../../../../contexts/DemoModeContext';
+import { fetchTransactions, deleteTransaction } from '../../../../services/transactionsService';
+import { Transaction as SupabaseTransaction } from '../../../../types/transactions';
 
 interface RecentTransactionsSectionProps {
   className?: string;
 }
 
-// Define transaction types
+// Define transaction types for the component
 interface Transaction {
   id: number | string;
   description: string;
@@ -41,182 +44,27 @@ interface GroupedTransactions {
   };
 }
 
-// Mock transaction data matching the images
-const mockTransactions: Transaction[] = [
-  // August 6, 2025
-  {
-    id: 1,
-    description: 'Debt Repayment S...',
-    type: 'expense',
-    amount: '150.00',
-    category: 'Save',
-    subcategory: 'Debt Repayment Savings',
-    account: 'bank',
-    icon: 'credit-card',
-    date: '2025-08-06',
-    note: 'Saving to pay off debt',
-    tags: ['Save', 'Debt Repayment Savings'],
-  },
-  {
-    id: 2,
-    description: 'Debt Repayment S...',
-    type: 'expense',
-    amount: '150.00',
-    category: 'Save',
-    subcategory: 'Debt Repayment Savings',
-    account: 'bank',
-    icon: 'credit-card',
-    date: '2025-08-06',
-    note: 'Saving to pay off debt',
-    tags: ['Save', 'Debt Repayment Savings'],
-  },
-  {
-    id: 3,
-    description: 'Groceries',
-    type: 'expense',
-    amount: '130.50',
-    category: 'Needs',
-    subcategory: 'Groceries',
-    account: 'bank',
-    icon: 'shopping-basket',
-    date: '2025-08-06',
-    note: 'Weekly groceries',
-    tags: ['Needs', 'Groceries'],
-  },
-  // August 5, 2025
-  {
-    id: 4,
-    description: 'Rent Payment',
-    type: 'expense',
-    amount: '920.00',
-    category: 'Needs',
-    subcategory: 'Housing',
-    account: 'bank',
-    icon: 'home',
-    date: '2025-08-05',
-    note: 'Monthly rent payment',
-    tags: ['Needs', 'Housing'],
-  },
-  // August 4, 2025
-  {
-    id: 5,
-    description: 'Rent Payment Rec...',
-    type: 'income',
-    amount: '15178.00',
-    category: 'Income',
-    subcategory: 'Rental Income',
-    account: 'Axis Bank',
-    icon: 'receipt',
-    date: '2025-08-04',
-    note: 'UPI/P2A/50948358150/YASH JAT/Sta...',
-    tags: ['Income', 'Rental'],
-  },
-  {
-    id: 6,
-    description: 'Credit Card Autop...',
-    type: 'expense',
-    amount: '910.00',
-    category: 'Needs',
-    subcategory: 'Credit Card',
-    account: 'HDFC Bank',
-    icon: 'receipt',
-    date: '2025-08-04',
-    note: 'CC 000461787XXXXXX5634 AUTOPA...',
-    tags: ['Needs', 'Credit Card'],
-  },
-  {
-    id: 7,
-    description: 'Credit Card Autop...',
-    type: 'expense',
-    amount: '5424.00',
-    category: 'Needs',
-    subcategory: 'Credit Card',
-    account: 'HDFC Bank',
-    icon: 'receipt',
-    date: '2025-08-04',
-    note: 'CC 000526873XXXXXX7622 AUTOPA...',
-    tags: ['Needs', 'Credit Card'],
-  },
-  // August 2, 2025
-  {
-    id: 8,
-    description: 'Freelance Payment',
-    type: 'income',
-    amount: '1200.00',
-    category: 'Income',
-    subcategory: 'Freelance',
-    account: 'IDFC FIRST Bank',
-    icon: 'briefcase',
-    date: '2025-08-02',
-    note: 'UPI/MOB/10247422647282/Freelance',
-    tags: ['Income', 'Freelance'],
-  },
-  {
-    id: 9,
-    description: 'App Ticket',
-    type: 'expense',
-    amount: '200.00',
-    category: 'Wants',
-    subcategory: 'Entertainment',
-    account: 'IDFC FIRST Bank',
-    icon: 'receipt',
-    date: '2025-08-02',
-    note: 'UPI/MOB/10247422647282/App ticket',
-    tags: ['Wants', 'Entertainment'],
-  },
-  {
-    id: 10,
-    description: 'UPI Deposit',
-    type: 'income',
-    amount: '600.00',
-    category: 'Income',
-    subcategory: 'Transfer',
-    account: 'IDFC FIRST Bank',
-    icon: 'receipt',
-    date: '2025-08-02',
-    note: 'UPI/MOB/10247422647282/UPI',
-    tags: ['Income', 'Transfer'],
-  },
-  {
-    id: 11,
-    description: 'Food',
-    type: 'expense',
-    amount: '100.00',
-    category: 'Needs',
-    subcategory: 'Food',
-    account: 'IDFC FIRST Bank',
-    icon: 'receipt',
-    date: '2025-08-02',
-    note: 'UPI/MOB/54045107152244/Food',
-    tags: ['Needs', 'Food'],
-  },
-  {
-    id: 12,
-    description: 'Room',
-    type: 'expense',
-    amount: '1200.00',
-    category: 'Needs',
-    subcategory: 'Housing',
-    account: 'IDFC FIRST Bank',
-    icon: 'receipt',
-    date: '2025-08-02',
-    note: 'UPI/MOB/54045107152217/Room',
-    tags: ['Needs', 'Housing'],
-  },
-  {
-    id: 13,
-    description: 'Ice',
-    type: 'expense',
-    amount: '30.00',
-    category: 'Wants',
-    subcategory: 'Food',
-    account: 'IDFC FIRST Bank',
-    icon: 'receipt',
-    date: '2025-08-02',
-    note: 'UPI/MOB/83243614547868/Ice',
-    tags: ['Wants', 'Food'],
-  },
-];
+// Transform Supabase transaction to component transaction
+const transformSupabaseTransaction = (supabaseTransaction: SupabaseTransaction): Transaction => {
+  return {
+    id: supabaseTransaction.id,
+    description: supabaseTransaction.name || 'Transaction',
+    isRecurring: supabaseTransaction.is_recurring,
+    account: supabaseTransaction.source_account_name || 'Unknown Account',
+    type: supabaseTransaction.type as 'income' | 'expense' | 'transfer',
+    amount: Math.abs(supabaseTransaction.amount).toFixed(2),
+    category: supabaseTransaction.category_name || 'Uncategorized',
+    subcategory: supabaseTransaction.subcategory_name || undefined,
+    note: supabaseTransaction.description || undefined,
+    icon: supabaseTransaction.icon || 'receipt',
+    date: supabaseTransaction.date,
+    tags: [
+      supabaseTransaction.category_name,
+      supabaseTransaction.subcategory_name,
+      supabaseTransaction.is_recurring ? 'Recurring' : undefined
+    ].filter(Boolean) as string[],
+  };
+};
 
 // Group transactions by date
 const groupTransactionsByDate = (transactions: Transaction[]): GroupedTransactions => {
@@ -370,12 +218,6 @@ const TransactionGroup: React.FC<{
     }
   };
 
-  const getDaySummaryColor = () => {
-    if (dayData.expense > dayData.income) return '#EF4444'; // Red if expense > income
-    if (dayData.income > dayData.expense) return '#10B981'; // Green if income > expense
-    return '#3B82F6'; // Blue if equal or transfer dominant
-  };
-
   const getIconName = (icon: string) => {
     const iconMap: { [key: string]: string } = {
       'credit-card': '💳',
@@ -499,9 +341,11 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
 }) => {
   const navigation = useNavigation();
   const { isDark } = useTheme();
+  const { isDemo } = useDemoMode();
   const [selectedFilter, setSelectedFilter] = useState("This Week");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const colors = isDark ? {
     background: '#1F2937',
@@ -519,32 +363,58 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     filterBackground: '#F3F4F6',
   };
 
-  // Filter transactions based on selected period
-  const getFilteredTransactions = () => {
-    const now = new Date();
-    const filtered = mockTransactions.filter(transaction => {
-      const transactionDate = new Date(transaction.date);
-      const diffTime = Math.abs(now.getTime() - transactionDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // Fetch transactions from Supabase
+  const fetchTransactionsData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Calculate date range based on selected filter
+      const now = new Date();
+      let startDate = new Date();
       
       switch (selectedFilter.toLowerCase()) {
         case 'this week':
-          return diffDays <= 7;
+          startDate.setDate(now.getDate() - 7);
+          break;
         case 'monthly':
-          return diffDays <= 30;
+          startDate.setMonth(now.getMonth() - 1);
+          break;
         case 'quarterly':
-          return diffDays <= 90;
+          startDate.setMonth(now.getMonth() - 3);
+          break;
         case 'this year':
-          return diffDays <= 365;
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
         default:
-          return true;
+          startDate.setDate(now.getDate() - 7); // Default to this week
       }
-    });
-    
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  };
 
-  const filteredTransactions = getFilteredTransactions();
+      // Fetch transactions from Supabase
+      const supabaseTransactions = await fetchTransactions({
+        dateRange: { start: startDate, end: now }
+      }, isDemo);
+
+      // Transform Supabase transactions to component format
+      const transformedTransactions = supabaseTransactions.map(transformSupabaseTransaction);
+      
+      setTransactions(transformedTransactions);
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load transactions');
+      // Fallback to empty array
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedFilter, isDemo]);
+
+  // Load transactions when component mounts or filter changes
+  useEffect(() => {
+    fetchTransactionsData();
+  }, [fetchTransactionsData]);
+
+  const filteredTransactions = transactions;
   const groupedTransactions = groupTransactionsByDate(filteredTransactions);
 
   const handleFilterChange = (filter: string) => {
@@ -557,13 +427,20 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   }, []);
 
   const handleDeleteTransaction = useCallback(async (transactionId: number | string) => {
-    // In a real app, this would delete from the database
-    Alert.alert('Delete Transaction', `Transaction ${transactionId} deleted successfully`);
-  }, []);
+    try {
+      await deleteTransaction(transactionId.toString(), isDemo);
+      // Refresh transactions after deletion
+      fetchTransactionsData();
+      Alert.alert('Success', 'Transaction deleted successfully');
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      Alert.alert('Error', 'Failed to delete transaction');
+    }
+  }, [isDemo, fetchTransactionsData]);
 
   const handleViewAll = () => {
     // Navigate to Transactions page
-    navigation.navigate('Transactions' as never);
+    (navigation as any).navigate('Transactions');
   };
 
   if (loading) {
@@ -607,6 +484,12 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
           {error ? (
             <View style={styles.errorContainer}>
               <Text style={[styles.errorText, { color: '#EF4444' }]}>{error}</Text>
+              <TouchableOpacity 
+                style={styles.retryButton}
+                onPress={fetchTransactionsData}
+              >
+                <Text style={[styles.retryButtonText, { color: '#10B981' }]}>Retry</Text>
+              </TouchableOpacity>
             </View>
           ) : Object.keys(groupedTransactions).length === 0 ? (
             <View style={[styles.emptyContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -756,6 +639,18 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     textAlign: 'center',
+    marginBottom: 12,
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyContainer: {
     padding: 32,

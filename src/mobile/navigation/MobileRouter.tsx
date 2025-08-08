@@ -6,6 +6,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import MobileHeader from '../components/navigation/MobileHeader';
 import MobileRequireAuth from '../../../components/auth/MobileRequireAuth';
 import { useTheme, darkTheme, lightTheme } from '../../../contexts/ThemeContext';
+import TransactionsErrorBoundary from '../pages/MobileTransactions/TransactionsErrorBoundary';
 
 // Import mobile pages that exist and work
 import MobileHome from '../pages/MobileHome';
@@ -62,7 +63,11 @@ const DashboardStack: React.FC = () => {
       />
       <Stack.Screen 
         name="Transactions" 
-        component={MobileTransactions}
+        component={() => (
+          <TransactionsErrorBoundary>
+            <MobileTransactions />
+          </TransactionsErrorBoundary>
+        )}
       />
     </Stack.Navigator>
   );

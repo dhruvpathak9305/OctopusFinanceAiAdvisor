@@ -13,6 +13,7 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import Header from './Header';
 import BudgetProgressSection from './BudgetProgressSection';
 import RecentTransactionsSection from './RecentTransactionsSection';
+import RecentTransactionsErrorBoundary from './RecentTransactionsErrorBoundary';
 import UpcomingBillsSection from './UpcomingBillsSection';
 
 // Import Financial Summary cards
@@ -113,7 +114,9 @@ export default function MobileDashboard() {
         return (
           <>
             <BudgetProgressSection />
-            <RecentTransactionsSection />
+            <RecentTransactionsErrorBoundary>
+              <RecentTransactionsSection />
+            </RecentTransactionsErrorBoundary>
             <UpcomingBillsSection useTestData={useTestData} />
           </>
         );
