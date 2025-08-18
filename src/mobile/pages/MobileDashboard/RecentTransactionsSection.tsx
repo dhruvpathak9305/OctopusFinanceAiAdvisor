@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useDemoMode } from '../../../../contexts/DemoModeContext';
 import { fetchTransactions, deleteTransaction } from '../../../../services/transactionsService';
 import { Transaction as SupabaseTransaction } from '../../../../types/transactions';
+import { Ionicons } from '@expo/vector-icons';
 
 interface RecentTransactionsSectionProps {
   className?: string;
@@ -354,6 +355,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     textSecondary: '#9CA3AF',
     border: '#374151',
     filterBackground: '#374151',
+    primary: '#10B981', // Added primary color for quick add button
   } : {
     background: '#FFFFFF',
     card: '#FFFFFF',
@@ -361,6 +363,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     textSecondary: '#6B7280',
     border: '#E5E7EB',
     filterBackground: '#F3F4F6',
+    primary: '#10B981', // Added primary color for quick add button
   };
 
   // Fetch transactions from Supabase

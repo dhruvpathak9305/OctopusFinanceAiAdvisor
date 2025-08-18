@@ -15,6 +15,7 @@ import BudgetProgressSection from './BudgetProgressSection';
 import RecentTransactionsSection from './RecentTransactionsSection';
 import RecentTransactionsErrorBoundary from './RecentTransactionsErrorBoundary';
 import UpcomingBillsSection from './UpcomingBillsSection';
+import QuickAddButton from '../../components/QuickAddButton';
 
 // Import Financial Summary cards
 import { 
@@ -186,9 +187,7 @@ export default function MobileDashboard() {
       </ScrollView>
 
       {/* Quick Add Button */}
-      <TouchableOpacity style={styles.quickAddButton}>
-        <Text style={styles.quickAddIcon}>+</Text>
-      </TouchableOpacity>
+      <QuickAddButton />
     </SafeAreaView>
   );
 };
@@ -255,26 +254,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: 20,
-  },
-  quickAddButton: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    backgroundColor: '#10B981',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  quickAddIcon: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: '700',
   },
 }); 

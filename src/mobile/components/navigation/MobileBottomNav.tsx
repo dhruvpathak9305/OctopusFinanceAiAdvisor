@@ -7,6 +7,7 @@ const MobileBottomNav: React.FC = () => {
     { key: 'home', icon: '🏠', label: 'Home' },
     { key: 'dashboard', icon: '📊', label: 'Dashboard' },
     { key: 'transactions', icon: '💳', label: 'Transactions' },
+    { key: 'bankStatements', icon: '📄', label: 'Statements' },
     { key: 'portfolio', icon: '📈', label: 'Portfolio' },
     { key: 'settings', icon: '⚙️', label: 'Settings' },
   ];

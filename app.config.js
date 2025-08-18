@@ -41,7 +41,13 @@ export default {
     extra: {
       // Supabase configuration
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://fzzbfgnmbchhmqepwmer.supabase.co',
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6emJmZ25tYmNoaG1xZXB3bWVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4NDMyMTksImV4cCI6MjA1OTQxOTIxOX0.T47MLWYCH5xIvk9QEAYNpqwOSrm1AiWpBbZjiRmNn0U',
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6emJmZ25tYmNoaG1xZXB3bWVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4NDMyMTksImV4cCI6MjA1OTQxOTIxOX0.T47MLWYCH5xIvk9QEAYNqbwOSrm1AiWpBbZjiRmNn0U',
+      
+      // OpenAI configuration
+      openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY || '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',
+      openaiBaseUrl: process.env.EXPO_PUBLIC_OPENAI_BASE_URL || 'https://openrouter.ai/api/v1',
+      openaiSiteUrl: process.env.EXPO_PUBLIC_SITE_URL || 'https://octopusfinanceadvisor.com',
+      openaiSiteName: process.env.EXPO_PUBLIC_SITE_NAME || 'OctopusFinanceAIAdvisor',
     },
   },
 }; 

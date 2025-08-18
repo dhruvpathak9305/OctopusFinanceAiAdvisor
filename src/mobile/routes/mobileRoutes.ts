@@ -8,6 +8,7 @@ import MobileTransactions from '../pages/MobileTransactions';
 import MobileHome from '../pages/MobileHome';
 import MobileAuth from '../pages/MobileAuth';
 import MobileMoney from '../pages/MobileMoney';
+import MobileBankStatements from '../pages/MobileBankStatements';
 
 export const MOBILE_ROUTES = {
   HOME: 'Home',
@@ -19,6 +20,7 @@ export const MOBILE_ROUTES = {
   SETTINGS: 'Settings',
   TRANSACTIONS: 'Transactions',
   MONEY: 'Money',
+  BANK_STATEMENTS: 'BankStatements',
 } as const;
 
 export interface MobileRouteConfig {
@@ -91,6 +93,13 @@ export const mobileRouteConfig: MobileRouteConfig[] = [
     component: MobileTransactions,
     title: 'Transactions',
     icon: '💳',
+    requiresAuth: true,
+  },
+  {
+    path: MOBILE_ROUTES.BANK_STATEMENTS,
+    component: MobileBankStatements,
+    title: 'Bank Statements',
+    icon: '📄',
     requiresAuth: true,
   },
 ]; 
