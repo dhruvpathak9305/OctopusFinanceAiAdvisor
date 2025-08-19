@@ -2,6 +2,7 @@ export * from './types';
 export * from './BaseCSVParser';
 export * from './ICICIParser';
 export * from './HDFCParser';
+export * from './IDFCParser';
 export * from './ParserFactory';
 export * from './CSVParserService';
 

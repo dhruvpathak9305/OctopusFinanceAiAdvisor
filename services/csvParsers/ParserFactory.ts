@@ -1,6 +1,7 @@
 import { ParserFactory as IParserFactory, CSVParser } from './types';
 import { ICICIParser } from './ICICIParser';
 import { HDFCParser } from './HDFCParser';
+import { IDFCParser } from './IDFCParser';
 
 export class ParserFactory implements IParserFactory {
   private static instance: ParserFactory;
@@ -8,8 +9,10 @@ export class ParserFactory implements IParserFactory {
 
   private constructor() {
     this.parsers = [
-      new ICICIParser(),
-      new HDFCParser(),
+      // Order matters: More specific parsers should come first
+      new IDFCParser(),  // IDFC has very specific patterns, check first
+      new ICICIParser(), // ICICI has specific patterns
+      new HDFCParser(),  // HDFC is more generic, check last
       // Add more bank parsers here as they are implemented
       // new SBIParser(),
       // new AxisParser(),
@@ -24,13 +27,18 @@ export class ParserFactory implements IParserFactory {
   }
 
   getParser(content: string): CSVParser | null {
+    console.log('ParserFactory - Checking parsers for content...');
+    
     // Try each parser to see which one can handle this content
     for (const parser of this.parsers) {
+      console.log(`ParserFactory - Testing ${parser.getBankName()} parser...`);
       if (parser.canParse(content)) {
+        console.log(`ParserFactory - Selected ${parser.getBankName()} parser!`);
         return parser;
       }
     }
     
+    console.log('ParserFactory - No parser matched, returning null');
     // If no specific parser matches, return null
     // You could implement a generic parser here as fallback
     return null;

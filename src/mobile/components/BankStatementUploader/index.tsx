@@ -63,7 +63,122 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
   const [enhancedParsedData, setEnhancedParsedData] = useState<ParsedBankStatement | null>(null);
   const [showEnhancedView, setShowEnhancedView] = useState(false);
   const [showAllTransactions, setShowAllTransactions] = useState(false);
+  
+  // Bank detection states
+  const [detectedBank, setDetectedBank] = useState<string | null>(null);
+  const [showBankConfirmation, setShowBankConfirmation] = useState(false);
+  const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [fileContentForParsing, setFileContentForParsing] = useState<string>('');
+  
   const getCSVParserService = () => CSVParserService.getInstance();
+
+  // Available banks for manual selection
+  const availableBanks = [
+    { key: 'ICICI', name: 'ICICI Bank' },
+    { key: 'HDFC', name: 'HDFC Bank' },
+    { key: 'IDFC', name: 'IDFC First Bank' },
+    { key: 'OTHER', name: 'Other Bank (Generic Parser)' }
+  ];
+
+  // Function to detect bank from content and filename
+  const detectBankFromContent = (content: string, filename?: string): string => {
+    const contentUpper = content.toUpperCase();
+    const lines = content.split('\n').slice(0, 50);
+    const filenameUpper = filename ? filename.toUpperCase() : '';
+    
+    // IDFC Bank detection (check filename first, then content)
+    if (filenameUpper.includes('IDFC') || 
+        lines.some(line => line.toUpperCase().includes('IDFC')) ||
+        contentUpper.includes('IDFB0') ||
+        contentUpper.includes('MUNSHIPULIA') ||
+        contentUpper.includes('5734305184') ||
+        contentUpper.includes('10167677364')) {
+      return 'IDFC';
+    }
+    
+    // ICICI Bank detection (check IFSC codes and bank name)
+    if (lines.some(line => line.toUpperCase().includes('ICICI')) || 
+        contentUpper.includes('ICIC0') || 
+        contentUpper.includes('700229137') ||
+        contentUpper.match(/ICIC0[0-9]{6}/)) {
+      return 'ICICI';
+    }
+    
+    // HDFC Bank detection (enhanced with multiple patterns)
+    if (lines.some(line => line.toUpperCase().includes('HDFC')) ||
+        contentUpper.includes('HDFC0') ||
+        contentUpper.includes('700240064') ||
+        contentUpper.match(/HDFC0[0-9]{6}/) ||
+        lines.some(line => line.toUpperCase().includes('RAJARHAT')) ||
+        lines.some(line => line.toUpperCase().includes('VIRTUAL PREFERRED')) ||
+        contentUpper.match(/\b7002[0-9]{5}\b/)) {
+      return 'HDFC';
+    }
+    
+    console.log('Bank detection details:', {
+      filename: filenameUpper,
+      hasICICI: lines.some(line => line.toUpperCase().includes('ICICI')),
+      hasHDFC: lines.some(line => line.toUpperCase().includes('HDFC')),
+      hasIDFC: lines.some(line => line.toUpperCase().includes('IDFC')),
+      hasICICIFSC: contentUpper.includes('ICIC0'),
+      hasHDFCIFSC: contentUpper.includes('HDFC0'),
+      hasIDFCIFSC: contentUpper.includes('IDFB0')
+    });
+    
+    return 'OTHER';
+  };
+
+  // Function to detect bank and show confirmation
+  const detectBankAndShowConfirmation = async (file: any) => {
+    try {
+      let content = '';
+      
+      if (file.mimeType === 'text/csv' || file.name?.endsWith('.csv')) {
+        content = await FileSystem.readAsStringAsync(file.uri);
+      } else if (
+        file.mimeType === 'application/vnd.ms-excel' || 
+        file.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.name?.endsWith('.xls') ||
+        file.name?.endsWith('.xlsx')
+      ) {
+        const fileData = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const workbook = XLSX.read(fileData, { type: 'base64' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        content = XLSX.utils.sheet_to_csv(worksheet);
+      }
+      
+      if (content) {
+        const detected = detectBankFromContent(content, file.name);
+        console.log(`Bank detection for file "${file.name}": ${detected}`);
+        setDetectedBank(detected);
+        setFileContentForParsing(content);
+        setShowBankConfirmation(true);
+      }
+    } catch (error) {
+      console.error('Error detecting bank:', error);
+      // Fallback to showing next actions without detection
+      setShowNextActions(true);
+    }
+  };
+
+  // Function to confirm detected bank and proceed with parsing
+  const confirmBankAndParse = async (confirmedBank: string) => {
+    setSelectedBank(confirmedBank);
+    setShowBankConfirmation(false);
+    setShowNextActions(true);
+    
+    // Optionally start parsing immediately
+    // await handleParseStatement(confirmedBank);
+  };
+
+  // Function to handle manual bank selection
+  const handleManualBankSelection = (bankKey: string) => {
+    setSelectedBank(bankKey);
+    setDetectedBank(bankKey);
+  };
 
   const parseFileContent = async (file: any): Promise<ParsedData> => {
     try {
@@ -540,16 +655,15 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
       
       setSelectedFile(file);
       
-      // Simulate file processing
-      setTimeout(() => {
+      // Detect bank from file content first
+      await detectBankAndShowConfirmation(file);
+      
         onUpload({
           file,
           success: true,
           message: `Successfully selected ${file.name}`
         });
         setUploading(false);
-        setShowNextActions(true);
-      }, 1000);
       
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -896,6 +1010,90 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
           Tap to browse files
         </Text>
       </View>
+    );
+  };
+
+  const renderBankConfirmation = () => {
+    if (!showBankConfirmation || !detectedBank) return null;
+
+    const detectedBankName = availableBanks.find(bank => bank.key === detectedBank)?.name || detectedBank;
+
+    return (
+      <Modal
+        visible={showBankConfirmation}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowBankConfirmation(false)}
+      >
+        <View style={styles.bankConfirmationOverlay}>
+          <View style={styles.bankConfirmationModal}>
+            <View style={styles.bankConfirmationHeader}>
+              <Ionicons name="business-outline" size={24} color="#007AFF" />
+              <Text style={styles.bankConfirmationTitle}>Bank Detection</Text>
+            </View>
+            
+            <Text style={styles.bankDetectionText}>
+              We will try to automatically detect the bank from your uploaded statement (ICICI, HDFC, IDFC, or others) based on our logic.
+            </Text>
+            
+            <View style={styles.detectedBankContainer}>
+              <Text style={styles.detectedBankLabel}>⚡ Detected Bank:</Text>
+              <View style={styles.detectedBankBadge}>
+                <Text style={styles.detectedBankName}>{detectedBankName}</Text>
+              </View>
+            </View>
+            
+            <Text style={styles.confirmationPrompt}>
+              Please confirm if this is correct:
+            </Text>
+            
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={() => confirmBankAndParse(detectedBank)}
+              >
+                <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />
+                <Text style={styles.confirmButtonText}>✅ Yes, continue with this bank and parse the statement</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.changeButton}
+                onPress={() => setShowBankConfirmation(false)}
+              >
+                <Ionicons name="pencil-outline" size={20} color="#007AFF" />
+                <Text style={styles.changeButtonText}>✏️ No, change the bank (select the correct bank manually) and then parse</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Manual Bank Selection */}
+            <View style={styles.manualSelectionContainer}>
+              <Text style={styles.manualSelectionTitle}>Or select manually:</Text>
+              <View style={styles.bankOptionsContainer}>
+                {availableBanks.map((bank) => (
+                  <TouchableOpacity
+                    key={bank.key}
+                    style={[
+                      styles.bankOption,
+                      selectedBank === bank.key && styles.bankOptionSelected
+                    ]}
+                    onPress={() => {
+                      handleManualBankSelection(bank.key);
+                      confirmBankAndParse(bank.key);
+                    }}
+                  >
+                    <Text style={[
+                      styles.bankOptionText,
+                      selectedBank === bank.key && styles.bankOptionTextSelected
+                    ]}>
+                      {bank.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -1644,6 +1842,9 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
             </View>
           </View>
         </Modal>
+        
+        {/* Bank Confirmation Modal */}
+        {renderBankConfirmation()}
       </ScrollView>
 
 
@@ -2442,6 +2643,155 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     paddingVertical: 8,
     paddingHorizontal: 16,
+  },
+  
+  // Bank Confirmation Modal Styles
+  bankConfirmationOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  bankConfirmationModal: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bankConfirmationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  bankConfirmationTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  bankDetectionText: {
+    fontSize: 14,
+    color: '#6c757d',
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  detectedBankContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  detectedBankLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 8,
+  },
+  detectedBankBadge: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#1976d2',
+  },
+  detectedBankName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1976d2',
+  },
+  confirmationPrompt: {
+    fontSize: 14,
+    color: '#495057',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+    fontWeight: '500',
+  },
+  confirmationButtons: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  confirmButton: {
+    backgroundColor: '#28a745',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    flex: 1,
+  },
+  changeButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  changeButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    flex: 1,
+  },
+  manualSelectionContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    marginTop: 20,
+  },
+  manualSelectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 12,
+  },
+  bankOptionsContainer: {
+    gap: 8,
+  },
+  bankOption: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  bankOptionSelected: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#1976d2',
+  },
+  bankOptionText: {
+    fontSize: 14,
+    color: '#495057',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  bankOptionTextSelected: {
+    color: '#1976d2',
+    fontWeight: '600',
   },
 });
 

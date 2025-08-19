@@ -6,47 +6,83 @@ export class HDFCParser extends BaseCSVParser {
   protected supportedFormats = ['HDFC Bank Statement', 'HDFC CSV'];
 
   canParse(content: string): boolean {
-    const lines = content.split('\n').slice(0, 30); // Check first 30 lines
+    const lines = content.split('\n').slice(0, 50); // Check more lines for HDFC
+    const contentUpper = content.toUpperCase();
     
-    // Look for HDFC-specific identifiers
+    // Look for HDFC-specific identifiers in content
     const hasHDFCIdentifier = lines.some(line => 
-      line.includes('HDFC') || 
-      line.includes('HDFC BANK') ||
-      line.includes('HDFC BANK LIMITED') ||
-      line.includes('HDFC BANK LTD')
-    );
+      line.toUpperCase().includes('HDFC') || 
+      line.toUpperCase().includes('HDFC BANK') ||
+      line.toUpperCase().includes('HDFC BANK LIMITED') ||
+      line.toUpperCase().includes('HDFC BANK LTD')
+    ) || contentUpper.includes('HDFC0'); // HDFC IFSC pattern
 
-    // Look for HDFC statement format
+    // Exclude IDFC content explicitly
+    const isIDFCContent = lines.some(line => 
+      line.toUpperCase().includes('IDFC') ||
+      line.toUpperCase().includes('IDFB0') ||
+      line.toUpperCase().includes('MUNSHIPULIA')
+    ) || contentUpper.includes('IDFC') || contentUpper.includes('IDFB0');
+
+    // Look for HDFC statement format patterns
     const hasStatementFormat = lines.some(line => 
-      line.includes('STATEMENT OF ACCOUNT') ||
-      line.includes('Statement of accounts') ||
-      line.includes('Account Statement') ||
-      line.includes('Transaction Details')
+      line.toUpperCase().includes('STATEMENT OF ACCOUNT') ||
+      line.toUpperCase().includes('STATEMENT OF ACCOUNTS') ||
+      line.toUpperCase().includes('ACCOUNT STATEMENT') ||
+      line.toUpperCase().includes('TRANSACTION DETAILS')
     );
 
     // Look for HDFC transaction format with narration
     const hasTransactionFormat = lines.some(line => 
-      (line.includes('Date') && line.includes('Narration')) ||
-      (line.includes('Cheque') && line.includes('Value')) ||
-      (line.includes('Withdrawal') && line.includes('Deposit'))
+      (line.toUpperCase().includes('DATE') && line.toUpperCase().includes('NARRATION')) ||
+      (line.toUpperCase().includes('CHEQUE') && line.toUpperCase().includes('VALUE')) ||
+      (line.toUpperCase().includes('WITHDRAWAL') && line.toUpperCase().includes('DEPOSIT')) ||
+      line.toUpperCase().includes('WITHDRAWAL AMOUNT') ||
+      line.toUpperCase().includes('DEPOSIT AMOUNT')
     );
 
-    // Look for HDFC-specific account info
+    // Look for HDFC-specific account info patterns
     const hasAccountInfo = lines.some(line =>
-      line.includes('Account Branch') ||
-      line.includes('RTGS/NEFT IFSC') ||
-      line.includes('MICR') ||
-      line.includes('Cust ID')
+      line.toUpperCase().includes('ACCOUNT BRANCH') ||
+      line.toUpperCase().includes('RTGS/NEFT IFSC') ||
+      line.toUpperCase().includes('VIRTUAL PREFERRED') ||
+      line.toUpperCase().includes('CUST ID') ||
+      line.toUpperCase().includes('CUSTOMER ID')
     );
+
+    // Look for HDFC-specific patterns like branch names, cities, etc.
+    const hasHDFCSpecificPatterns = lines.some(line =>
+      line.toUpperCase().includes('RAJARHAT') ||
+      line.toUpperCase().includes('GOPALPUR') ||
+      line.toUpperCase().includes('KOLKATA') ||
+      line.toUpperCase().includes('MUMBAI') ||
+      line.toUpperCase().includes('LOWER PAREL')
+    );
+
+    // Look for HDFC MICR codes (start with specific patterns)
+    const hasHDFCMICR = contentUpper.includes('700240064') || // HDFC MICR from your example
+                        contentUpper.match(/\b7002[0-9]{5}\b/); // HDFC MICR pattern
 
     console.log('HDFC Parser - Detection results:', {
       hasHDFCIdentifier,
       hasStatementFormat,
       hasTransactionFormat,
-      hasAccountInfo
+      hasAccountInfo,
+      hasHDFCSpecificPatterns,
+      hasHDFCMICR,
+      isIDFCContent
     });
 
-    return hasHDFCIdentifier || hasStatementFormat || hasTransactionFormat || hasAccountInfo;
+    // HDFC parser should trigger if:
+    // 1. Has HDFC identifier OR HDFC-specific patterns AND
+    // 2. Is NOT IDFC content AND  
+    // 3. Has supporting patterns
+    return !isIDFCContent && (
+      hasHDFCIdentifier || 
+      hasHDFCMICR || 
+      (hasHDFCSpecificPatterns && hasStatementFormat) ||
+      (hasTransactionFormat && hasAccountInfo)
+    );
   }
 
   async parse(content: string): Promise<CSVParserResult> {

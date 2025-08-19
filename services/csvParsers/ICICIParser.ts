@@ -6,31 +6,55 @@ export class ICICIParser extends BaseCSVParser {
   protected supportedFormats = ['ICICI Bank Statement', 'ICICI CSV'];
 
   canParse(content: string): boolean {
-    const lines = content.split('\n').slice(0, 20); // Check first 20 lines
+    const lines = content.split('\n').slice(0, 30); // Check more lines
+    const contentUpper = content.toUpperCase();
     
     // Look for ICICI-specific identifiers
     const hasICICIIdentifier = lines.some(line => 
-      line.includes('ICICI') || 
-      line.includes('ICICI BANK') ||
-      line.includes('ICICI BANK LIMITED')
+      line.toUpperCase().includes('ICICI') || 
+      line.toUpperCase().includes('ICICI BANK') ||
+      line.toUpperCase().includes('ICICI BANK LIMITED')
+    );
+
+    // Look for ICICI IFSC codes
+    const hasICICIIFSC = contentUpper.includes('ICIC0') || contentUpper.match(/ICIC0[0-9]{6}/);
+
+    // Look for ICICI MICR codes (start with specific patterns)
+    const hasICICIMICR = contentUpper.includes('700229137') || contentUpper.match(/\b7002[0-9]{5}\b/);
+
+    // Exclude IDFC and HDFC content
+    const isOtherBankContent = lines.some(line => 
+      line.toUpperCase().includes('IDFC') ||
+      line.toUpperCase().includes('HDFC') ||
+      line.toUpperCase().includes('IDFB0') ||
+      line.toUpperCase().includes('HDFC0')
     );
 
     // Look for ICICI statement format
     const hasStatementSummary = lines.some(line => 
-      line.includes('STATEMENT SUMMARY') ||
-      line.includes('Customer ID:')
+      line.toUpperCase().includes('STATEMENT SUMMARY') ||
+      line.toUpperCase().includes('CUSTOMER ID:')
     );
 
     // Look for ICICI transaction format
     const hasTransactionFormat = lines.some(line => 
-      line.includes('DATE') && 
-      line.includes('MODE') && 
-      line.includes('PARTICULARS') &&
-      line.includes('DEPOSITS') && 
-      line.includes('WITHDRAWALS')
+      line.toUpperCase().includes('DATE') && 
+      line.toUpperCase().includes('MODE') && 
+      line.toUpperCase().includes('PARTICULARS') &&
+      line.toUpperCase().includes('DEPOSITS') && 
+      line.toUpperCase().includes('WITHDRAWALS')
     );
 
-    return hasICICIIdentifier || hasStatementSummary || hasTransactionFormat;
+    console.log('ICICI Parser - Detection results:', {
+      hasICICIIdentifier,
+      hasICICIIFSC,
+      hasICICIMICR,
+      hasStatementSummary,
+      hasTransactionFormat,
+      isOtherBankContent
+    });
+
+    return !isOtherBankContent && (hasICICIIdentifier || hasICICIIFSC || hasICICIMICR || hasStatementSummary || hasTransactionFormat);
   }
 
   async parse(content: string): Promise<CSVParserResult> {
