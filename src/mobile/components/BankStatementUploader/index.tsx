@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as XLSX from 'xlsx';
 import { CSVParserService } from '../../../../services/csvParsers';
 import BankStatementViewer from '../BankStatementViewer';
 import { ParsedBankStatement, BankTransaction } from '../../../../services/csvParsers/types';
@@ -30,6 +31,10 @@ interface ParsedData {
     description: string;
     amount: number;
     type: 'credit' | 'debit';
+    narration?: string;
+    chequeRefNo?: string;
+    valueDate?: string;
+    balance?: number;
   }>;
   summary: {
     totalCredits: number;
@@ -64,7 +69,14 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
     try {
       let content = '';
       
-      if (file.mimeType === 'text/csv') {
+      console.log('File details:', {
+        name: file.name,
+        mimeType: file.mimeType,
+        uri: file.uri,
+        size: file.size
+      });
+
+      if (file.mimeType === 'text/csv' || file.name?.endsWith('.csv')) {
         // Read CSV content
         content = await FileSystem.readAsStringAsync(file.uri);
         console.log('CSV content read:', content.substring(0, 200) + '...');
@@ -73,23 +85,66 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
         const lines = content.split('\n').filter(line => line.trim());
         console.log('CSV has', lines.length, 'lines');
         const hasICICI = lines.some(line => line.includes('ICICI'));
-        console.log('Contains ICICI:', hasICICI);
+        const hasHDFC = lines.some(line => line.includes('HDFC'));
+        console.log('Contains ICICI:', hasICICI, 'Contains HDFC:', hasHDFC);
+      } else if (
+        file.mimeType === 'application/vnd.ms-excel' || 
+        file.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.name?.endsWith('.xls') ||
+        file.name?.endsWith('.xlsx')
+      ) {
+        // Read Excel file
+        console.log('Reading Excel file...');
+        const fileData = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
         
-        // Try enhanced CSV parsing first
+        // Parse Excel file
+        const workbook = XLSX.read(fileData, { type: 'base64' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // For better parsing, let's also get the raw Excel data
+        const excelData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+        console.log('Excel raw data (first 10 rows):', excelData.slice(0, 10));
+        
+        // Convert to CSV format for existing parsers
+        content = XLSX.utils.sheet_to_csv(worksheet);
+        console.log('Excel converted to CSV. Content preview:', content.substring(0, 200) + '...');
+        
+        // Log structure for debugging
+        const lines = content.split('\n').filter(line => line.trim());
+        console.log('Excel-to-CSV has', lines.length, 'lines');
+        const hasICICI = lines.some(line => line.includes('ICICI'));
+        const hasHDFC = lines.some(line => line.includes('HDFC'));
+        console.log('Contains ICICI:', hasICICI, 'Contains HDFC:', hasHDFC);
+      } else {
+        throw new Error(`Unsupported file type: ${file.mimeType}. Please upload a CSV or Excel file.`);
+      }
+
+      if (!content || content.trim() === '') {
+        throw new Error('CSV file is empty or has no data rows');
+      }
+        
+      // Try enhanced CSV parsing first
         try {
           const enhancedResult = await getCSVParserService().parseBankStatement(content);
           
           if (enhancedResult.success && enhancedResult.data && enhancedResult.data.transactions.length > 0) {
             console.log('Enhanced CSV parsing successful:', enhancedResult.data.metadata.bankName);
-            setEnhancedParsedData(enhancedResult.data);
-            setShowEnhancedView(true);
+          setEnhancedParsedData(enhancedResult.data);
+          setShowEnhancedView(true);
             
             // Convert to legacy format for backward compatibility
             const legacyTransactions = enhancedResult.data.transactions.map((txn: any) => ({
               date: txn.date,
               description: txn.particulars,
               amount: txn.amount,
-              type: txn.type
+            type: txn.type,
+            narration: txn.narration,
+            chequeRefNo: txn.chequeRefNo,
+            valueDate: txn.valueDate,
+            balance: txn.balance
             }));
             
             const totalCredits = legacyTransactions
@@ -106,8 +161,8 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                 totalCredits,
                 totalDebits,
                 balance: totalCredits - totalDebits
-              },
-              bankStatement: enhancedResult.data
+            },
+            bankStatement: enhancedResult.data
             };
           } else {
             console.log('Enhanced parsing failed or no transactions found:', enhancedResult.errors);
@@ -137,7 +192,11 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
               date: txn.date.toISOString().split('T')[0],
               description: txn.description,
               amount: txn.amount,
-              type: txn.type
+            type: txn.type,
+            narration: (txn as any).narration,
+            chequeRefNo: (txn as any).chequeRefNo,
+            valueDate: (txn as any).valueDate,
+            balance: (txn as any).balance
             }));
             
             const totalCredits = realTransactions
@@ -165,10 +224,6 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
           // Fallback to basic CSV parsing
           return parseBasicCSV(content);
         }
-      }
-
-      // For non-CSV files, use basic parsing
-      return parseBasicCSV(content);
     } catch (error) {
       console.error('Error parsing file:', error);
       
@@ -912,8 +967,8 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
       <View style={styles.parsedDataContainer}>
         <Text style={styles.parsedDataTitle}>Bank Statement Summary</Text>
         
-        {/* Customer Information */}
-        {bankStatement?.customerInfo && (
+        {/* Customer Information - Only show if we have meaningful data */}
+        {bankStatement?.customerInfo && Object.keys(bankStatement.customerInfo).some(key => bankStatement.customerInfo[key as keyof typeof bankStatement.customerInfo]) && (
           <View style={styles.infoSection}>
             <Text style={styles.infoSectionTitle}>Customer Information</Text>
             {bankStatement.customerInfo.name && (
@@ -934,6 +989,36 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                 <Text style={styles.infoValue}>{bankStatement.customerInfo.address.trim()}</Text>
               </View>
             )}
+            {bankStatement.customerInfo.email && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Email:</Text>
+                <Text style={styles.infoValue}>{bankStatement.customerInfo.email}</Text>
+              </View>
+            )}
+            {bankStatement.customerInfo.phone && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Phone:</Text>
+                <Text style={styles.infoValue}>{bankStatement.customerInfo.phone}</Text>
+              </View>
+            )}
+            {bankStatement.customerInfo.nomination && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Nomination:</Text>
+                <Text style={styles.infoValue}>{bankStatement.customerInfo.nomination}</Text>
+              </View>
+            )}
+            {bankStatement.customerInfo.statementPeriod && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Statement Period:</Text>
+                <Text style={styles.infoValue}>{bankStatement.customerInfo.statementPeriod}</Text>
+              </View>
+            )}
+            {bankStatement.customerInfo.jointHolders && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Joint Holders:</Text>
+                <Text style={styles.infoValue}>{bankStatement.customerInfo.jointHolders}</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -941,6 +1026,50 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
         {bankStatement?.accountSummary && Object.keys(bankStatement.accountSummary).length > 0 && (
           <View style={styles.infoSection}>
             <Text style={styles.infoSectionTitle}>Account Summary</Text>
+            
+            {/* HDFC Format - Opening/Closing Balance */}
+            {bankStatement.accountSummary.openingBalance !== undefined && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Opening Balance:</Text>
+                <Text style={[styles.infoValue, styles.balanceValue]}>
+                  ₹{bankStatement.accountSummary.openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Text>
+              </View>
+            )}
+            {bankStatement.accountSummary.totalDebits !== undefined && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Total Debits:</Text>
+                <Text style={[styles.infoValue, { color: '#dc3545', fontWeight: '600' }]}>
+                  ₹{bankStatement.accountSummary.totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Text>
+              </View>
+            )}
+            {bankStatement.accountSummary.totalCredits !== undefined && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Total Credits:</Text>
+                <Text style={[styles.infoValue, { color: '#28a745', fontWeight: '600' }]}>
+                  ₹{bankStatement.accountSummary.totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Text>
+              </View>
+            )}
+            {bankStatement.accountSummary.closingBalance !== undefined && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Closing Balance:</Text>
+                <Text style={[styles.infoValue, styles.balanceValue, styles.totalBalance]}>
+                  ₹{bankStatement.accountSummary.closingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Text>
+              </View>
+            )}
+            {(bankStatement.accountSummary.debitCount !== undefined || bankStatement.accountSummary.creditCount !== undefined) && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Transaction Count:</Text>
+                <Text style={styles.infoValue}>
+                  {bankStatement.accountSummary.debitCount || 0} Debits, {bankStatement.accountSummary.creditCount || 0} Credits
+                </Text>
+              </View>
+            )}
+
+            {/* ICICI Format - Fallback for different bank formats */}
             {bankStatement.accountSummary.savingsBalance !== undefined && (
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Savings Balance (A):</Text>
@@ -989,7 +1118,7 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                 </Text>
               </View>
             )}
-            {bankStatement.accountSummary.totalDeposits !== undefined && (
+            {bankStatement.accountSummary.totalDeposits !== undefined && !bankStatement.accountSummary.openingBalance && (
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Total Deposits:</Text>
                 <Text style={[styles.infoValue, styles.balanceValue, styles.totalBalance]}>
@@ -1067,6 +1196,18 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
             <Text style={styles.infoSectionTitle}>Account Information</Text>
             {bankStatement.accountInfo.map((account, index) => (
               <View key={index}>
+                {account.branch && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Branch:</Text>
+                    <Text style={styles.infoValue}>{account.branch}</Text>
+                  </View>
+                )}
+                {account.branchAddress && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Branch Address:</Text>
+                    <Text style={styles.infoValue}>{account.branchAddress}</Text>
+                  </View>
+                )}
                 {account.accountType && (
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Account Type:</Text>
@@ -1079,9 +1220,15 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                     <Text style={styles.infoValue}>{account.accountNumber}</Text>
                   </View>
                 )}
+                {account.accountOpenDate && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Account Open Date:</Text>
+                    <Text style={styles.infoValue}>{account.accountOpenDate}</Text>
+                  </View>
+                )}
                 {account.ifscCode && (
                   <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>IFS Code:</Text>
+                    <Text style={styles.infoLabel}>RTGS/NEFT IFSC:</Text>
                     <Text style={styles.infoValue}>{account.ifscCode}</Text>
                   </View>
                 )}
@@ -1089,6 +1236,33 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>MICR Code:</Text>
                     <Text style={styles.infoValue}>{account.micrCode}</Text>
+                  </View>
+                )}
+                {account.currency && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Currency:</Text>
+                    <Text style={styles.infoValue}>{account.currency}</Text>
+                  </View>
+                )}
+                {(account.creditLimit !== undefined || account.cdLimit !== undefined) && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Limits:</Text>
+                    <Text style={styles.infoValue}>
+                      Credit: ₹{(account.creditLimit || 0).toLocaleString('en-IN')}, 
+                      CD: ₹{(account.cdLimit || 0).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                )}
+                {account.gstin && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>GSTIN:</Text>
+                    <Text style={styles.infoValue}>{account.gstin}</Text>
+                  </View>
+                )}
+                {account.registeredOffice && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Registered Office:</Text>
+                    <Text style={styles.infoValue}>{account.registeredOffice}</Text>
                   </View>
                 )}
                 {account.nominee && (
@@ -1172,14 +1346,29 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
           <View key={index} style={styles.transactionItem}>
             <View style={styles.transactionLeft}>
               <Text style={styles.transactionDate}>{transaction.date}</Text>
-              <Text style={styles.transactionDescription}>{transaction.description}</Text>
+              <Text style={styles.transactionDescription}>
+                {transaction.narration || transaction.description}
+              </Text>
+              {transaction.chequeRefNo && (
+                <Text style={styles.transactionRef}>Ref: {transaction.chequeRefNo}</Text>
+              )}
+              {transaction.valueDate && transaction.valueDate !== transaction.date && (
+                <Text style={styles.transactionValueDate}>Value Date: {transaction.valueDate}</Text>
+              )}
             </View>
+            <View style={styles.transactionRight}>
             <Text style={[
               styles.transactionAmount,
               { color: transaction.type === 'credit' ? '#28a745' : '#dc3545' }
             ]}>
-              {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </Text>
+              {transaction.balance !== undefined && (
+                <Text style={styles.transactionBalance}>
+                  Bal: ₹{transaction.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Text>
+              )}
+            </View>
           </View>
         ))}
         
@@ -1727,6 +1916,9 @@ const styles = StyleSheet.create({
   transactionLeft: {
     flex: 1,
   },
+  transactionRight: {
+    alignItems: 'flex-end',
+  },
   transactionDate: {
     fontSize: 10,
     color: '#6c757d',
@@ -1736,10 +1928,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#1a1a1a',
     fontWeight: '500',
+    marginBottom: 2,
+  },
+  transactionRef: {
+    fontSize: 9,
+    color: '#6c757d',
+    fontStyle: 'italic',
+    marginBottom: 1,
+  },
+  transactionValueDate: {
+    fontSize: 9,
+    color: '#6c757d',
+    fontStyle: 'italic',
   },
   transactionAmount: {
     fontSize: 11,
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  transactionBalance: {
+    fontSize: 9,
+    color: '#6c757d',
+    fontWeight: '400',
   },
   tips: {
     backgroundColor: '#fff3cd',

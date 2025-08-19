@@ -19,6 +19,9 @@ export interface CustomerInfo {
   address?: string;
   email?: string;
   phone?: string;
+  jointHolders?: string;
+  nomination?: string;
+  statementPeriod?: string;
 }
 
 export interface AccountSummary {
@@ -32,6 +35,12 @@ export interface AccountSummary {
   totalFixedDepositsBalance?: number;
   totalRecurringDepositsBalance?: number;
   currentAccountBalance?: number;
+  openingBalance?: number;
+  closingBalance?: number;
+  totalDebits?: number;
+  totalCredits?: number;
+  debitCount?: number;
+  creditCount?: number;
 }
 
 export interface AccountDetail {
@@ -66,6 +75,9 @@ export interface BankTransaction {
   reference?: string;
   type: 'credit' | 'debit';
   amount: number;
+  narration?: string;
+  chequeRefNo?: string;
+  valueDate?: string;
 }
 
 export interface RewardPoint {
@@ -81,9 +93,16 @@ export interface AccountInfo {
   ifscCode?: string;
   micrCode?: string;
   branch?: string;
+  branchAddress?: string;
   status?: string;
   nominee?: string;
   mandateHolder?: string;
+  accountOpenDate?: string;
+  creditLimit?: number;
+  cdLimit?: number;
+  currency?: string;
+  gstin?: string;
+  registeredOffice?: string;
 }
 
 export interface StatementMetadata {
