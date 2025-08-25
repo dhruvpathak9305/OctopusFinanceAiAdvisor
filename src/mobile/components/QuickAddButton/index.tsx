@@ -24,6 +24,12 @@ import { fetchAccounts } from '../../../../services/accountsService';
 import { Account } from '../../../../contexts/AccountsContext';
 import { addTransaction, updateTransaction } from '../../../../services/transactionsService';
 import { useDemoMode } from '../../../../contexts/DemoModeContext';
+// Import modals
+import AddCategoryModal from '../AddCategoryModal';
+import AddSubcategoryModal from '../AddSubcategoryModal';
+import AddAccountModal from '../AddAccountModal';
+import AddCreditCardModal from '../AddCreditCardModal';
+import { CreditCard } from '../../../../services/creditCardService';
 // Import AI services
 import { OctopusSMSAnalyzer, ContextData } from '../../../../services/smsAnalyzer';
 import { OpenAIService } from '../../../../services/openaiService';
@@ -90,6 +96,13 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal states
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showAddSubcategoryModal, setShowAddSubcategoryModal] = useState(false);
+  const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+  const [showAddCreditCardModal, setShowAddCreditCardModal] = useState(false);
+  const [selectedCategoryForSubcategory, setSelectedCategoryForSubcategory] = useState<BudgetCategory | null>(null);
+
   const tabs = ['Manual Entry', 'Paste SMS', 'Upload Image'];
   
   const transactionTypes = [
@@ -98,50 +111,73 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
     { id: 'transfer', label: 'Transfer', icon: 'swap-horizontal', color: '#3B82F6' }
   ];
 
+  // Refresh functions
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all required data in parallel
+      const [categoriesData, subcategoriesData, accountsData] = await Promise.all([
+        fetchBudgetCategories(isDemo),
+        fetchBudgetSubcategories(isDemo),
+        fetchAccounts(isDemo)
+      ]);
+
+      // Map the database results to the expected format
+      const mappedCategories = categoriesData.map((cat: any) => ({
+        ...cat,
+        limit: cat.budget_limit || 0,
+        bgColor: cat.bg_color || '#047857',
+        ringColor: cat.ring_color || '#10b981',
+        is_active: cat.is_active === 'true' || cat.is_active === true
+      }));
+
+      setBudgetCategories(mappedCategories);
+      setBudgetSubcategories(subcategoriesData);
+      setAccounts(accountsData);
+    } catch (error) {
+      console.error('Error refreshing dropdown data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Modal handlers
+  const handleCategoryAdded = (newCategory: BudgetCategory) => {
+    setBudgetCategories(prev => [...prev, newCategory]);
+    setCategory(newCategory.name);
+    setShowAddCategoryModal(false);
+  };
+
+  const handleSubcategoryAdded = (newSubcategory: BudgetSubcategory) => {
+    setBudgetSubcategories(prev => [...prev, newSubcategory]);
+    setSubcategory(newSubcategory.name);
+    setShowAddSubcategoryModal(false);
+  };
+
+  const handleAccountAdded = (newAccount: Account) => {
+    setAccounts(prev => [...prev, newAccount]);
+    setAccount(`${newAccount.name} (${newAccount.institution})`);
+    setShowAddAccountModal(false);
+  };
+
+  const handleCreditCardAdded = (newCreditCard: CreditCard) => {
+    // Credit cards could be added to accounts list for selection
+    const creditCardAsAccount: Account = {
+      id: newCreditCard.id,
+      name: newCreditCard.name,
+      type: 'credit_card',
+      balance: -newCreditCard.currentBalance, // Negative because it's debt
+      institution: newCreditCard.institution,
+    };
+    setAccounts(prev => [...prev, creditCardAsAccount]);
+    setAccount(`${newCreditCard.name} (${newCreditCard.institution})`);
+    setShowAddCreditCardModal(false);
+  };
+
   // Fetch data from database on component mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch all required data in parallel
-        const [categoriesData, subcategoriesData, accountsData] = await Promise.all([
-          fetchBudgetCategories(isDemo),
-          fetchBudgetSubcategories(isDemo),
-          fetchAccounts(isDemo)
-        ]);
-
-        // Map the database results to the expected format
-        const mappedCategories = categoriesData.map((cat: any) => ({
-          ...cat,
-          limit: cat.budget_limit || 0,
-          bgColor: cat.bg_color || '#047857',
-          ringColor: cat.ring_color || '#10b981',
-          is_active: cat.is_active === 'true' || cat.is_active === true
-        }));
-
-        setBudgetCategories(mappedCategories);
-        setBudgetSubcategories(subcategoriesData);
-        setAccounts(accountsData);
-        
-        console.log('Fetched data:', {
-          categories: categoriesData.length,
-          subcategories: subcategoriesData.length,
-          accounts: accountsData.length
-        });
-
-        // Detailed logging with names
-        console.log('Categories:', mappedCategories.map(cat => cat.name));
-        console.log('Subcategories:', subcategoriesData.map(sub => sub.name));
-        console.log('Accounts:', accountsData.map(acc => `${acc.name} (${acc.institution})`));
-      } catch (error) {
-        console.error('Error fetching dropdown data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    refreshData();
   }, [isDemo]);
 
   // Effect to populate form fields when in edit mode
@@ -615,7 +651,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                       </Text>
                       <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <TouchableOpacity 
+                      style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setShowAddCategoryModal(true)}
+                    >
                       <Ionicons name="add" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
@@ -638,7 +677,20 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                       </Text>
                       <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <TouchableOpacity 
+                      style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => {
+                        if (!category) {
+                          Alert.alert('Select Category First', 'Please select a category before adding a subcategory');
+                          return;
+                        }
+                        const selectedCat = budgetCategories.find(cat => cat.name === category);
+                        if (selectedCat) {
+                          setSelectedCategoryForSubcategory(selectedCat);
+                          setShowAddSubcategoryModal(true);
+                        }
+                      }}
+                    >
                       <Ionicons name="add" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
@@ -718,7 +770,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                       </Text>
                       <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <TouchableOpacity 
+                      style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setShowAddAccountModal(true)}
+                    >
                       <Ionicons name="add" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
@@ -1183,6 +1238,43 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
               </TouchableWithoutFeedback>
             </Modal>
           )}
+
+          {/* Add Category Modal */}
+          <AddCategoryModal
+            visible={showAddCategoryModal}
+            onClose={() => setShowAddCategoryModal(false)}
+            onCategoryAdded={handleCategoryAdded}
+            transactionType={transactionType === 'income' ? 'income' : 'expense'}
+          />
+
+          {/* Add Subcategory Modal */}
+          <AddSubcategoryModal
+            visible={showAddSubcategoryModal}
+            onClose={() => setShowAddSubcategoryModal(false)}
+            onSubcategoryAdded={handleSubcategoryAdded}
+            parentCategory={selectedCategoryForSubcategory}
+          />
+
+          {/* Add Account Modal */}
+          <AddAccountModal
+            visible={showAddAccountModal}
+            onClose={() => setShowAddAccountModal(false)}
+            onAccountAdded={handleAccountAdded}
+          />
+
+          {/* Add Credit Card Modal */}
+          <AddCreditCardModal
+            visible={showAddCreditCardModal}
+            onClose={() => setShowAddCreditCardModal(false)}
+            onCreditCardAdded={handleCreditCardAdded}
+          />
+
+          {/* Add Account Modal */}
+          <AddAccountModal
+            visible={showAddAccountModal}
+            onClose={() => setShowAddAccountModal(false)}
+            onAccountAdded={handleAccountAdded}
+          />
         </ScrollView>
       );
 
