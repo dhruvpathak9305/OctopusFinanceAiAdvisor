@@ -54,6 +54,7 @@
 
 import { supabase } from "../lib/supabase/client";
 import type { Database } from "../types/supabase";
+import { TABLE_NAMES, getTableName } from '../constants/TableNames';
 import { addDays, subDays, startOfDay, endOfDay, format } from 'date-fns';
 import { 
   getTableMap, 
@@ -148,8 +149,8 @@ const buildTransactionSelectQuery = (tableMap: TableMap): string => {
 };
 
 // Helper function to get the appropriate table name
-const getTableName = (isDemo: boolean = false): string => {
-  return isDemo ? 'transactions' : 'transactions_real';
+const getTransactionTableName = (isDemo: boolean = false): string => {
+  return getTableName('TRANSACTIONS', isDemo);
 };
 
 // Helper function to build date range filters
@@ -271,8 +272,19 @@ export const fetchTransactions = async (
   isDemo: boolean = false
 ): Promise<Transaction[]> => {
   try {
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get the current user - try session first, then getUser
+    let user = null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      user = session?.user || null;
+      
+      if (!user) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        user = authUser;
+      }
+    } catch (authError) {
+      console.error('fetchTransactions - auth error:', authError);
+    }
     
     if (!user) {
       throw new Error("User not authenticated");
@@ -559,8 +571,19 @@ export const addTransaction = async (
   isDemo: boolean = false
 ): Promise<Transaction> => {
   try {
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get the current user - try session first, then getUser
+    let user = null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      user = session?.user || null;
+      
+      if (!user) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        user = authUser;
+      }
+    } catch (authError) {
+      console.error('addTransaction - auth error:', authError);
+    }
     
     if (!user) {
       throw new Error("User not authenticated");

@@ -4,6 +4,7 @@ import { useDemoMode } from './contexts/DemoModeContext';
 import { useAccounts } from './contexts/AccountsContext';
 import { formatAccountBalance, formatAccountBalanceShort } from './utils/currencyFormatter';
 import * as realDataHelper from './utils/realDataHelper';
+import { getTableName } from './constants/TableNames';
 
 /**
  * Real Data Verification Component
@@ -54,7 +55,7 @@ export const RealDataVerification: React.FC = () => {
         <View style={styles.statusRow}>
           <Text style={styles.label}>Table:</Text>
           <Text style={styles.value}>
-            {isDemo ? 'accounts (demo)' : 'accounts_real'}
+            {getTableName('ACCOUNTS', isDemo)}
           </Text>
         </View>
         <View style={styles.statusRow}>

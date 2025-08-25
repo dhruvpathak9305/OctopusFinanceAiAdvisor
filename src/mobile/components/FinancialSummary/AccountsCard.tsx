@@ -88,7 +88,7 @@ const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
 
   const handleViewAll = () => {
     // Navigate to accounts details page
-    (navigation as any).navigate('Money', { tab: 'accounts' });
+    (navigation as any).navigate('MobileAccounts');
   };
 
   const handleAddNew = () => {

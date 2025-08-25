@@ -87,10 +87,24 @@ const mapModelToDbAccount = (account: Account, userId: string) => {
 // Fetch all accounts for the current user
 export const fetchAccounts = async (isDemo: boolean = false): Promise<Account[]> => {
   try {
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get the current user - try session first, then getUser
+    let user = null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      user = session?.user || null;
+      console.log('fetchAccounts - session user:', user?.email);
+      
+      if (!user) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        user = authUser;
+        console.log('fetchAccounts - getUser result:', user?.email);
+      }
+    } catch (authError) {
+      console.error('fetchAccounts - auth error:', authError);
+    }
     
     if (!user) {
+      console.error('fetchAccounts - no user found in session or getUser');
       throw new Error("User not authenticated");
     }
     

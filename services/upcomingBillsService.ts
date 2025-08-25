@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase/client";
 import type { Database } from "../types/supabase";
 import { isAfter, isBefore, isEqual, startOfDay, endOfDay } from 'date-fns';
+import { getTableName } from '../constants/TableNames';
 import { 
   getTableMap, 
   validateTableConsistency, 
@@ -87,17 +88,7 @@ const buildUpcomingBillsSelectQuery = (tableMap: TableMap): string => {
   return selectClause;
 };
 
-// Helper function to get the appropriate table name (DEPRECATED)
-const getTableName = (isDemo: boolean = false): string => {
-  console.warn('getTableName in upcomingBillsService is deprecated. Use getTableMapping instead.');
-  return isDemo ? 'upcoming_bills' : 'upcoming_bills_real';
-};
-
-// Helper function to get the appropriate budget subcategories table name (DEPRECATED)  
-const getBudgetSubcategoriesTableName = (isDemo: boolean = false): string => {
-  console.warn('getBudgetSubcategoriesTableName is deprecated. Use getTableMapping instead.');
-  return isDemo ? 'budget_subcategories' : 'budget_subcategories_real';
-};
+// Note: Using tableMap approach instead of deprecated getTableName functions
 
 // Helper function to determine bill due status
 const getBillDueStatus = (dueDate: string): 'overdue' | 'today' | 'upcoming' => {

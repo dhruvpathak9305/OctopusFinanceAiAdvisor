@@ -4,6 +4,7 @@ import { useDemoMode } from './contexts/DemoModeContext';
 import { useAccounts } from './contexts/AccountsContext';
 import * as accountsService from './services/accountsService';
 import { supabase } from './lib/supabase/client';
+import { getTableName } from './constants/TableNames';
 
 /**
  * Debug component to troubleshoot accounts data fetching
@@ -36,8 +37,9 @@ export const DebugAccounts: React.FC = () => {
       console.log('👤 User:', user?.id, authError);
       
       // Check table access
+      const tableName = getTableName('ACCOUNTS', isDemo);
       const { data: tableData, error: tableError } = await supabase
-        .from('accounts_real')
+        .from(tableName)
         .select('count')
         .limit(1);
       

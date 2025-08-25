@@ -14,6 +14,7 @@ import { useDemoMode } from '../../../../contexts/DemoModeContext';
 import { fetchTransactions, deleteTransaction } from '../../../../services/transactionsService';
 import { Transaction as SupabaseTransaction } from '../../../../types/transactions';
 import { Ionicons } from '@expo/vector-icons';
+import QuickAddButton from '../../components/QuickAddButton';
 
 interface RecentTransactionsSectionProps {
   className?: string;
@@ -347,6 +348,8 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
 
   const colors = isDark ? {
     background: '#1F2937',
@@ -425,9 +428,14 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   };
 
   const handleEditTransaction = useCallback((transactionId: number | string) => {
-    // In a real app, this would open an edit dialog
-    Alert.alert('Edit Transaction', `Edit transaction ${transactionId}`);
-  }, []);
+    // Find the transaction to edit
+    const transactionToEdit = transactions.find(t => t.id === transactionId);
+    if (transactionToEdit) {
+      // Navigate to edit modal (you could also use a modal state here)
+      setEditingTransaction(transactionToEdit);
+      setIsEditModalVisible(true);
+    }
+  }, [transactions]);
 
   const handleDeleteTransaction = useCallback(async (transactionId: number | string) => {
     try {
@@ -445,6 +453,16 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     // Navigate to Transactions page
     (navigation as any).navigate('Transactions');
   };
+
+  const handleCloseEditModal = useCallback(() => {
+    setIsEditModalVisible(false);
+    setEditingTransaction(null);
+  }, []);
+
+  const handleTransactionUpdate = useCallback(() => {
+    // Refresh transactions after edit
+    fetchTransactionsData();
+  }, [fetchTransactionsData]);
 
   if (loading) {
     return (
@@ -523,6 +541,15 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
           )}
         </View>
       </View>
+
+      {/* Edit Modal */}
+      {isEditModalVisible && editingTransaction && (
+        <QuickAddButton
+          editTransaction={editingTransaction}
+          isEditMode={true}
+          onTransactionUpdate={handleTransactionUpdate}
+        />
+      )}
     </View>
   );
 };

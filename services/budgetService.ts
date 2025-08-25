@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { Database } from '../types/supabase';
+import { TABLE_NAMES, getTableName } from '../constants/TableNames';
 import { 
   getTableMap, 
   validateTableConsistency, 

@@ -110,7 +110,7 @@ const CreditCardCard: React.FC<CreditCardCardProps> = ({ backgroundImage }) => {
 
   const handleViewAll = () => {
     // Navigate to credit card details page
-    (navigation as any).navigate('Money', { tab: 'credit-cards' });
+    (navigation as any).navigate('MobileCredit');
   };
 
   const handleAddNew = () => {

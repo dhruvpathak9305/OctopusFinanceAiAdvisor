@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 
@@ -16,6 +17,12 @@ import MobilePortfolio from '../pages/MobilePortfolio';
 import MobileGoals from '../pages/MobileGoals';
 import MobileSettings from '../pages/MobileSettings';
 import MobileAuth from '../pages/MobileAuth';
+import MobileNetWorth from '../pages/MobileNetWorth';
+import MobileAccounts from '../pages/MobileAccounts';
+import MobileCredit from '../pages/MobileCredit';
+import MobileTravel from '../pages/MobileTravel';
+import MobileDateFilter from '../pages/MobileDateFilter';
+import ScrollableBottomNav from '../components/navigation/ScrollableBottomNav';
 
 // Navigation Types
 export type MobileTabParamList = {
@@ -31,6 +38,11 @@ export type MobileStackParamList = {
   Auth: undefined;
   DashboardMain: undefined;
   Transactions: undefined;
+  MobileNetWorth: { showAddAssetModal?: boolean } | undefined;
+  MobileAccounts: undefined;
+  MobileCredit: undefined;
+  MobileTravel: undefined;
+  MobileDateFilter: undefined;
 };
 
 const Tab = createBottomTabNavigator<MobileTabParamList>();
@@ -73,108 +85,71 @@ const DashboardStack: React.FC = () => {
   );
 };
 
-// Main Tab Navigator
+// Custom Tab Navigator with Scrollable Bottom Nav
 const MainTabNavigator: React.FC = () => {
-  const { isDark } = useTheme();
-  const theme = isDark ? darkTheme : lightTheme;
-  
-  return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false, // Disable all React Navigation headers
-        tabBarStyle: {
-          backgroundColor: theme.tabBar,
-          borderTopColor: theme.tabBarBorder,
-          height: 90,
-          paddingBottom: 25,
-          paddingTop: 10,
-        },
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.textSecondary,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
-      }}
-    >
-      <Tab.Screen 
-        name="Home" 
-        options={{
-          title: 'Home',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏠</Text>,
-        }}
-      >
-        {() => (
+  const [activeTab, setActiveTab] = React.useState('Dashboard');
+  const navigation = useNavigation();
+
+  const renderActiveScreen = () => {
+    switch (activeTab) {
+      case 'Home':
+        return (
           <ScreenWithHeader showSignIn={true}>
             <MobileHome />
           </ScreenWithHeader>
-        )}
-      </Tab.Screen>
-      
-      <Tab.Screen 
-        name="Dashboard" 
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>📊</Text>,
-        }}
-      >
-        {() => (
+        );
+      case 'Dashboard':
+        return (
           <ScreenWithHeader>
             <MobileRequireAuth>
               <DashboardStack />
             </MobileRequireAuth>
           </ScreenWithHeader>
-        )}
-      </Tab.Screen>
-      
-      <Tab.Screen 
-        name="Portfolio" 
-        options={{
-          title: 'Portfolio',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>📈</Text>,
-        }}
-      >
-        {() => (
+        );
+      case 'Portfolio':
+        return (
           <ScreenWithHeader>
             <MobileRequireAuth>
               <MobilePortfolio />
             </MobileRequireAuth>
           </ScreenWithHeader>
-        )}
-      </Tab.Screen>
-      
-      <Tab.Screen 
-        name="Goals" 
-        options={{
-          title: 'Goals',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🎯</Text>,
-        }}
-      >
-        {() => (
+        );
+      case 'Goals':
+        return (
           <ScreenWithHeader>
             <MobileRequireAuth>
               <MobileGoals />
             </MobileRequireAuth>
           </ScreenWithHeader>
-        )}
-      </Tab.Screen>
-      
-      <Tab.Screen 
-        name="Settings" 
-        options={{
-          title: 'Settings',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>⚙️</Text>,
-        }}
-      >
-        {() => (
+        );
+      case 'Settings':
+        return (
           <ScreenWithHeader>
             <MobileRequireAuth>
               <MobileSettings />
             </MobileRequireAuth>
           </ScreenWithHeader>
-        )}
-      </Tab.Screen>
-    </Tab.Navigator>
+        );
+      default:
+        return (
+          <ScreenWithHeader>
+            <MobileRequireAuth>
+              <DashboardStack />
+            </MobileRequireAuth>
+          </ScreenWithHeader>
+        );
+    }
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      {renderActiveScreen()}
+      <ScrollableBottomNav
+        activeTab={activeTab}
+        onTabPress={setActiveTab}
+        navigation={navigation}
+      />
+    </View>
   );
 };
 
@@ -206,6 +181,41 @@ const MobileRouter: React.FC = () => {
           },
         }}
       />
+                <Stack.Screen
+            name="MobileNetWorth"
+            component={MobileNetWorth}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="MobileAccounts"
+            component={MobileAccounts}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="MobileCredit"
+            component={MobileCredit}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="MobileTravel"
+            component={MobileTravel}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="MobileDateFilter"
+            component={MobileDateFilter}
+            options={{
+              headerShown: false,
+            }}
+          />
     </Stack.Navigator>
   );
 };

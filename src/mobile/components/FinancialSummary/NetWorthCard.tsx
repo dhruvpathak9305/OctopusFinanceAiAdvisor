@@ -132,12 +132,12 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
 
   const handleViewAll = () => {
     // Navigate to net worth details page
-    (navigation as any).navigate('Money', { tab: 'net-worth' });
+    (navigation as any).navigate('MobileNetWorth');
   };
 
   const handleAddNew = () => {
-    // Navigate to add net worth entry
-    (navigation as any).navigate('Money', { tab: 'net-worth', action: 'add' });
+    // Navigate to Net Worth screen and trigger add asset modal
+    (navigation as any).navigate('MobileNetWorth', { showAddAssetModal: true });
   };
 
   return (
