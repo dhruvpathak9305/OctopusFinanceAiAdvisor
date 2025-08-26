@@ -4,6 +4,7 @@ import { useAccounts } from '../../../../contexts/AccountsContext';
 import { fetchAccountsHistory } from '../../../../services/accountsService';
 import { useDemoMode } from '../../../../contexts/DemoModeContext';
 import FinancialSummaryCard from './FinancialSummaryCard';
+import AddAccountModal from '../AddAccountModal';
 
 interface AccountsCardProps {
   backgroundImage?: string;
@@ -11,10 +12,11 @@ interface AccountsCardProps {
 
 const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
   const navigation = useNavigation();
-  const { accounts, loading, error } = useAccounts();
+  const { accounts, loading, error, refreshAccounts } = useAccounts();
   const { isDemo } = useDemoMode();
   const [chartData, setChartData] = useState<Array<{ month: string; value: number }>>([]);
   const [chartLoading, setChartLoading] = useState(true);
+  const [showAddAccountModal, setShowAddAccountModal] = useState(false);
 
   // Filter out credit cards and loans (liabilities) - matching working component
   const bankAccounts = accounts.filter(account => 
@@ -92,24 +94,36 @@ const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
   };
 
   const handleAddNew = () => {
-    // Navigate to add account
-    (navigation as any).navigate('Money', { tab: 'accounts', action: 'add' });
+    setShowAddAccountModal(true);
+  };
+
+  const handleAccountAdded = (newAccount: any) => {
+    refreshAccounts();
+    setShowAddAccountModal(false);
   };
 
   return (
-    <FinancialSummaryCard
-      title="Accounts"
-      icon="🏛️"
-      data={chartData}
-      total={totalBalance}
-      monthlyChange={monthlyChange}
-      themeColor={chartLineColor}
-      loading={loading || chartLoading}
-      error={error}
-      onViewAll={handleViewAll}
-      onAddNew={handleAddNew}
-      backgroundImage={backgroundImage}
-    />
+    <>
+      <FinancialSummaryCard
+        title="Accounts"
+        icon="🏛️"
+        data={chartData}
+        total={totalBalance}
+        monthlyChange={monthlyChange}
+        themeColor={chartLineColor}
+        loading={loading || chartLoading}
+        error={error}
+        onViewAll={handleViewAll}
+        onAddNew={handleAddNew}
+        backgroundImage={backgroundImage}
+      />
+      
+      <AddAccountModal
+        visible={showAddAccountModal}
+        onClose={() => setShowAddAccountModal(false)}
+        onAccountAdded={handleAccountAdded}
+      />
+    </>
   );
 };
 

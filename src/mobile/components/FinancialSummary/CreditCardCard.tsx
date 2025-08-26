@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { fetchTransactions, fetchTransactionSummary } from '../../../../services/transactionsService';
 import { useDemoMode } from '../../../../contexts/DemoModeContext';
 import FinancialSummaryCard from './FinancialSummaryCard';
+import AddCreditCardModal from '../AddCreditCardModal';
 
 interface CreditCardCardProps {
   backgroundImage?: string;
@@ -16,6 +17,7 @@ const CreditCardCard: React.FC<CreditCardCardProps> = ({ backgroundImage }) => {
   const [chartData, setChartData] = useState<Array<{ month: string; value: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddCreditCardModal, setShowAddCreditCardModal] = useState(false);
 
   // Fetch credit card debt data
   useEffect(() => {
@@ -114,24 +116,36 @@ const CreditCardCard: React.FC<CreditCardCardProps> = ({ backgroundImage }) => {
   };
 
   const handleAddNew = () => {
-    // Navigate to add credit card
-    (navigation as any).navigate('Money', { tab: 'credit-cards', action: 'add' });
+    setShowAddCreditCardModal(true);
+  };
+
+  const handleCreditCardAdded = (newCreditCard: any) => {
+    // Refresh credit card data after adding
+    setShowAddCreditCardModal(false);
   };
 
   return (
-    <FinancialSummaryCard
-      title="Credit Card Debt"
-      icon="💳"
-      data={chartData}
-      total={creditCardDebt}
-      monthlyChange={monthlyChange}
-      themeColor="#EF4444"
-      loading={loading}
-      error={error}
-      onViewAll={handleViewAll}
-      onAddNew={handleAddNew}
-      backgroundImage={backgroundImage}
-    />
+    <>
+      <FinancialSummaryCard
+        title="Credit Card Debt"
+        icon="💳"
+        data={chartData}
+        total={creditCardDebt}
+        monthlyChange={monthlyChange}
+        themeColor="#EF4444"
+        loading={loading}
+        error={error}
+        onViewAll={handleViewAll}
+        onAddNew={handleAddNew}
+        backgroundImage={backgroundImage}
+      />
+      
+      <AddCreditCardModal
+        visible={showAddCreditCardModal}
+        onClose={() => setShowAddCreditCardModal(false)}
+        onCreditCardAdded={handleCreditCardAdded}
+      />
+    </>
   );
 };
 

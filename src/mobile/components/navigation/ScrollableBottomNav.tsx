@@ -73,7 +73,7 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
       title: 'Travel',
       icon: 'airplane',
       color: '#8B5CF6',
-      onPress: () => navigation.navigate('MobileTravel'),
+      onPress: () => onTabPress('Travel'),
     },
     {
       id: 'Date',

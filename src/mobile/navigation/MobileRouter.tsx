@@ -1,28 +1,32 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import React from "react";
+import { View, Text } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createStackNavigator } from "@react-navigation/stack";
 
-import MobileHeader from '../components/navigation/MobileHeader';
-import MobileRequireAuth from '../../../components/auth/MobileRequireAuth';
-import { useTheme, darkTheme, lightTheme } from '../../../contexts/ThemeContext';
-import TransactionsErrorBoundary from '../pages/MobileTransactions/TransactionsErrorBoundary';
+import MobileHeader from "../components/navigation/MobileHeader";
+import MobileRequireAuth from "../../../components/auth/MobileRequireAuth";
+import {
+  useTheme,
+  darkTheme,
+  lightTheme,
+} from "../../../contexts/ThemeContext";
+import TransactionsErrorBoundary from "../pages/MobileTransactions/TransactionsErrorBoundary";
 
 // Import mobile pages that exist and work
-import MobileHome from '../pages/MobileHome';
-import MobileDashboard from '../pages/MobileDashboard';
-import MobileTransactions from '../pages/MobileTransactions';
-import MobilePortfolio from '../pages/MobilePortfolio';
-import MobileGoals from '../pages/MobileGoals';
-import MobileSettings from '../pages/MobileSettings';
-import MobileAuth from '../pages/MobileAuth';
-import MobileNetWorth from '../pages/MobileNetWorth';
-import MobileAccounts from '../pages/MobileAccounts';
-import MobileCredit from '../pages/MobileCredit';
-import MobileTravel from '../pages/MobileTravel';
-import MobileDateFilter from '../pages/MobileDateFilter';
-import ScrollableBottomNav from '../components/navigation/ScrollableBottomNav';
+import MobileHome from "../pages/MobileHome";
+import MobileDashboard from "../pages/MobileDashboard";
+import MobileTransactions from "../pages/MobileTransactions";
+import MobilePortfolio from "../pages/MobilePortfolio";
+import MobileGoals from "../pages/MobileGoals";
+import MobileSettings from "../pages/MobileSettings";
+import MobileAuth from "../pages/MobileAuth";
+import MobileNetWorth from "../pages/MobileNetWorth";
+import MobileAccounts from "../pages/MobileAccounts";
+import MobileCredit from "../pages/MobileCredit";
+import MobileTravel from "../pages/MobileTravel";
+import MobileDateFilter from "../pages/MobileDateFilter";
+import ScrollableBottomNav from "../components/navigation/ScrollableBottomNav";
 
 // Navigation Types
 export type MobileTabParamList = {
@@ -31,6 +35,7 @@ export type MobileTabParamList = {
   Portfolio: undefined;
   Goals: undefined;
   Settings: undefined;
+  Travel: undefined;
 };
 
 export type MobileStackParamList = {
@@ -49,8 +54,8 @@ const Tab = createBottomTabNavigator<MobileTabParamList>();
 const Stack = createStackNavigator<MobileStackParamList>();
 
 // Wrapper component that adds header to screens
-const ScreenWithHeader: React.FC<{ 
-  children: React.ReactNode; 
+const ScreenWithHeader: React.FC<{
+  children: React.ReactNode;
   showSignIn?: boolean;
 }> = ({ children, showSignIn = true }) => {
   return (
@@ -69,12 +74,9 @@ const DashboardStack: React.FC = () => {
         headerShown: false,
       }}
     >
-      <Stack.Screen 
-        name="DashboardMain" 
-        component={MobileDashboard}
-      />
-      <Stack.Screen 
-        name="Transactions" 
+      <Stack.Screen name="DashboardMain" component={MobileDashboard} />
+      <Stack.Screen
+        name="Transactions"
         component={() => (
           <TransactionsErrorBoundary>
             <MobileTransactions />
@@ -87,18 +89,18 @@ const DashboardStack: React.FC = () => {
 
 // Custom Tab Navigator with Scrollable Bottom Nav
 const MainTabNavigator: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState('Dashboard');
+  const [activeTab, setActiveTab] = React.useState("Dashboard");
   const navigation = useNavigation();
 
   const renderActiveScreen = () => {
     switch (activeTab) {
-      case 'Home':
+      case "Home":
         return (
           <ScreenWithHeader showSignIn={true}>
             <MobileHome />
           </ScreenWithHeader>
         );
-      case 'Dashboard':
+      case "Dashboard":
         return (
           <ScreenWithHeader>
             <MobileRequireAuth>
@@ -106,7 +108,7 @@ const MainTabNavigator: React.FC = () => {
             </MobileRequireAuth>
           </ScreenWithHeader>
         );
-      case 'Portfolio':
+      case "Portfolio":
         return (
           <ScreenWithHeader>
             <MobileRequireAuth>
@@ -114,7 +116,7 @@ const MainTabNavigator: React.FC = () => {
             </MobileRequireAuth>
           </ScreenWithHeader>
         );
-      case 'Goals':
+      case "Goals":
         return (
           <ScreenWithHeader>
             <MobileRequireAuth>
@@ -122,11 +124,19 @@ const MainTabNavigator: React.FC = () => {
             </MobileRequireAuth>
           </ScreenWithHeader>
         );
-      case 'Settings':
+      case "Settings":
         return (
           <ScreenWithHeader>
             <MobileRequireAuth>
               <MobileSettings />
+            </MobileRequireAuth>
+          </ScreenWithHeader>
+        );
+      case "Travel":
+        return (
+          <ScreenWithHeader>
+            <MobileRequireAuth>
+              <MobileTravel />
             </MobileRequireAuth>
           </ScreenWithHeader>
         );
@@ -161,63 +171,60 @@ const MobileRouter: React.FC = () => {
         headerShown: false,
       }}
     >
-      <Stack.Screen 
-        name="Main" 
-        component={MainTabNavigator}
-      />
-      <Stack.Screen 
-        name="Auth" 
+      <Stack.Screen name="Main" component={MainTabNavigator} />
+      <Stack.Screen
+        name="Auth"
         component={MobileAuth}
         options={{
-          presentation: 'modal',
+          presentation: "modal",
           headerShown: true,
-          headerTitle: 'Account Access',
+          headerTitle: "Account Access",
           headerStyle: {
-            backgroundColor: '#0B1426',
+            backgroundColor: "#0B1426",
           },
-          headerTintColor: '#10B981',
+          headerTintColor: "#10B981",
           headerTitleStyle: {
-            color: '#FFFFFF',
+            color: "#FFFFFF",
           },
         }}
       />
-                <Stack.Screen
-            name="MobileNetWorth"
-            component={MobileNetWorth}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="MobileAccounts"
-            component={MobileAccounts}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="MobileCredit"
-            component={MobileCredit}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="MobileTravel"
-            component={MobileTravel}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="MobileDateFilter"
-            component={MobileDateFilter}
-            options={{
-              headerShown: false,
-            }}
-          />
+      <Stack.Screen
+        name="MobileNetWorth"
+        component={MobileNetWorth}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MobileAccounts"
+        component={MobileAccounts}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MobileCredit"
+        component={MobileCredit}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MobileTravel"
+        component={MobileTravel}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MobileDateFilter"
+        component={MobileDateFilter}
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 };
 
-export default MobileRouter; 
+export default MobileRouter;

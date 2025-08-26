@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
+import BudgetCategoryDetailModal from '../../components/BudgetCategoryDetailModal';
 
 // Mock data for budget categories
 const mockBudgetData = {
@@ -289,6 +290,8 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({ className
   const [typeFilter, setTypeFilter] = useState<BudgetType>('expense');
   const [activeBudgetSubcategory, setActiveBudgetSubcategory] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
 
   const colors = isDark ? {
     background: '#1F2937',
@@ -347,6 +350,32 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({ className
     return mockBudgetData[typeFilter] || [];
   };
 
+  const handleCategoryPress = (category: any) => {
+    // Convert the category to match the expected format for the modal
+    const categoryForModal = {
+      id: category.name.toLowerCase().replace(/ /g, '-'),
+      user_id: "user-1",
+      name: category.name,
+      budget_limit: category.limit,
+      ring_color: category.color,
+      bg_color: category.color,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      display_order: null,
+      description: null,
+      status: "active",
+      start_date: new Date().toISOString(),
+      frequency: "monthly",
+      strategy: "zero-based",
+      is_active: "true",
+      percentage: category.percentage,
+      category_type: typeFilter === 'expense' ? 'expense' : 'income',
+    };
+
+    setSelectedCategory(categoryForModal);
+    setShowDetailModal(true);
+  };
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -390,7 +419,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({ className
           <TouchableOpacity
             key={`${category.name}-${index}`}
             style={[styles.categoryCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => toggleSubcategories(index)}
+            onPress={() => handleCategoryPress(category)}
           >
             {/* Category Icon */}
             <View style={[styles.categoryIcon, { backgroundColor: `${category.color}20` }]}>
@@ -417,31 +446,12 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({ className
         ))}
       </View>
 
-      {/* Subcategory Details */}
-      {activeBudgetSubcategory !== null && currentCategories[activeBudgetSubcategory] && (
-        <View style={[styles.subcategoryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.subcategoryHeader}>
-            <View style={styles.subcategoryTitle}>
-              <View style={[styles.subcategoryColor, { backgroundColor: currentCategories[activeBudgetSubcategory].color }]} />
-              <Text style={[styles.subcategoryTitleText, { color: colors.text }]}>
-                {currentCategories[activeBudgetSubcategory].name}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setActiveBudgetSubcategory(null)}
-              style={styles.closeButton}
-            >
-              <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.subcategoryContent}>
-            <Text style={[styles.subcategoryText, { color: colors.textSecondary }]}>
-              Detailed information for {currentCategories[activeBudgetSubcategory].name} category.
-            </Text>
-          </View>
-        </View>
-      )}
+      {/* Budget Category Detail Modal */}
+      <BudgetCategoryDetailModal
+        visible={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        category={selectedCategory}
+      />
     </View>
   );
 };
