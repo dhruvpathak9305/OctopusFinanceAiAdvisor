@@ -43,10 +43,11 @@ export const getProgressColor = (
 ): string => {
   const percentage = calculatePercentage(spent, limit);
 
-  // Simplified Quick Actions palette (3 colors as specified)
-  if (percentage > 100) return "#EF4444"; // 🔴 Red - Over Budget
-  if (percentage >= 70) return "#F59E0B"; // 🟡 Yellow - Warning (70-100%)
-  return "#10B981"; // 🟢 Green - Safe (<70%)
+  // Updated color thresholds as requested:
+  // <50% Green, 51-80% Yellow, 80%+ Red
+  if (percentage > 80) return "#EF4444"; // 🔴 Red - Over 80%
+  if (percentage > 50) return "#F59E0B"; // 🟡 Yellow - 51-80%
+  return "#10B981"; // 🟢 Green - Under 50%
 };
 
 /**

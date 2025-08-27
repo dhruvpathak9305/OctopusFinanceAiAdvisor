@@ -93,7 +93,7 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
           {subcategory.name}
         </Text>
 
-        {/* Circular progress with percentage inside only */}
+        {/* Circular progress with pending amount overlay */}
         <View style={styles.progressContainer}>
           <CircularProgress
             percentage={Math.min(percentage, 100)}
@@ -104,13 +104,26 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
           />
         </View>
 
-        {/* Supporting budget text */}
-        <Text
-          style={[styles.gridAmount, { color: colors.textSecondary }]}
-          numberOfLines={1}
-        >
-          {formatCurrency(subcategory.current_spend || 0, 0)} / {formatCurrency(subcategory.amount, 0)}
-        </Text>
+        {/* Supporting budget text with remaining amount */}
+        <View style={styles.gridAmountContainer}>
+          <Text
+            style={[styles.gridAmount, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            {formatCurrency(subcategory.current_spend || 0, 0)} / {formatCurrency(subcategory.amount, 0)}
+          </Text>
+          <Text
+            style={[
+              styles.gridRemaining,
+              {
+                color: progressColor,
+              }
+            ]}
+            numberOfLines={1}
+          >
+            {formatCurrency(Math.abs(remaining), 0)} {remaining >= 0 ? "left" : "over"}
+          </Text>
+        </View>
       </TouchableOpacity>
     );
   }
@@ -130,6 +143,16 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
       delayPressIn={0}
       delayPressOut={50}
     >
+      {/* Subtle edit button - top right */}
+      <View
+        style={[
+          styles.listEditButtonTopRight,
+          { backgroundColor: colors.border + "60" }, // More subtle background
+        ]}
+      >
+        <Ionicons name="pencil" size={8} color={colors.textSecondary} />
+      </View>
+
       {/* Header row */}
       <View style={styles.listHeader}>
         {/* Icon container */}
@@ -156,25 +179,22 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
           <Text style={[styles.listName, { color: colors.text }]}>
             {subcategory.name}
           </Text>
-          <Text style={[styles.listAmount, { color: colors.textSecondary }]}>
-            {formatCurrency(subcategory.current_spend || 0)} /{" "}
-            {formatCurrency(subcategory.amount)}({Math.round(percentage)}
-            %)
-          </Text>
-        </View>
-
-        {/* Actions section - only edit button, no circular progress */}
-        <View style={styles.listActions}>
-          <TouchableOpacity
-            style={[
-              styles.listEditButton,
-              { backgroundColor: colors.primary + "20" },
-            ]}
-            onPress={onEdit}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="pencil" size={14} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.listAmountContainer}>
+            <Text style={[styles.listAmount, { color: colors.textSecondary }]}>
+              {formatCurrency(subcategory.current_spend || 0)} /{" "}
+              {formatCurrency(subcategory.amount)} ({Math.round(percentage)}%)
+            </Text>
+            <Text
+              style={[
+                styles.listPending,
+                { 
+                  color: progressColor,
+                }
+              ]}
+            >
+              {formatCurrency(Math.abs(remaining), 0)} {remaining >= 0 ? "left" : "over"}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -193,17 +213,6 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
             ]}
           />
         </View>
-        <Text
-          style={[
-            styles.remainingText,
-            {
-              color: remaining >= 0 ? colors.success : colors.error,
-            },
-          ]}
-        >
-          {formatCurrency(Math.abs(remaining), 0)}{" "}
-          {remaining >= 0 ? "left" : "over"}
-        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -266,11 +275,21 @@ const styles = StyleSheet.create({
     minHeight: 24, // Reduced for compactness
     lineHeight: 14,
   },
+  gridAmountContainer: {
+    alignItems: "center",
+    gap: 2, // Small gap between budget and remaining
+  },
   gridAmount: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "400", // Lighter supporting text
     textAlign: "center",
-    opacity: 0.8,
+    opacity: 0.7,
+    letterSpacing: 0.2,
+  },
+  gridRemaining: {
+    fontSize: 10,
+    fontWeight: "600", // Make remaining more prominent
+    textAlign: "center",
     letterSpacing: 0.2,
   },
 
@@ -280,6 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 8,
+    position: "relative", // Enable absolute positioning for edit button
     // Quick Actions card styling
     elevation: 3,
     shadowColor: '#000',
@@ -312,23 +332,31 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 5, // Match Quick Actions spacing
   },
+  listAmountContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   listAmount: {
     fontSize: 11, // Match Quick Actions action subtitle
     opacity: 0.8,
     lineHeight: 14, // Match Quick Actions line height
+    flex: 1,
   },
-  listActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end", // Align edit button to the right
+  listPending: {
+    fontSize: 11,
+    fontWeight: "600", // Make pending more prominent
+    lineHeight: 14,
   },
-  listEditButton: {
-    padding: 8,
-    borderRadius: 10,
-    minWidth: 32,
-    minHeight: 32,
-    justifyContent: "center",
-    alignItems: "center",
+  listEditButtonTopRight: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    padding: 3, // Even smaller for maximum subtlety
+    borderRadius: 6,
+    zIndex: 1,
+    opacity: 0.8, // Slightly transparent for subtlety
   },
   progressBarContainer: {
     flexDirection: "row",
@@ -344,12 +372,7 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
   },
-  remainingText: {
-    fontSize: 12,
-    fontWeight: "600",
-    minWidth: 70,
-    textAlign: "right",
-  },
 });
 
 export default SubCategoryCard;
+

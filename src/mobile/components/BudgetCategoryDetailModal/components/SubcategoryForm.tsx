@@ -87,7 +87,6 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-
         {/* Main Form Card */}
         <View
           style={[
@@ -172,7 +171,6 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="decimal-pad"
-                returnKeyType="next"
               />
             </View>
             {form.errors.amount && (
@@ -208,7 +206,6 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
                   placeholder="0.00"
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="decimal-pad"
-                  returnKeyType="next"
                 />
               </View>
             </View>
@@ -237,7 +234,6 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
                   placeholder="0.00"
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="decimal-pad"
-                  returnKeyType="next"
                 />
               </View>
             </View>
@@ -349,7 +345,6 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
                   placeholder="0"
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="number-pad"
-                  returnKeyType="next"
                 />
               </View>
 
@@ -424,22 +419,22 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
           { backgroundColor: colors.background, borderTopColor: colors.border },
         ]}
       >
-        <View style={[styles.buttonRow, !isEditMode && styles.buttonRowSingle]}>
+        <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[
               styles.saveButton,
               !isEditMode && styles.saveButtonFull,
               {
-                backgroundColor: form.isValid ? colors.primary : colors.border,
-                opacity: form.isValid ? 1 : 0.5,
+                backgroundColor: colors.primary, // Always use primary color
+                opacity: form.isSubmitting ? 0.7 : 1, // Only dim when submitting
               },
             ]}
             onPress={handleSave}
-            disabled={!form.isValid || form.isSubmitting}
+            disabled={form.isSubmitting} // Only disable when submitting
             activeOpacity={0.7}
           >
             <Text style={styles.saveButtonText}>
-              {isEditMode ? "Update" : "Create"}
+              {isEditMode ? "Update" : "Add"}
             </Text>
           </TouchableOpacity>
 
@@ -487,7 +482,8 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12, // Reduced from 16
+    paddingTop: 16, // Add top padding between header and form
   },
   header: {
     paddingTop: 8,
@@ -503,8 +499,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 20,
-    marginBottom: 16,
+    padding: 16, // Reduced from 20
+    marginBottom: 12, // Reduced from 16
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -512,23 +508,23 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   fieldGroup: {
-    marginBottom: 20,
+    marginBottom: 16, // Reduced from 20
   },
   fieldLabel: {
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: 6, // Reduced from 8
   },
   required: {
     color: "#EF4444",
   },
   textInput: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingHorizontal: 14, // Reduced from 16
+    paddingVertical: 12, // Reduced from 14
+    borderRadius: 10, // Reduced from 12
     borderWidth: 1,
-    fontSize: 16,
-    minHeight: 50,
+    fontSize: 14, // Reduced from 16
+    minHeight: 44, // Reduced from 50
   },
   inputError: {
     borderColor: "#EF4444",
@@ -541,25 +537,25 @@ const styles = StyleSheet.create({
   currencyContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 12,
+    borderRadius: 10, // Reduced from 12
     borderWidth: 1,
-    paddingLeft: 16,
-    minHeight: 50,
+    paddingLeft: 14, // Reduced from 16
+    minHeight: 44, // Reduced from 50
   },
   currencySymbol: {
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16
     fontWeight: "600",
-    marginRight: 8,
+    marginRight: 6, // Reduced from 8
   },
   currencyInput: {
     flex: 1,
-    paddingVertical: 14,
-    paddingRight: 16,
-    fontSize: 16,
+    paddingVertical: 12, // Reduced from 14
+    paddingRight: 14, // Reduced from 16
+    fontSize: 14, // Reduced from 16
   },
   row: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10, // Reduced from 12
   },
   halfWidth: {
     flex: 1,
@@ -567,12 +563,12 @@ const styles = StyleSheet.create({
   selectorButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 14, // Reduced from 16
+    paddingVertical: 10, // Reduced from 12
+    borderRadius: 10, // Reduced from 12
     borderWidth: 1,
-    gap: 12,
-    minHeight: 50,
+    gap: 10, // Reduced from 12
+    minHeight: 44, // Reduced from 50
   },
   selectedIconContainer: {
     width: 24,
@@ -591,16 +587,16 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   settingsSectionTitle: {
-    fontSize: 18,
+    fontSize: 16, // Reduced from 18
     fontWeight: "700",
-    marginBottom: 16,
+    marginBottom: 12, // Reduced from 16
   },
   settingsContainer: {
-    gap: 16,
+    gap: 12, // Reduced from 16
   },
   settingsRow: {
     flexDirection: "row",
-    gap: 16,
+    gap: 12, // Reduced from 16
   },
   settingsField: {
     flex: 1,
@@ -616,11 +612,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   settingsFieldInput: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 10, // Reduced from 12
+    paddingVertical: 8, // Reduced from 10
+    borderRadius: 6, // Reduced from 8
     borderWidth: 1,
-    fontSize: 14,
+    fontSize: 13, // Reduced from 14
   },
   settingsToggleContainer: {
     flexDirection: "row",
@@ -635,17 +631,15 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   footer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingHorizontal: 12, // Reduced from 16
+    paddingTop: 12, // Reduced from 16
+    paddingBottom: 20, // Reduced from 32
     borderTopWidth: 1,
+    marginTop: 6, // Reduced from 8
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 12,
-  },
-  buttonRowSingle: {
-    flexDirection: "column",
+    gap: 10, // Reduced from 12
   },
   saveButton: {
     flex: 2,
@@ -660,7 +654,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   saveButtonFull: {
-    flex: 1,
+    flex: 1, // Only affects flex, doesn't override background color
   },
   saveButtonText: {
     color: "#FFFFFF",

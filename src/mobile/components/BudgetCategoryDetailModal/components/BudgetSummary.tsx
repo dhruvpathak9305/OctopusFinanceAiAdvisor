@@ -79,7 +79,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
           </Text>
         </View>
 
-        {/* Central circular progress - percentage only inside */}
+        {/* Central circular progress with pending amount */}
         <View style={styles.progressContainer}>
           <CircularProgress
             percentage={Math.min(totalPercentage, 100)}
@@ -88,6 +88,17 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
             color={progressColor}
             backgroundColor={colors.border + "30"}
           />
+          <Text
+            style={[
+              styles.pendingAmount,
+              {
+                color: progressColor, // Match the circular progress bar color
+              },
+            ]}
+          >
+            {formatCurrency(Math.abs(totalBudget - totalSpent), 0)}{" "}
+            {totalBudget - totalSpent >= 0 ? "left" : "over"}
+          </Text>
         </View>
 
         {/* Budget limit */}
@@ -204,6 +215,18 @@ const styles = StyleSheet.create({
     fontWeight: "800", // Bold like Quick Actions
     letterSpacing: -0.3,
     color: "#FFFFFF", // Fixed white for better contrast
+  },
+  progressPercentage: {
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  pendingAmount: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 4,
+    textAlign: "center",
+    letterSpacing: 0.2,
   },
   // Removed status-related styles as per requirements
 });

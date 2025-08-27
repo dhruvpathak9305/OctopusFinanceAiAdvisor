@@ -68,7 +68,7 @@ const getInitialFormState = (): SubCategoryFormState => ({
   isActive: true,
   transactionCategoryId: "",
   errors: {},
-  isValid: false,
+  isValid: true, // Start as valid since we don't validate until submit
   isSubmitting: false,
 });
 
@@ -78,15 +78,16 @@ export const useSubcategoryForm = (): SubCategoryFormState &
     getInitialFormState()
   );
 
-  // Field update functions with validation
+  // No auto-validation - only validate on submit for better UX
+
+  // Field update functions - clear errors when user starts typing
   const updateName = (name: string) => {
-    const validation = validateField("name", name);
     setFormState((prev) => ({
       ...prev,
       name,
       errors: {
         ...prev.errors,
-        name: validation.isValid ? "" : validation.error || "",
+        name: "", // Clear existing error when user starts typing
       },
     }));
   };
@@ -104,39 +105,36 @@ export const useSubcategoryForm = (): SubCategoryFormState &
 
   const updateAmount = (amount: string) => {
     const formatted = formatNumericInput(amount);
-    const validation = validateField("amount", formatted);
     setFormState((prev) => ({
       ...prev,
       amount: formatted,
       errors: {
         ...prev.errors,
-        amount: validation.isValid ? "" : validation.error || "",
+        amount: "", // Clear existing error when user starts typing
       },
     }));
   };
 
   const updateCurrentSpend = (amount: string) => {
     const formatted = formatNumericInput(amount);
-    const validation = validateField("currentSpend", formatted);
     setFormState((prev) => ({
       ...prev,
       currentSpend: formatted,
       errors: {
         ...prev.errors,
-        currentSpend: validation.isValid ? "" : validation.error || "",
+        currentSpend: "", // Clear existing error when user starts typing
       },
     }));
   };
 
   const updateBudgetLimit = (amount: string) => {
     const formatted = formatNumericInput(amount);
-    const validation = validateField("budgetLimit", formatted);
     setFormState((prev) => ({
       ...prev,
       budgetLimit: formatted,
       errors: {
         ...prev.errors,
-        budgetLimit: validation.isValid ? "" : validation.error || "",
+        budgetLimit: "", // Clear existing error when user starts typing
       },
     }));
   };
@@ -294,36 +292,13 @@ export const useSubcategoryForm = (): SubCategoryFormState &
       } catch (error) {
         Alert.alert("Error", "Failed to save subcategory. Please try again.");
       }
-    } else {
-      Alert.alert(
-        "Validation Error",
-        "Please fix the errors before submitting."
-      );
     }
+    // If validation fails, errors are already set in state and will be displayed
 
     setFormState((prev) => ({ ...prev, isSubmitting: false }));
   };
 
-  // Auto-validate on form changes
-  useEffect(() => {
-    if (formState.name || formState.amount) {
-      // Only validate if user has started filling the form
-      const hasData = formState.name.trim() || formState.amount.trim();
-      if (hasData) {
-        validateForm();
-      }
-    }
-  }, [
-    formState.name,
-    formState.amount,
-    formState.currentSpend,
-    formState.budgetLimit,
-    formState.icon,
-    formState.color,
-    formState.displayOrder,
-    formState.isActive,
-    formState.transactionCategoryId,
-  ]);
+  // No auto-validation - only validate when user clicks submit
 
   return {
     // State

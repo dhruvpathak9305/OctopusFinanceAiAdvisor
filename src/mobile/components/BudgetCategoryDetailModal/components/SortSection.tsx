@@ -30,21 +30,19 @@ const SortSection: React.FC<SortSectionProps> = ({
   };
 
   return (
-    <>
-      <View style={styles.sortSection}>
-        {/* Section title and description */}
-        <View style={styles.sectionInfo}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Budget Progress
-          </Text>
-          <Text
-            style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
-          >
-            Individual sub-category breakdown
-          </Text>
-        </View>
+    <View style={styles.sortSection}>
+      {/* Section title and description */}
+      <View style={styles.sectionInfo}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Budget Progress
+        </Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          Individual sub-category breakdown
+        </Text>
+      </View>
 
-        {/* Sort button */}
+      {/* Sort button with dropdown container */}
+      <View style={styles.sortContainer}>
         <TouchableOpacity
           style={[
             styles.sortButton,
@@ -71,74 +69,80 @@ const SortSection: React.FC<SortSectionProps> = ({
             color={colors.textSecondary}
           />
         </TouchableOpacity>
-      </View>
 
-      {/* Dropdown overlay */}
-      {showDropdown && (
-        <>
-          {/* Backdrop to close dropdown */}
-          <TouchableOpacity
-            style={styles.dropdownBackdrop}
-            onPress={onToggleDropdown}
-            activeOpacity={1}
-          />
+        {/* Dropdown overlay */}
+        {showDropdown && (
+          <>
+            {/* Backdrop to close dropdown */}
+            <TouchableOpacity
+              style={styles.dropdownBackdrop}
+              onPress={onToggleDropdown}
+              activeOpacity={1}
+            />
 
-          {/* Dropdown menu */}
-          <View
-            style={[
-              styles.sortDropdown,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                shadowColor: colors.shadow,
-              },
-            ]}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[
-                  styles.sortOption,
-                  {
-                    backgroundColor:
-                      sortMode === option.key
-                        ? colors.primary + "20"
-                        : "transparent",
-                  },
-                ]}
-                onPress={() => handleSortOptionPress(option.key)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={option.icon as any}
-                  size={16}
-                  color={
-                    sortMode === option.key
-                      ? colors.primary
-                      : colors.textSecondary
-                  }
-                />
-                <Text
+            {/* Dropdown menu positioned right under button */}
+            <View
+              style={[
+                styles.sortDropdown,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  shadowColor: colors.shadow,
+                },
+              ]}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.key}
                   style={[
-                    styles.sortOptionText,
+                    styles.sortOption,
                     {
-                      color:
-                        sortMode === option.key ? colors.primary : colors.text,
-                      fontWeight: sortMode === option.key ? "600" : "400",
+                      backgroundColor:
+                        sortMode === option.key
+                          ? colors.primary + "20"
+                          : "transparent",
                     },
                   ]}
+                  onPress={() => handleSortOptionPress(option.key)}
+                  activeOpacity={0.7}
                 >
-                  {`  ${option.label}`}
-                </Text>
-                {sortMode === option.key && (
-                  <Ionicons name="checkmark" size={16} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      )}
-    </>
+                  <Ionicons
+                    name={option.icon as any}
+                    size={16}
+                    color={
+                      sortMode === option.key
+                        ? colors.primary
+                        : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      {
+                        color:
+                          sortMode === option.key
+                            ? colors.primary
+                            : colors.text,
+                        fontWeight: sortMode === option.key ? "600" : "400",
+                      },
+                    ]}
+                  >
+                    {`  ${option.label}`}
+                  </Text>
+                  {sortMode === option.key && (
+                    <Ionicons
+                      name="checkmark"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+      </View>
+    </View>
   );
 };
 
@@ -164,6 +168,9 @@ const styles = StyleSheet.create({
     fontSize: 11, // Match Quick Actions subtitle size
     color: "#9CA3AF", // Fixed softer gray color
     lineHeight: 14, // Match Quick Actions line height
+  },
+  sortContainer: {
+    position: "relative", // Container for dropdown positioning
   },
   sortButton: {
     flexDirection: "row",
@@ -191,22 +198,24 @@ const styles = StyleSheet.create({
   },
   dropdownBackdrop: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 999,
+    top: -1000, // Cover area above
+    left: -1000, // Cover area to the left
+    right: -1000, // Cover area to the right
+    bottom: -1000, // Cover area below
+    zIndex: 998, // Just below the dropdown
+    backgroundColor: "transparent", // Invisible backdrop
   },
   sortDropdown: {
     position: "absolute",
-    top: 130,
-    right: 16,
+    top: "100%", // Position right under the button
+    right: 0, // Align to right edge of container
+    marginTop: 4, // Small gap between button and dropdown
     minWidth: 180, // Wider to prevent "Percentag e" wrapping
     maxWidth: 220,
     borderRadius: 12,
     borderWidth: 1,
     overflow: "hidden",
-    zIndex: 1000,
+    zIndex: 999, // Above the backdrop
     elevation: 8,
     shadowOffset: {
       width: 0,
