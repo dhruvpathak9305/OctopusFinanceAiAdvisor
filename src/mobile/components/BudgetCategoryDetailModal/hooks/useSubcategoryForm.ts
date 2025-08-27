@@ -7,16 +7,21 @@ import {
   formatNumericInput,
   SubcategoryFormData,
 } from "../utils/formValidation";
-import { AVAILABLE_ICONS, AVAILABLE_COLORS } from "../utils/subcategoryHelpers";
+import { AVAILABLE_COLORS } from "../utils/subcategoryHelpers";
+import { ALL_IONICONS } from "../utils/allIonicons";
 
 export interface SubCategoryFormState {
   // Form data
   name: string;
   description: string;
-  budgetLimit: string;
-  spent: string;
+  amount: string; // Main budget amount
+  currentSpend: string; // Current spending
+  budgetLimit: string; // Warning/alert limit
   icon: string;
   color: string;
+  displayOrder: string;
+  isActive: boolean;
+  transactionCategoryId: string;
 
   // Validation state
   errors: { [key: string]: string };
@@ -30,10 +35,14 @@ export interface SubCategoryFormActions {
   // Field updates
   updateName: (name: string) => void;
   updateDescription: (description: string) => void;
+  updateAmount: (amount: string) => void;
+  updateCurrentSpend: (amount: string) => void;
   updateBudgetLimit: (amount: string) => void;
-  updateSpent: (amount: string) => void;
   updateIcon: (icon: string) => void;
   updateColor: (color: string) => void;
+  updateDisplayOrder: (order: string) => void;
+  updateIsActive: (isActive: boolean) => void;
+  updateTransactionCategoryId: (id: string) => void;
 
   // Form actions
   validateForm: () => boolean;
@@ -50,10 +59,14 @@ export interface SubCategoryFormActions {
 const getInitialFormState = (): SubCategoryFormState => ({
   name: "",
   description: "",
+  amount: "",
+  currentSpend: "0",
   budgetLimit: "",
-  spent: "0",
-  icon: AVAILABLE_ICONS[0],
-  color: AVAILABLE_COLORS[0],
+  icon: ALL_IONICONS[0]?.name || "card",
+  color: AVAILABLE_COLORS[0]?.hex || "#10B981",
+  displayOrder: "0",
+  isActive: true,
+  transactionCategoryId: "",
   errors: {},
   isValid: false,
   isSubmitting: false,
@@ -89,6 +102,32 @@ export const useSubcategoryForm = (): SubCategoryFormState &
     }));
   };
 
+  const updateAmount = (amount: string) => {
+    const formatted = formatNumericInput(amount);
+    const validation = validateField("amount", formatted);
+    setFormState((prev) => ({
+      ...prev,
+      amount: formatted,
+      errors: {
+        ...prev.errors,
+        amount: validation.isValid ? "" : validation.error || "",
+      },
+    }));
+  };
+
+  const updateCurrentSpend = (amount: string) => {
+    const formatted = formatNumericInput(amount);
+    const validation = validateField("currentSpend", formatted);
+    setFormState((prev) => ({
+      ...prev,
+      currentSpend: formatted,
+      errors: {
+        ...prev.errors,
+        currentSpend: validation.isValid ? "" : validation.error || "",
+      },
+    }));
+  };
+
   const updateBudgetLimit = (amount: string) => {
     const formatted = formatNumericInput(amount);
     const validation = validateField("budgetLimit", formatted);
@@ -98,19 +137,6 @@ export const useSubcategoryForm = (): SubCategoryFormState &
       errors: {
         ...prev.errors,
         budgetLimit: validation.isValid ? "" : validation.error || "",
-      },
-    }));
-  };
-
-  const updateSpent = (amount: string) => {
-    const formatted = formatNumericInput(amount);
-    const validation = validateField("spent", formatted);
-    setFormState((prev) => ({
-      ...prev,
-      spent: formatted,
-      errors: {
-        ...prev.errors,
-        spent: validation.isValid ? "" : validation.error || "",
       },
     }));
   };
@@ -137,15 +163,53 @@ export const useSubcategoryForm = (): SubCategoryFormState &
     }));
   };
 
+  const updateDisplayOrder = (order: string) => {
+    const formatted = order.replace(/[^\d]/g, ''); // Only allow digits
+    setFormState((prev) => ({
+      ...prev,
+      displayOrder: formatted,
+      errors: {
+        ...prev.errors,
+        displayOrder: "",
+      },
+    }));
+  };
+
+  const updateIsActive = (isActive: boolean) => {
+    setFormState((prev) => ({
+      ...prev,
+      isActive,
+      errors: {
+        ...prev.errors,
+        isActive: "",
+      },
+    }));
+  };
+
+  const updateTransactionCategoryId = (id: string) => {
+    setFormState((prev) => ({
+      ...prev,
+      transactionCategoryId: id,
+      errors: {
+        ...prev.errors,
+        transactionCategoryId: "",
+      },
+    }));
+  };
+
   // Form validation
   const validateForm = (): boolean => {
     const formData: SubcategoryFormData = {
       name: formState.name,
       description: formState.description,
+      amount: formState.amount,
+      currentSpend: formState.currentSpend,
       budgetLimit: formState.budgetLimit,
-      spent: formState.spent,
       icon: formState.icon,
       color: formState.color,
+      displayOrder: formState.displayOrder,
+      isActive: formState.isActive,
+      transactionCategoryId: formState.transactionCategoryId,
     };
 
     const validation = validateSubcategoryForm(formData);
@@ -154,10 +218,12 @@ export const useSubcategoryForm = (): SubCategoryFormState &
     const errorObject: { [key: string]: string } = {};
     validation.errors.forEach((error) => {
       if (error.includes("name")) errorObject.name = error;
-      else if (error.includes("budget") || error.includes("Budget"))
+      else if (error.includes("amount") || error.includes("Amount"))
+        errorObject.amount = error;
+      else if (error.includes("Current spend") || error.includes("current"))
+        errorObject.currentSpend = error;
+      else if (error.includes("Budget limit") || error.includes("budget"))
         errorObject.budgetLimit = error;
-      else if (error.includes("spent") || error.includes("Spent"))
-        errorObject.spent = error;
       else if (error.includes("icon")) errorObject.icon = error;
       else if (error.includes("color")) errorObject.color = error;
       else errorObject.general = error;
@@ -182,11 +248,15 @@ export const useSubcategoryForm = (): SubCategoryFormState &
     setFormState((prev) => ({
       ...prev,
       name: subcategory.name,
-      description: "", // Reset description for editing
-      budgetLimit: subcategory.budget_limit.toString(),
-      spent: subcategory.spent.toString(),
+      description: subcategory.description || "",
+      amount: subcategory.amount.toString(),
+      currentSpend: (subcategory.current_spend || 0).toString(),
+      budgetLimit: (subcategory.budget_limit || 0).toString(),
       icon: subcategory.icon,
       color: subcategory.color,
+      displayOrder: (subcategory.display_order || 0).toString(),
+      isActive: subcategory.is_active !== false, // Default to true
+      transactionCategoryId: subcategory.transaction_category_id || "",
       errors: {},
       isValid: true,
     }));
@@ -195,11 +265,17 @@ export const useSubcategoryForm = (): SubCategoryFormState &
   // Get form data as subcategory object
   const getFormData = (): Omit<BudgetSubcategory, "id"> => {
     return {
+      category_id: "", // This will be set by the parent component
       name: formState.name.trim(),
-      budget_limit: parseFloat(formState.budgetLimit) || 0,
-      spent: parseFloat(formState.spent) || 0,
-      icon: formState.icon,
+      amount: parseFloat(formState.amount) || 0,
       color: formState.color,
+      icon: formState.icon,
+      display_order: parseInt(formState.displayOrder) || 0,
+      is_active: formState.isActive,
+      description: formState.description.trim() || undefined,
+      current_spend: parseFloat(formState.currentSpend) || 0,
+      budget_limit: parseFloat(formState.budgetLimit) || 0,
+      transaction_category_id: formState.transactionCategoryId.trim() || undefined,
     };
   };
 
@@ -230,19 +306,23 @@ export const useSubcategoryForm = (): SubCategoryFormState &
 
   // Auto-validate on form changes
   useEffect(() => {
-    if (formState.name || formState.budgetLimit) {
+    if (formState.name || formState.amount) {
       // Only validate if user has started filling the form
-      const hasData = formState.name.trim() || formState.budgetLimit.trim();
+      const hasData = formState.name.trim() || formState.amount.trim();
       if (hasData) {
         validateForm();
       }
     }
   }, [
     formState.name,
+    formState.amount,
+    formState.currentSpend,
     formState.budgetLimit,
-    formState.spent,
     formState.icon,
     formState.color,
+    formState.displayOrder,
+    formState.isActive,
+    formState.transactionCategoryId,
   ]);
 
   return {
@@ -252,10 +332,14 @@ export const useSubcategoryForm = (): SubCategoryFormState &
     // Actions
     updateName,
     updateDescription,
+    updateAmount,
+    updateCurrentSpend,
     updateBudgetLimit,
-    updateSpent,
     updateIcon,
     updateColor,
+    updateDisplayOrder,
+    updateIsActive,
+    updateTransactionCategoryId,
     validateForm,
     resetForm,
     loadFromSubcategory,

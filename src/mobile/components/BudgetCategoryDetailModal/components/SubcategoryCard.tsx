@@ -34,16 +34,16 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
   onEdit,
 }) => {
   const percentage = calculatePercentage(
-    subcategory.spent,
-    subcategory.budget_limit
+    subcategory.current_spend || 0,
+    subcategory.amount
   );
   const remaining = calculateRemaining(
-    subcategory.spent,
-    subcategory.budget_limit
+    subcategory.current_spend || 0,
+    subcategory.amount
   );
   const progressColor = getProgressColor(
-    subcategory.spent,
-    subcategory.budget_limit,
+    subcategory.current_spend || 0,
+    subcategory.amount,
     colors
   );
 
@@ -73,8 +73,17 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
           <Ionicons name="pencil" size={8} color={colors.textSecondary} />
         </View>
 
-        {/* Icon - prominent placement */}
-        <Text style={styles.gridIcon}>{subcategory.icon}</Text>
+        {/* Icon - prominent placement with Ionicons support */}
+        {subcategory.icon.length === 1 || /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(subcategory.icon) ? (
+          <Text style={styles.gridIcon}>{subcategory.icon}</Text>
+        ) : (
+          <Ionicons 
+            name={subcategory.icon as any} 
+            size={24} 
+            color={subcategory.color || "#10B981"}
+            style={styles.gridIconIon}
+          />
+        )}
 
         {/* Name - clear hierarchy */}
         <Text
@@ -100,7 +109,7 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
           style={[styles.gridAmount, { color: colors.textSecondary }]}
           numberOfLines={1}
         >
-          {formatCurrency(subcategory.spent, 0)} / {formatCurrency(subcategory.budget_limit, 0)}
+          {formatCurrency(subcategory.current_spend || 0, 0)} / {formatCurrency(subcategory.amount, 0)}
         </Text>
       </TouchableOpacity>
     );
@@ -130,7 +139,16 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
             { backgroundColor: subcategory.color + "20" }, // 20% opacity like Quick Actions
           ]}
         >
-          <Text style={styles.listIcon}>{subcategory.icon}</Text>
+          {subcategory.icon.length === 1 || /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(subcategory.icon) ? (
+            <Text style={styles.listIcon}>{subcategory.icon}</Text>
+          ) : (
+            <Ionicons 
+              name={subcategory.icon as any} 
+              size={20} 
+              color={subcategory.color || "#10B981"}
+              style={styles.listIconIon}
+            />
+          )}
         </View>
 
         {/* Info section */}
@@ -139,21 +157,14 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
             {subcategory.name}
           </Text>
           <Text style={[styles.listAmount, { color: colors.textSecondary }]}>
-            {formatCurrency(subcategory.spent)} /{" "}
-            {formatCurrency(subcategory.budget_limit)}({Math.round(percentage)}
+            {formatCurrency(subcategory.current_spend || 0)} /{" "}
+            {formatCurrency(subcategory.amount)}({Math.round(percentage)}
             %)
           </Text>
         </View>
 
-        {/* Actions section */}
+        {/* Actions section - only edit button, no circular progress */}
         <View style={styles.listActions}>
-          <CircularProgress
-            percentage={Math.min(percentage, 100)}
-            size={36}
-            strokeWidth={3}
-            color={progressColor}
-            backgroundColor={colors.border}
-          />
           <TouchableOpacity
             style={[
               styles.listEditButton,
@@ -244,6 +255,9 @@ const styles = StyleSheet.create({
     fontSize: 18, // Slightly smaller for compact layout
     marginBottom: 6, // Reduced spacing for compactness
   },
+  gridIconIon: {
+    marginBottom: 6,
+  },
   gridName: {
     fontSize: 12,
     fontWeight: "600",
@@ -306,7 +320,7 @@ const styles = StyleSheet.create({
   listActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "flex-end", // Align edit button to the right
   },
   listEditButton: {
     padding: 8,

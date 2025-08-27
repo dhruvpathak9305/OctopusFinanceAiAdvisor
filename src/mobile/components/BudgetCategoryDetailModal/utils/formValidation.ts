@@ -6,10 +6,14 @@ export interface ValidationResult {
 export interface SubcategoryFormData {
   name: string;
   description?: string;
-  budgetLimit: string;
-  spent?: string;
+  amount: string; // Main budget amount
+  currentSpend?: string; // Current spending
+  budgetLimit?: string; // Warning/alert limit
   icon: string;
   color: string;
+  displayOrder?: string;
+  isActive?: boolean;
+  transactionCategoryId?: string;
 }
 
 /**
@@ -29,25 +33,37 @@ export const validateSubcategoryForm = (
     errors.push("Subcategory name must be less than 50 characters");
   }
 
-  // Budget limit validation
-  const budgetLimit = parseFloat(data.budgetLimit);
-  if (!data.budgetLimit.trim()) {
-    errors.push("Budget limit is required");
-  } else if (isNaN(budgetLimit)) {
-    errors.push("Budget limit must be a valid number");
-  } else if (budgetLimit < 0) {
-    errors.push("Budget limit cannot be negative");
-  } else if (budgetLimit > 1000000) {
-    errors.push("Budget limit cannot exceed $1,000,000");
+  // Amount validation (main budget amount)
+  const amount = parseFloat(data.amount);
+  if (!data.amount.trim()) {
+    errors.push("Budget amount is required");
+  } else if (isNaN(amount)) {
+    errors.push("Budget amount must be a valid number");
+  } else if (amount < 0) {
+    errors.push("Budget amount cannot be negative");
+  } else if (amount > 1000000) {
+    errors.push("Budget amount cannot exceed $1,000,000");
   }
 
-  // Spent amount validation (optional)
-  if (data.spent && data.spent.trim()) {
-    const spent = parseFloat(data.spent);
-    if (isNaN(spent)) {
-      errors.push("Spent amount must be a valid number");
-    } else if (spent < 0) {
-      errors.push("Spent amount cannot be negative");
+  // Current spend validation (optional)
+  if (data.currentSpend && data.currentSpend.trim()) {
+    const currentSpend = parseFloat(data.currentSpend);
+    if (isNaN(currentSpend)) {
+      errors.push("Current spend must be a valid number");
+    } else if (currentSpend < 0) {
+      errors.push("Current spend cannot be negative");
+    }
+  }
+
+  // Budget limit validation (optional warning limit)
+  if (data.budgetLimit && data.budgetLimit.trim()) {
+    const budgetLimit = parseFloat(data.budgetLimit);
+    if (isNaN(budgetLimit)) {
+      errors.push("Budget limit must be a valid number");
+    } else if (budgetLimit < 0) {
+      errors.push("Budget limit cannot be negative");
+    } else if (budgetLimit > 1000000) {
+      errors.push("Budget limit cannot exceed $1,000,000");
     }
   }
 
@@ -87,23 +103,36 @@ export const validateField = (
         return { isValid: false, error: "Name too long" };
       break;
 
-    case "budgetLimit":
-      const budget = parseFloat(value);
+    case "amount":
+      const amount = parseFloat(value);
       if (!value.trim())
-        return { isValid: false, error: "Budget limit is required" };
-      if (isNaN(budget))
+        return { isValid: false, error: "Budget amount is required" };
+      if (isNaN(amount))
         return { isValid: false, error: "Must be a valid number" };
-      if (budget < 0) return { isValid: false, error: "Cannot be negative" };
-      if (budget > 1000000)
+      if (amount < 0) return { isValid: false, error: "Cannot be negative" };
+      if (amount > 1000000)
         return { isValid: false, error: "Amount too large" };
       break;
 
-    case "spent":
+    case "currentSpend":
       if (value.trim()) {
-        const spent = parseFloat(value);
-        if (isNaN(spent))
+        const currentSpend = parseFloat(value);
+        if (isNaN(currentSpend))
           return { isValid: false, error: "Must be a valid number" };
-        if (spent < 0) return { isValid: false, error: "Cannot be negative" };
+        if (currentSpend < 0)
+          return { isValid: false, error: "Cannot be negative" };
+      }
+      break;
+
+    case "budgetLimit":
+      if (value.trim()) {
+        const budgetLimit = parseFloat(value);
+        if (isNaN(budgetLimit))
+          return { isValid: false, error: "Must be a valid number" };
+        if (budgetLimit < 0)
+          return { isValid: false, error: "Cannot be negative" };
+        if (budgetLimit > 1000000)
+          return { isValid: false, error: "Amount too large" };
       }
       break;
   }

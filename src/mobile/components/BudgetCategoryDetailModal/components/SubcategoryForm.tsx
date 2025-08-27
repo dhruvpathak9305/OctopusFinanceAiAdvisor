@@ -4,16 +4,19 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Keyboard,
+  ScrollView,
+  Switch,
   Alert,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BudgetCategory, BudgetSubcategory } from "../types";
 import { ThemeColors } from "../hooks/useThemeColors";
 import { useSubcategoryForm } from "../hooks/useSubcategoryForm";
-import { AVAILABLE_ICONS, AVAILABLE_COLORS } from "../utils/subcategoryHelpers";
+import { AVAILABLE_COLORS } from "../utils/subcategoryHelpers";
+import { ALL_IONICONS } from "../utils/allIonicons";
+import { IconPickerModal } from "./modals/IconPickerModal";
+import { ColorPickerModal } from "./modals/ColorPickerModal";
 
 export interface SubCategoryFormProps {
   category: BudgetCategory;
@@ -24,10 +27,7 @@ export interface SubCategoryFormProps {
   onDelete?: () => void;
 }
 
-const { height: screenHeight } = Dimensions.get("window");
-const isSmallScreen = screenHeight < 700;
-
-const SubCategoryForm: React.FC<SubCategoryFormProps> = ({
+export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
   category,
   subcategory,
   colors,
@@ -36,10 +36,23 @@ const SubCategoryForm: React.FC<SubCategoryFormProps> = ({
   onDelete,
 }) => {
   const isEditMode = !!subcategory;
-  const [currentStep, setCurrentStep] = useState(1);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-
   const form = useSubcategoryForm();
+  const [showIconModal, setShowIconModal] = useState(false);
+  const [showColorModal, setShowColorModal] = useState(false);
+
+  // Helper function to get current icon display info
+  const getCurrentIcon = () => {
+    const iconOption = ALL_IONICONS.find((icon) => icon.name === form.icon);
+    return iconOption || { name: form.icon, displayName: form.icon };
+  };
+
+  // Helper function to get current color display info
+  const getCurrentColor = () => {
+    const colorOption = AVAILABLE_COLORS.find(
+      (color) => color.hex === form.color
+    );
+    return colorOption || { hex: form.color, name: "Custom" };
+  };
 
   // Load existing subcategory data for editing
   useEffect(() => {
@@ -49,21 +62,6 @@ const SubCategoryForm: React.FC<SubCategoryFormProps> = ({
       form.resetForm();
     }
   }, [subcategory]);
-
-  // Keyboard listeners
-  useEffect(() => {
-    const keyboardDidShow = Keyboard.addListener("keyboardDidShow", () => {
-      setKeyboardVisible(true);
-    });
-    const keyboardDidHide = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardVisible(false);
-    });
-
-    return () => {
-      keyboardDidShow.remove();
-      keyboardDidHide.remove();
-    };
-  }, []);
 
   const handleSave = () => {
     form.handleSubmit(onSave);
@@ -82,284 +80,403 @@ const SubCategoryForm: React.FC<SubCategoryFormProps> = ({
     }
   };
 
-  const canProceedToStep2 =
-    form.name.trim().length >= 2 && parseFloat(form.budgetLimit) > 0;
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
 
-  const renderStep1 = () => (
-    <>
-      {/* Parent category indicator (only for add mode) */}
-      {!isEditMode && (
+        {/* Main Form Card */}
         <View
           style={[
-            styles.parentCard,
+            styles.card,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <View style={styles.parentRow}>
-            <View
-              style={[styles.parentDot, { backgroundColor: colors.primary }]}
+          {/* Name Field */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              Name <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+                form.errors.name && styles.inputError,
+              ]}
+              value={form.name}
+              onChangeText={form.updateName}
+              placeholder="Enter subcategory name"
+              placeholderTextColor={colors.textSecondary}
+              returnKeyType="next"
             />
-            <View style={styles.parentInfo}>
-              <Text
-                style={[styles.parentLabel, { color: colors.textSecondary }]}
+            {form.errors.name && (
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {form.errors.name}
+              </Text>
+            )}
+          </View>
+
+          {/* Description Field */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              Description
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={form.description}
+              onChangeText={form.updateDescription}
+              placeholder="Optional description"
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Budget Amount Field */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              Budget Amount <Text style={styles.required}>*</Text>
+            </Text>
+            <View
+              style={[
+                styles.currencyContainer,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                },
+                form.errors.amount && styles.inputError,
+              ]}
+            >
+              <Text style={[styles.currencySymbol, { color: colors.text }]}>
+                $
+              </Text>
+              <TextInput
+                style={[styles.currencyInput, { color: colors.text }]}
+                value={form.amount}
+                onChangeText={form.updateAmount}
+                placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="decimal-pad"
+                returnKeyType="next"
+              />
+            </View>
+            {form.errors.amount && (
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {form.errors.amount}
+              </Text>
+            )}
+          </View>
+
+          {/* Current Spend & Budget Limit Row */}
+          <View style={styles.row}>
+            {/* Current Spend */}
+            <View style={[styles.fieldGroup, styles.halfWidth]}>
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Current Spend
+              </Text>
+              <View
+                style={[
+                  styles.currencyContainer,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
-                Parent Category
+                <Text style={[styles.currencySymbol, { color: colors.text }]}>
+                  $
+                </Text>
+                <TextInput
+                  style={[styles.currencyInput, { color: colors.text }]}
+                  value={form.currentSpend}
+                  onChangeText={form.updateCurrentSpend}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="decimal-pad"
+                  returnKeyType="next"
+                />
+              </View>
+            </View>
+
+            {/* Budget Limit */}
+            <View style={[styles.fieldGroup, styles.halfWidth]}>
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Warning Limit
               </Text>
-              <Text style={[styles.parentName, { color: colors.text }]}>
-                {category.name}
+              <View
+                style={[
+                  styles.currencyContainer,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.currencySymbol, { color: colors.text }]}>
+                  $
+                </Text>
+                <TextInput
+                  style={[styles.currencyInput, { color: colors.text }]}
+                  value={form.budgetLimit}
+                  onChangeText={form.updateBudgetLimit}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="decimal-pad"
+                  returnKeyType="next"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Icon & Color Selection Row */}
+          <View style={styles.row}>
+            <View style={[styles.fieldGroup, styles.halfWidth]}>
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Icon <Text style={styles.required}>*</Text>
               </Text>
+              <TouchableOpacity
+                style={[
+                  styles.selectorButton,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => setShowIconModal(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.selectedIconContainer}>
+                  <Ionicons
+                    name={getCurrentIcon().name as any}
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <Text style={[styles.selectorText, { color: colors.text }]}>
+                  {getCurrentIcon().displayName || "Choose Icon"}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.fieldGroup, styles.halfWidth]}>
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Color <Text style={styles.required}>*</Text>
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.selectorButton,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => setShowColorModal(true)}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.colorPreview,
+                    { backgroundColor: getCurrentColor().hex },
+                  ]}
+                />
+                <Text style={[styles.selectorText, { color: colors.text }]}>
+                  {getCurrentColor().name || "Choose Color"}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
-      )}
 
-      {/* Form fields */}
-      <View style={styles.formContainer}>
-        {/* Name field */}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: colors.text }]}>
-            Name <Text style={styles.required}>*</Text>
+        {/* Settings Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.settingsSectionTitle, { color: colors.text }]}>
+            Settings
           </Text>
-          <TextInput
-            style={[
-              styles.textInput,
-              form.errors.name && styles.inputError,
-              {
-                backgroundColor: colors.card,
-                borderColor: form.errors.name ? colors.error : colors.border,
-                color: colors.text,
-              },
-            ]}
-            value={form.name}
-            onChangeText={form.updateName}
-            placeholder="e.g., Groceries, Gas, Internet"
-            placeholderTextColor={colors.textSecondary}
-            autoCapitalize="words"
-            returnKeyType="next"
-          />
-          {form.errors.name && (
-            <Text style={[styles.errorText, { color: colors.error }]}>
-              {form.errors.name}
-            </Text>
-          )}
-        </View>
 
-        {/* Budget limit field */}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: colors.text }]}>
-            Budget Limit <Text style={styles.required}>*</Text>
-          </Text>
-          <View
-            style={[
-              styles.currencyContainer,
-              form.errors.budgetLimit && styles.inputError,
-              {
-                backgroundColor: colors.card,
-                borderColor: form.errors.budgetLimit
-                  ? colors.error
-                  : colors.border,
-              },
-            ]}
-          >
-            <Text style={[styles.currencySymbol, { color: colors.text }]}>
-              $
-            </Text>
-            <TextInput
-              style={[styles.currencyInput, { color: colors.text }]}
-              value={form.budgetLimit}
-              onChangeText={form.updateBudgetLimit}
-              placeholder="0.00"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="decimal-pad"
-              returnKeyType="next"
-            />
+          <View style={styles.settingsContainer}>
+            {/* Display Order & Active Status Row */}
+            <View style={styles.settingsRow}>
+              <View style={styles.settingsField}>
+                <Text
+                  style={[
+                    styles.settingsFieldLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Order
+                </Text>
+                <TextInput
+                  style={[
+                    styles.settingsFieldInput,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  value={form.displayOrder}
+                  onChangeText={form.updateDisplayOrder}
+                  placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.settingsField}>
+                <Text
+                  style={[
+                    styles.settingsFieldLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Status
+                </Text>
+                <View style={styles.settingsToggleContainer}>
+                  <Switch
+                    value={form.isActive}
+                    onValueChange={form.updateIsActive}
+                    trackColor={{
+                      false: colors.border,
+                      true: colors.primary + "60",
+                    }}
+                    thumbColor={
+                      form.isActive ? colors.primary : colors.textSecondary
+                    }
+                    style={styles.settingsToggle}
+                  />
+                  <Text
+                    style={[
+                      styles.settingsToggleLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {form.isActive ? "On" : "Off"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Transaction Category ID */}
+            <View style={styles.settingsFieldFull}>
+              <Text
+                style={[
+                  styles.settingsFieldLabel,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Transaction Category ID
+              </Text>
+              <TextInput
+                style={[
+                  styles.settingsFieldInput,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={form.transactionCategoryId}
+                onChangeText={form.updateTransactionCategoryId}
+                placeholder="Optional..."
+                placeholderTextColor={colors.textSecondary}
+                returnKeyType="done"
+              />
+            </View>
           </View>
-          {form.errors.budgetLimit && (
-            <Text style={[styles.errorText, { color: colors.error }]}>
-              {form.errors.budgetLimit}
-            </Text>
-          )}
         </View>
-      </View>
-    </>
-  );
+      </ScrollView>
 
-  const renderStep2 = () => (
-    <View style={styles.formContainer}>
-      {/* Icon selection */}
-      <View style={styles.fieldGroup}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          Choose Icon
-        </Text>
-        <View style={styles.iconGrid}>
-          {AVAILABLE_ICONS.slice(0, 12).map((icon) => (
-            <TouchableOpacity
-              key={icon}
-              style={[
-                styles.iconButton,
-                {
-                  backgroundColor:
-                    form.icon === icon ? colors.primary : colors.card,
-                  borderColor:
-                    form.icon === icon ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => form.updateIcon(icon)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.iconText}>{icon}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Color selection */}
-      <View style={styles.fieldGroup}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          Choose Color
-        </Text>
-        <View style={styles.colorGrid}>
-          {AVAILABLE_COLORS.slice(0, 8).map((color) => (
-            <TouchableOpacity
-              key={color}
-              style={[styles.colorButton, { backgroundColor: color }]}
-              onPress={() => form.updateColor(color)}
-              activeOpacity={0.8}
-            >
-              {form.color === color && (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderNavigation = () => {
-    if (keyboardVisible && isSmallScreen) return null;
-
-    return (
-      <View style={styles.navigationContainer}>
-        {/* Step indicators */}
-        <View style={styles.stepIndicators}>
-          <View
-            style={[
-              styles.stepDot,
-              {
-                backgroundColor:
-                  currentStep >= 1 ? colors.primary : colors.border,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.stepLine,
-              {
-                backgroundColor:
-                  currentStep >= 2 ? colors.primary : colors.border,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.stepDot,
-              {
-                backgroundColor:
-                  currentStep >= 2 ? colors.primary : colors.border,
-              },
-            ]}
-          />
-        </View>
-
-        {/* Action buttons */}
-        <View style={styles.buttonRow}>
-          {currentStep === 1 ? (
-            <>
-              <TouchableOpacity
-                style={[styles.cancelButton, { borderColor: colors.border }]}
-                onPress={onCancel}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.nextButton,
-                  {
-                    backgroundColor: canProceedToStep2
-                      ? colors.primary
-                      : colors.border,
-                    opacity: canProceedToStep2 ? 1 : 0.5,
-                  },
-                ]}
-                onPress={() => canProceedToStep2 && setCurrentStep(2)}
-                disabled={!canProceedToStep2}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.nextButtonText}>Next</Text>
-                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[styles.backButton, { borderColor: colors.border }]}
-                onPress={() => setCurrentStep(1)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="arrow-back" size={16} color={colors.text} />
-                <Text style={[styles.backButtonText, { color: colors.text }]}>
-                  Back
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.saveButton,
-                  {
-                    backgroundColor: form.isValid
-                      ? colors.primary
-                      : colors.border,
-                    opacity: form.isValid ? 1 : 0.5,
-                  },
-                ]}
-                onPress={handleSave}
-                disabled={!form.isValid || form.isSubmitting}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.saveButtonText}>
-                  {isEditMode ? "Update" : "Create"}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
-        {/* Delete button for edit mode */}
-        {isEditMode && onDelete && currentStep === 2 && (
+      {/* Footer with Action Buttons */}
+      <View
+        style={[
+          styles.footer,
+          { backgroundColor: colors.background, borderTopColor: colors.border },
+        ]}
+      >
+        <View style={[styles.buttonRow, !isEditMode && styles.buttonRowSingle]}>
           <TouchableOpacity
-            style={[styles.deleteButton, { backgroundColor: colors.error }]}
-            onPress={handleDelete}
+            style={[
+              styles.saveButton,
+              !isEditMode && styles.saveButtonFull,
+              {
+                backgroundColor: form.isValid ? colors.primary : colors.border,
+                opacity: form.isValid ? 1 : 0.5,
+              },
+            ]}
+            onPress={handleSave}
+            disabled={!form.isValid || form.isSubmitting}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <Text style={styles.saveButtonText}>
+              {isEditMode ? "Update" : "Create"}
+            </Text>
           </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        {currentStep === 1 ? renderStep1() : renderStep2()}
+          {/* Delete button for edit mode */}
+          {isEditMode && onDelete && (
+            <TouchableOpacity
+              style={[styles.deleteButton, { backgroundColor: colors.error }]}
+              onPress={handleDelete}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      {renderNavigation()}
+
+      {/* Modals */}
+      <IconPickerModal
+        visible={showIconModal}
+        onClose={() => setShowIconModal(false)}
+        onSelectIcon={(iconName) => {
+          form.updateIcon(iconName);
+        }}
+        currentIcon={form.icon}
+        colors={colors}
+      />
+
+      <ColorPickerModal
+        visible={showColorModal}
+        onClose={() => setShowColorModal(false)}
+        onSelectColor={(colorHex) => {
+          form.updateColor(colorHex);
+        }}
+        currentColor={form.color}
+        colors={colors}
+      />
     </View>
   );
 };
@@ -368,42 +485,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollContainer: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  parentCard: {
-    marginTop: 16,
-    marginBottom: 8,
-    padding: 16,
-    borderRadius: 12,
+  header: {
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  card: {
+    borderRadius: 16,
     borderWidth: 1,
-  },
-  parentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  parentDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  parentInfo: {
-    flex: 1,
-  },
-  parentLabel: {
-    fontSize: 12,
-    marginBottom: 2,
-    opacity: 0.7,
-  },
-  parentName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  formContainer: {
-    flex: 1,
-    paddingTop: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   fieldGroup: {
     marginBottom: 20,
@@ -418,17 +524,27 @@ const styles = StyleSheet.create({
   },
   textInput: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
     fontSize: 16,
+    minHeight: 50,
+  },
+  inputError: {
+    borderColor: "#EF4444",
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: "500",
   },
   currencyContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    minHeight: 50,
   },
   currencySymbol: {
     fontSize: 16,
@@ -437,135 +553,139 @@ const styles = StyleSheet.create({
   },
   currencyInput: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingRight: 16,
     fontSize: 16,
   },
-  inputError: {
-    borderColor: "#EF4444",
-  },
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  iconGrid: {
+  row: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  iconButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconText: {
-    fontSize: 20,
-  },
-  colorGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: 12,
   },
-  colorButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
+  halfWidth: {
+    flex: 1,
   },
-  navigationContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-    paddingTop: 16,
-  },
-  stepIndicators: {
+  selectorButton: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+    minHeight: 50,
+  },
+  selectedIconContainer: {
+    width: 24,
+    height: 24,
     justifyContent: "center",
-    marginBottom: 20,
+    alignItems: "center",
   },
-  stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  colorPreview: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
-  stepLine: {
-    width: 40,
-    height: 2,
-    marginHorizontal: 8,
+  selectorText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  settingsSectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  settingsContainer: {
+    gap: 16,
+  },
+  settingsRow: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  settingsField: {
+    flex: 1,
+  },
+  settingsFieldFull: {
+    width: "100%",
+  },
+  settingsFieldLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  settingsFieldInput: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 14,
+  },
+  settingsToggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  settingsToggle: {
+    transform: [{ scale: 0.8 }],
+  },
+  settingsToggleLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
   },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
   },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  backButton: {
-    flex: 1,
-    flexDirection: "row",
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  nextButton: {
-    flex: 1,
-    flexDirection: "row",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  nextButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+  buttonRowSingle: {
+    flexDirection: "column",
   },
   saveButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  saveButtonFull: {
+    flex: 1,
   },
   saveButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
+    letterSpacing: 0.3,
   },
   deleteButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    gap: 8,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   deleteButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
+    letterSpacing: 0.2,
   },
 });
-
-export default SubCategoryForm;

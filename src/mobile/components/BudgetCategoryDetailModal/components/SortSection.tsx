@@ -128,7 +128,7 @@ const SortSection: React.FC<SortSectionProps> = ({
                     },
                   ]}
                 >
-                  {option.label}
+                  {`  ${option.label}`}
                 </Text>
                 {sortMode === option.key && (
                   <Ionicons name="checkmark" size={16} color={colors.primary} />

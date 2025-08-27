@@ -122,11 +122,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 50,
+    paddingTop: 20, // Reduced from 50 to push content up
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 12, // Reduced from 16
     borderBottomWidth: 1,
-    minHeight: 100,
+    minHeight: 70, // Reduced from 100
   },
   headerButton: {
     padding: 8,

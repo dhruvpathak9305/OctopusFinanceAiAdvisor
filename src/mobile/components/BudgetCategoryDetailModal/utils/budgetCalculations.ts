@@ -6,7 +6,7 @@ import { BudgetSubcategory } from "../types";
 export const calculateTotalSpent = (
   subcategories: BudgetSubcategory[]
 ): number => {
-  return subcategories.reduce((sum, sub) => sum + sub.spent, 0);
+  return subcategories.reduce((sum, sub) => sum + (sub.current_spend || 0), 0);
 };
 
 /**
@@ -15,7 +15,7 @@ export const calculateTotalSpent = (
 export const calculateTotalBudget = (
   subcategories: BudgetSubcategory[]
 ): number => {
-  return subcategories.reduce((sum, sub) => sum + sub.budget_limit, 0);
+  return subcategories.reduce((sum, sub) => sum + sub.amount, 0);
 };
 
 /**

@@ -6,7 +6,7 @@ import CategoryHeader from "./components/CategoryHeader";
 import BudgetSummary from "./components/BudgetSummary";
 import SortSection from "./components/SortSection";
 import SubcategoryList from "./components/SubcategoryList";
-import SubcategoryForm from "./components/SubcategoryForm";
+import { SubcategoryForm } from "./components/SubcategoryForm";
 
 // Hooks and utilities
 import { useBudgetModal, ModalView } from "./hooks/useBudgetModal";
@@ -104,7 +104,8 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
       case "main":
         return {
           ...baseProps,
-          subtitle: "Budget Details",
+          title: "Budget Details", // Show only "Budget Details", remove redundant category name
+          subtitle: undefined, // Remove subtitle to clean up header
           showViewToggle: true,
           showCloseButton: true,
           viewMode: modal.viewMode,

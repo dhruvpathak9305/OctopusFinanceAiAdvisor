@@ -1,10 +1,18 @@
 export interface BudgetSubcategory {
   id: string;
+  category_id: string;
   name: string;
-  spent: number;
-  budget_limit: number;
+  amount: number; // Main budget amount
   color: string;
   icon: string;
+  created_at?: string;
+  updated_at?: string;
+  display_order?: number;
+  is_active?: boolean;
+  description?: string;
+  current_spend?: number; // Current spending
+  budget_limit?: number; // Warning/alert limit
+  transaction_category_id?: string;
 }
 
 export interface BudgetCategory {

@@ -124,29 +124,29 @@ const styles = StyleSheet.create({
     marginBottom: 16, // Reduced from 20
   },
   categoryIcon: {
-    // Match FinancialSummaryCard icon container
-    width: 28,
-    height: 28,
-    borderRadius: 7,
+    // Bigger icon container for better visual impact
+    width: 45,
+    height: 45,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: 12,
     // Background will be set dynamically with 15% opacity like Quick Actions
   },
   categoryIconText: {
-    fontSize: 14, // Match FinancialSummaryCard icon size
+    fontSize: 18, // Bigger icon for better visibility
   },
   summaryInfo: {
     flex: 1,
   },
   summaryTitle: {
-    fontSize: 28, // Match FinancialSummaryCard value size
+    fontSize: 20, // Match FinancialSummaryCard value size
     fontWeight: "800", // Match FinancialSummaryCard bold style
     marginBottom: 6,
     letterSpacing: -0.8, // Match FinancialSummaryCard letter spacing
   },
   summarySubtitle: {
-    fontSize: 14, // Match FinancialSummaryCard title size
+    fontSize: 12, // Match FinancialSummaryCard title size
     color: "#9CA3AF", // Fixed color - softer gray for subtitles
     fontWeight: "600", // Match FinancialSummaryCard title weight
     opacity: 1, // Remove opacity, use fixed color instead
