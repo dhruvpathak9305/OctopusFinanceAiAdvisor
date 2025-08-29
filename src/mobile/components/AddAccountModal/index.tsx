@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,16 @@ import {
   TextInput,
   Alert,
   TouchableWithoutFeedback,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../../contexts/ThemeContext';
-import { useDemoMode } from '../../../../contexts/DemoModeContext';
-import { addAccount } from '../../../../services/accountsService';
-import { Account } from '../../../../contexts/AccountsContext';
+  Animated,
+  Vibration,
+  Image,
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../../../contexts/ThemeContext";
+import { useDemoMode } from "../../../../contexts/DemoModeContext";
+import { addAccount } from "../../../../services/accountsService";
+import { Account } from "../../../../contexts/AccountsContext";
 
 interface AddAccountModalProps {
   visible: boolean;
@@ -22,150 +26,358 @@ interface AddAccountModalProps {
   onAccountAdded: (account: Account) => void;
 }
 
-const AddAccountModal: React.FC<AddAccountModalProps> = ({ 
-  visible, 
-  onClose, 
-  onAccountAdded
+const AddAccountModal: React.FC<AddAccountModalProps> = ({
+  visible,
+  onClose,
+  onAccountAdded,
 }) => {
   const { isDark } = useTheme();
   const { isDemo } = useDemoMode();
-  
-  const [name, setName] = useState('');
-  const [type, setType] = useState('checking');
-  const [balance, setBalance] = useState('');
-  const [institution, setInstitution] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [routingNumber, setRoutingNumber] = useState('');
+
+  const [name, setName] = useState("");
+  const [type, setType] = useState("savings");
+  const [balance, setBalance] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [logoUri, setLogoUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showInstitutionPicker, setShowInstitutionPicker] = useState(false);
+  const [showAiExtractionModal, setShowAiExtractionModal] = useState(false);
 
-  const colors = isDark ? {
-    background: '#1F2937',
-    card: '#374151',
-    text: '#FFFFFF',
-    textSecondary: '#9CA3AF',
-    border: '#4B5563',
-    primary: '#10B981',
-    secondary: '#3B82F6',
-    accent: '#F59E0B',
-    danger: '#EF4444',
-  } : {
-    background: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#111827',
-    textSecondary: '#6B7280',
-    border: '#E5E7EB',
-    primary: '#10B981',
-    secondary: '#3B82F6',
-    accent: '#F59E0B',
-    danger: '#EF4444',
+  // Animation for scan button
+  const scanButtonScale = useState(new Animated.Value(1))[0];
+
+  // Logo upload functionality
+  const handleLogoUpload = async () => {
+    try {
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Please allow access to your photos to upload a logo."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setLogoUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
+    }
   };
 
-  const accountTypes = [
-    { id: 'checking', label: 'Checking Account', icon: 'card-outline' },
-    { id: 'savings', label: 'Savings Account', icon: 'wallet-outline' },
-    { id: 'investment', label: 'Investment Account', icon: 'trending-up-outline' },
-    { id: 'business', label: 'Business Account', icon: 'business-outline' },
-    { id: 'credit_union', label: 'Credit Union', icon: 'people-outline' },
-    { id: 'other', label: 'Other', icon: 'ellipse-outline' },
+  const handleRemoveLogo = () => {
+    setLogoUri(null);
+  };
+
+  // Custom types and institutions state
+  const [customAccountTypes, setCustomAccountTypes] = useState<
+    Array<{ id: string; label: string; icon: string }>
+  >([]);
+  const [customInstitutions, setCustomInstitutions] = useState<string[]>([]);
+  const [showCustomTypeModal, setShowCustomTypeModal] = useState(false);
+  const [showCustomInstitutionModal, setShowCustomInstitutionModal] =
+    useState(false);
+  const [newCustomType, setNewCustomType] = useState("");
+  const [newCustomInstitution, setNewCustomInstitution] = useState("");
+
+  // Handle plus icon actions
+  const handleAddCustomType = () => {
+    setShowCustomTypeModal(true);
+  };
+
+  const handleAddCustomInstitution = () => {
+    setShowCustomInstitutionModal(true);
+  };
+
+  const saveCustomType = () => {
+    if (newCustomType.trim()) {
+      const newType = {
+        id: newCustomType.toLowerCase().replace(/\s+/g, "_"),
+        label: newCustomType.trim(),
+        icon: "wallet-outline",
+      };
+      setCustomAccountTypes((prev) => [...prev, newType]);
+      setType(newType.id);
+      setNewCustomType("");
+      setShowCustomTypeModal(false);
+    }
+  };
+
+  const saveCustomInstitution = () => {
+    if (newCustomInstitution.trim()) {
+      const institutionName = newCustomInstitution.trim();
+      setCustomInstitutions((prev) => [...prev, institutionName]);
+      setInstitution(institutionName);
+      setNewCustomInstitution("");
+      setShowCustomInstitutionModal(false);
+    }
+  };
+
+  const colors = isDark
+    ? {
+        background: "#1F2937",
+        card: "#374151",
+        text: "#FFFFFF",
+        textSecondary: "#9CA3AF",
+        border: "#4B5563",
+        primary: "#10B981",
+        secondary: "#3B82F6",
+        accent: "#F59E0B",
+        danger: "#EF4444",
+      }
+    : {
+        background: "#FFFFFF",
+        card: "#F9FAFB",
+        text: "#111827",
+        textSecondary: "#6B7280",
+        border: "#E5E7EB",
+        primary: "#10B981",
+        secondary: "#3B82F6",
+        accent: "#F59E0B",
+        danger: "#EF4444",
+      };
+
+  const baseAccountTypes = [
+    { id: "savings", label: "Savings Account", icon: "wallet-outline" },
+    { id: "current", label: "Current Account", icon: "card-outline" },
+    {
+      id: "fixed_deposit",
+      label: "Fixed Deposit",
+      icon: "lock-closed-outline",
+    },
+    {
+      id: "recurring_deposit",
+      label: "Recurring Deposit",
+      icon: "refresh-outline",
+    },
+    { id: "nri_account", label: "NRI Account", icon: "globe-outline" },
+    { id: "joint_account", label: "Joint Account", icon: "people-outline" },
+    { id: "business", label: "Business Account", icon: "business-outline" },
+    { id: "other", label: "Other", icon: "ellipse-outline" },
   ];
 
-  const popularInstitutions = [
-    'Chase Bank', 'Bank of America', 'Wells Fargo', 'Citibank',
-    'Capital One', 'US Bank', 'PNC Bank', 'TD Bank',
-    'Ally Bank', 'Charles Schwab', 'Fidelity', 'Vanguard',
-    'American Express', 'Discover', 'Barclays', 'HSBC'
+  const accountTypes = [...baseAccountTypes, ...customAccountTypes];
+
+  const baseInstitutions = [
+    // Public Sector Banks
+    "State Bank of India (SBI)",
+    "Punjab National Bank (PNB)",
+    "Bank of Baroda (BoB)",
+    "Canara Bank",
+    "Union Bank of India",
+    "Indian Bank",
+    "Bank of India",
+    "Central Bank of India",
+    "Indian Overseas Bank",
+    "UCO Bank",
+    "Bank of Maharashtra",
+    "Punjab & Sind Bank",
+    // Private Sector Banks
+    "HDFC Bank",
+    "ICICI Bank",
+    "Axis Bank",
+    "Kotak Mahindra Bank",
+    "IndusInd Bank",
+    "Yes Bank",
+    "IDFC FIRST Bank",
+    "Federal Bank",
+    "South Indian Bank",
+    "RBL Bank",
+    "Bandhan Bank",
+    "DCB Bank",
+    "City Union Bank",
+    "Jammu & Kashmir Bank",
+    "Karur Vysya Bank",
+    "Karnataka Bank",
+    "Tamilnad Mercantile Bank",
+    // Foreign Banks
+    "Standard Chartered Bank",
+    "HSBC",
+    "Deutsche Bank",
+    "Citibank",
+    "DBS Bank",
+    "Other",
   ];
+
+  const allInstitutions = [...baseInstitutions, ...customInstitutions];
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter an account name');
+      Alert.alert("Error", "Please enter an account name");
       return;
     }
 
     if (!institution.trim()) {
-      Alert.alert('Error', 'Please enter the financial institution');
+      Alert.alert("Error", "Please enter the financial institution");
       return;
     }
 
     if (!balance.trim() || isNaN(parseFloat(balance))) {
-      Alert.alert('Error', 'Please enter a valid balance');
+      Alert.alert("Error", "Please enter a valid balance");
       return;
     }
 
     setLoading(true);
     try {
       const newAccount: Account = {
-        id: 'temp-' + Date.now(), // Temporary ID that will be replaced by the service
+        id: "temp-" + Date.now(), // Temporary ID that will be replaced by the service
         name: name.trim(),
         type,
         balance: parseFloat(balance),
         institution: institution.trim(),
         account_number: accountNumber.trim() || undefined,
+        logo_url: logoUri || undefined,
       };
 
       const createdAccount = await addAccount(newAccount, isDemo);
-      
+
+      // Call the callback first, then show success message
       onAccountAdded(createdAccount);
-      handleClose();
-      
-      Alert.alert('Success', 'Bank account added successfully!');
+
+      // Note: Don't call handleClose() here as the parent component handles modal closing
+      Alert.alert("Success", "Bank account added successfully!");
     } catch (error) {
-      console.error('Error creating account:', error);
-      Alert.alert('Error', 'Failed to add bank account. Please try again.');
+      console.error("Error creating account:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to add bank account. Please try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setName('');
-    setType('checking');
-    setBalance('');
-    setInstitution('');
-    setAccountNumber('');
-    setRoutingNumber('');
+    // Reset all form fields
+    setName("");
+    setType("savings");
+    setBalance("");
+    setInstitution("");
+    setAccountNumber("");
+    setLogoUri(null);
+
+    // Reset custom input fields
+    setNewCustomType("");
+    setNewCustomInstitution("");
+
+    // Close all modals
+    setShowTypePicker(false);
+    setShowInstitutionPicker(false);
+    setShowAiExtractionModal(false);
+    setShowCustomTypeModal(false);
+    setShowCustomInstitutionModal(false);
+
+    // Reset loading state
+    setLoading(false);
+
     onClose();
+  };
+
+  const handleAiExtraction = async (type: "image" | "document" | "sms") => {
+    setShowAiExtractionModal(false);
+    setLoading(true);
+
+    // Simulate AI processing - replace with actual AI integration
+    setTimeout(() => {
+      const mockData = {
+        name: "HDFC Savings Account",
+        institution: "HDFC Bank",
+        accountNumber: "1234567890123456",
+        type: "savings",
+      };
+
+      setName(mockData.name);
+      setInstitution(mockData.institution);
+      setAccountNumber(mockData.accountNumber);
+      setType(mockData.type);
+      setLoading(false);
+
+      Alert.alert("Success", "Account details extracted successfully!");
+    }, 2000);
+  };
+
+  const handleScanButtonPress = () => {
+    // Button animation
+    Animated.sequence([
+      Animated.spring(scanButtonScale, {
+        toValue: 0.9,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scanButtonScale, {
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Haptic feedback
+    Vibration.vibrate(50);
+
+    // Open modal
+    setShowAiExtractionModal(true);
   };
 
   const formatAccountNumber = (text: string) => {
     // Remove all non-numeric characters
-    const cleaned = text.replace(/\D/g, '');
+    const cleaned = text.replace(/\D/g, "");
     // Limit to 17 digits (typical max for account numbers)
     const limited = cleaned.substring(0, 17);
     // Add spaces every 4 digits for readability
-    return limited.replace(/(\d{4})/g, '$1 ').trim();
-  };
-
-  const formatRoutingNumber = (text: string) => {
-    // Remove all non-numeric characters and limit to 9 digits
-    const cleaned = text.replace(/\D/g, '').substring(0, 9);
-    return cleaned;
+    return limited.replace(/(\d{4})/g, "$1 ").trim();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={handleClose}>
+          <TouchableOpacity onPress={handleClose} style={styles.headerButton}>
             <Ionicons name="close" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             Add Bank Account
           </Text>
-          <View style={{ width: 24 }} />
+          <Animated.View style={{ transform: [{ scale: scanButtonScale }] }}>
+            <TouchableOpacity
+              onPress={handleScanButtonPress}
+              style={[styles.scanButton, { backgroundColor: colors.primary }]}
+            >
+              <Ionicons name="scan-outline" size={20} color="white" />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Account Name */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.fieldLabel, { color: colors.text }]}>
-              Account Name <Text style={styles.required}>*</Text>
+              Account Name <Text style={{ color: colors.danger }}>*</Text>
             </Text>
             <TextInput
-              style={[styles.textInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
               placeholder="My Checking Account"
               placeholderTextColor={colors.textSecondary}
               value={name}
@@ -176,38 +388,80 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
 
           {/* Account Type and Institution Row */}
           <View style={styles.rowContainer}>
-            <View style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}>
-              <Text style={[styles.fieldLabel, { color: colors.text }]}>Account Type</Text>
-              <TouchableOpacity 
-                style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            <View style={[styles.fieldContainer, { flex: 1, marginRight: 8 }]}>
+              <View style={styles.labelWithAction}>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                  Account Type
+                </Text>
+                <TouchableOpacity
+                  onPress={handleAddCustomType}
+                  style={[styles.addButton, { borderColor: colors.primary }]}
+                >
+                  <Ionicons name="add" size={12} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.selectButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
                 onPress={() => setShowTypePicker(true)}
               >
                 <View style={styles.selectContent}>
-                  <Ionicons 
-                    name={accountTypes.find(t => t.id === type)?.icon as any} 
-                    size={16} 
-                    color={colors.textSecondary} 
+                  <Ionicons
+                    name={accountTypes.find((t) => t.id === type)?.icon as any}
+                    size={14}
+                    color={colors.textSecondary}
                   />
-                  <Text style={[styles.selectText, { color: colors.text }]} numberOfLines={1}>
-                    {accountTypes.find(t => t.id === type)?.label || 'Select type'}
+                  <Text
+                    style={[styles.selectText, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {accountTypes.find((t) => t.id === type)?.label ||
+                      "Select type"}
                   </Text>
                 </View>
-                <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                <Ionicons
+                  name="chevron-down"
+                  size={14}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}>
-              <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                Institution <Text style={styles.required}>*</Text>
-              </Text>
-              <TouchableOpacity 
-                style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            <View style={[styles.fieldContainer, { flex: 1, marginLeft: 8 }]}>
+              <View style={styles.labelWithAction}>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                  Institution <Text style={{ color: colors.danger }}>*</Text>
+                </Text>
+                <TouchableOpacity
+                  onPress={handleAddCustomInstitution}
+                  style={[styles.addButton, { borderColor: colors.primary }]}
+                >
+                  <Ionicons name="add" size={12} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.selectButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
                 onPress={() => setShowInstitutionPicker(true)}
               >
-                <Text style={[styles.selectText, { color: institution ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                  {institution || 'Select bank'}
+                <Text
+                  style={[
+                    styles.selectText,
+                    { color: institution ? colors.text : colors.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {institution || "Select bank"}
                 </Text>
-                <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                <Ionicons
+                  name="chevron-down"
+                  size={14}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -215,10 +469,19 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
           {/* Current Balance */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.fieldLabel, { color: colors.text }]}>
-              Current Balance <Text style={styles.required}>*</Text>
+              Current Balance <Text style={{ color: colors.danger }}>*</Text>
             </Text>
-            <View style={[styles.amountContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>$</Text>
+            <View
+              style={[
+                styles.amountContainer,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text
+                style={[styles.currencySymbol, { color: colors.textSecondary }]}
+              >
+                $
+              </Text>
               <TextInput
                 style={[styles.amountInput, { color: colors.text }]}
                 placeholder="0.00"
@@ -226,10 +489,10 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
                 value={balance}
                 onChangeText={(text) => {
                   // Allow negative balances for checking accounts
-                  const cleanedValue = text.replace(/[^0-9.-]/g, '');
-                  const parts = cleanedValue.split('.');
+                  const cleanedValue = text.replace(/[^0-9.-]/g, "");
+                  const parts = cleanedValue.split(".");
                   if (parts.length > 2) {
-                    setBalance(parts[0] + '.' + parts.slice(1).join(''));
+                    setBalance(parts[0] + "." + parts.slice(1).join(""));
                   } else {
                     setBalance(cleanedValue);
                   }
@@ -240,59 +503,129 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
           </View>
 
           {/* Account Details Section */}
-          <View style={[styles.sectionContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.sectionContainer,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Account Details (Optional)
             </Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
+            >
               This information is encrypted and stored securely
             </Text>
 
             {/* Account Number */}
             <View style={styles.fieldContainer}>
-              <Text style={[styles.fieldLabel, { color: colors.text }]}>Account Number</Text>
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Account Number
+              </Text>
               <TextInput
-                style={[styles.textInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.background,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
                 placeholder="••••••••••••1234"
                 placeholderTextColor={colors.textSecondary}
                 value={accountNumber}
-                onChangeText={(text) => setAccountNumber(formatAccountNumber(text))}
+                onChangeText={(text) =>
+                  setAccountNumber(formatAccountNumber(text))
+                }
                 keyboardType="numeric"
                 secureTextEntry
                 maxLength={20}
               />
             </View>
 
-            {/* Routing Number */}
+            {/* Bank Logo Upload */}
             <View style={styles.fieldContainer}>
-              <Text style={[styles.fieldLabel, { color: colors.text }]}>Routing Number</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                placeholder="123456789"
-                placeholderTextColor={colors.textSecondary}
-                value={routingNumber}
-                onChangeText={(text) => setRoutingNumber(formatRoutingNumber(text))}
-                keyboardType="numeric"
-                maxLength={9}
-              />
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Bank Logo (Optional)
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.logoUploadButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={handleLogoUpload}
+              >
+                {logoUri ? (
+                  <View style={styles.logoPreviewContainer}>
+                    <Image
+                      source={{ uri: logoUri }}
+                      style={styles.logoPreview}
+                    />
+                    <View style={styles.logoActions}>
+                      <Text
+                        style={[styles.logoSuccessText, { color: colors.text }]}
+                      >
+                        Logo uploaded
+                      </Text>
+                      <TouchableOpacity
+                        onPress={handleRemoveLogo}
+                        style={styles.removeLogo}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={20}
+                          color={colors.danger}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.logoUploadContent}>
+                    <Ionicons
+                      name="image-outline"
+                      size={24}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[styles.logoUploadText, { color: colors.text }]}
+                    >
+                      Upload Bank Logo
+                    </Text>
+                    <Text
+                      style={[
+                        styles.logoUploadSubtext,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      JPG, PNG, WEBP (Max 5MB)
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.cancelButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            <TouchableOpacity
+              style={[
+                styles.cancelButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
               onPress={handleClose}
             >
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+              <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                Cancel
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: colors.primary }]}
               onPress={handleSave}
               disabled={loading}
             >
               <Text style={styles.saveButtonText}>
-                {loading ? 'Adding...' : 'Add Account'}
+                {loading ? "Adding..." : "Add Account"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -303,38 +636,76 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
           <TouchableWithoutFeedback onPress={() => setShowTypePicker(false)}>
             <View style={styles.pickerOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
-                  <View style={[styles.pickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.pickerContainer,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.pickerHeader,
+                      {
+                        backgroundColor: colors.card,
+                        borderBottomColor: colors.border,
+                      },
+                    ]}
+                  >
                     <TouchableOpacity onPress={() => setShowTypePicker(false)}>
-                      <Text style={[styles.pickerButton, { color: colors.textSecondary }]}>Cancel</Text>
+                      <Text
+                        style={[
+                          styles.pickerButton,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
                     </TouchableOpacity>
-                    <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Account Type</Text>
+                    <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                      Select Account Type
+                    </Text>
                     <TouchableOpacity onPress={() => setShowTypePicker(false)}>
-                      <Text style={[styles.pickerButton, { color: colors.primary }]}>Done</Text>
+                      <Text
+                        style={[styles.pickerButton, { color: colors.primary }]}
+                      >
+                        Done
+                      </Text>
                     </TouchableOpacity>
                   </View>
                   <ScrollView style={styles.pickerContent}>
                     {accountTypes.map((accountType, index) => (
                       <TouchableOpacity
                         key={index}
-                        style={[styles.pickerItem, { borderBottomColor: colors.border }]}
+                        style={[
+                          styles.pickerItem,
+                          { borderBottomColor: colors.border },
+                        ]}
                         onPress={() => {
                           setType(accountType.id);
                           setShowTypePicker(false);
                         }}
                       >
                         <View style={styles.pickerItemContent}>
-                          <Ionicons 
-                            name={accountType.icon as any} 
-                            size={20} 
-                            color={colors.textSecondary} 
+                          <Ionicons
+                            name={accountType.icon as any}
+                            size={20}
+                            color={colors.textSecondary}
                           />
-                          <Text style={[styles.pickerItemText, { color: colors.text }]}>
+                          <Text
+                            style={[
+                              styles.pickerItemText,
+                              { color: colors.text },
+                            ]}
+                          >
                             {accountType.label}
                           </Text>
                         </View>
                         {type === accountType.id && (
-                          <Ionicons name="checkmark" size={20} color={colors.primary} />
+                          <Ionicons
+                            name="checkmark"
+                            size={20}
+                            color={colors.primary}
+                          />
                         )}
                       </TouchableOpacity>
                     ))}
@@ -346,39 +717,382 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
         </Modal>
 
         {/* Institution Picker Modal */}
-        <Modal visible={showInstitutionPicker} transparent animationType="slide">
-          <TouchableWithoutFeedback onPress={() => setShowInstitutionPicker(false)}>
+        <Modal
+          visible={showInstitutionPicker}
+          transparent
+          animationType="slide"
+        >
+          <TouchableWithoutFeedback
+            onPress={() => setShowInstitutionPicker(false)}
+          >
             <View style={styles.pickerOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
-                  <View style={[styles.pickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={() => setShowInstitutionPicker(false)}>
-                      <Text style={[styles.pickerButton, { color: colors.textSecondary }]}>Cancel</Text>
+                <View
+                  style={[
+                    styles.pickerContainer,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.pickerHeader,
+                      {
+                        backgroundColor: colors.card,
+                        borderBottomColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setShowInstitutionPicker(false)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerButton,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
                     </TouchableOpacity>
-                    <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Institution</Text>
-                    <TouchableOpacity onPress={() => setShowInstitutionPicker(false)}>
-                      <Text style={[styles.pickerButton, { color: colors.primary }]}>Done</Text>
+                    <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                      Select Institution
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowInstitutionPicker(false)}
+                    >
+                      <Text
+                        style={[styles.pickerButton, { color: colors.primary }]}
+                      >
+                        Done
+                      </Text>
                     </TouchableOpacity>
                   </View>
                   <ScrollView style={styles.pickerContent}>
-                    {popularInstitutions.map((bank, index) => (
+                    {allInstitutions.map((bank, index) => (
                       <TouchableOpacity
                         key={index}
-                        style={[styles.pickerItem, { borderBottomColor: colors.border }]}
+                        style={[
+                          styles.pickerItem,
+                          { borderBottomColor: colors.border },
+                        ]}
                         onPress={() => {
                           setInstitution(bank);
                           setShowInstitutionPicker(false);
                         }}
                       >
-                        <Text style={[styles.pickerItemText, { color: colors.text }]}>
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            { color: colors.text },
+                          ]}
+                        >
                           {bank}
                         </Text>
                         {institution === bank && (
-                          <Ionicons name="checkmark" size={20} color={colors.primary} />
+                          <Ionicons
+                            name="checkmark"
+                            size={20}
+                            color={colors.primary}
+                          />
                         )}
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* AI Extraction Modal */}
+        <Modal
+          visible={showAiExtractionModal}
+          transparent
+          animationType="slide"
+        >
+          <TouchableWithoutFeedback
+            onPress={() => setShowAiExtractionModal(false)}
+          >
+            <View style={styles.pickerOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View
+                  style={[
+                    styles.aiModalContainer,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.aiModalHeader,
+                      {
+                        backgroundColor: colors.card,
+                        borderBottomColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.aiModalTitle, { color: colors.text }]}>
+                      Extract Account Details
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowAiExtractionModal(false)}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={24}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.aiModalContent}>
+                    <Text
+                      style={[
+                        styles.aiModalSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Choose your preferred method to extract account data
+                    </Text>
+
+                    {/* 1x3 Horizontal Grid Layout */}
+                    <View style={styles.aiOptionsGrid}>
+                      <TouchableOpacity
+                        style={[
+                          styles.aiGridOption,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => handleAiExtraction("image")}
+                        disabled={loading}
+                      >
+                        <Ionicons
+                          name="camera-outline"
+                          size={20}
+                          color={colors.primary}
+                        />
+                        <Text
+                          style={[styles.aiGridTitle, { color: colors.text }]}
+                        >
+                          Photo
+                        </Text>
+                        <Text
+                          style={[
+                            styles.aiGridSubtitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Bank Statement
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.aiGridOption,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => handleAiExtraction("document")}
+                        disabled={loading}
+                      >
+                        <Ionicons
+                          name="document-outline"
+                          size={20}
+                          color={colors.primary}
+                        />
+                        <Text
+                          style={[styles.aiGridTitle, { color: colors.text }]}
+                        >
+                          Document
+                        </Text>
+                        <Text
+                          style={[
+                            styles.aiGridSubtitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          PDF, Images
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.aiGridOption,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => handleAiExtraction("sms")}
+                        disabled={loading}
+                      >
+                        <Ionicons
+                          name="chatbubble-outline"
+                          size={20}
+                          color={colors.primary}
+                        />
+                        <Text
+                          style={[styles.aiGridTitle, { color: colors.text }]}
+                        >
+                          SMS
+                        </Text>
+                        <Text
+                          style={[
+                            styles.aiGridSubtitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Transaction Text
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {loading && (
+                      <View style={styles.loadingContainer}>
+                        <Text
+                          style={[styles.loadingText, { color: colors.text }]}
+                        >
+                          Extracting account details...
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Custom Account Type Modal */}
+        <Modal visible={showCustomTypeModal} transparent animationType="slide">
+          <TouchableWithoutFeedback
+            onPress={() => setShowCustomTypeModal(false)}
+          >
+            <View style={styles.pickerOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View
+                  style={[
+                    styles.pickerContainer,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.pickerHeader,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setShowCustomTypeModal(false)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerCancel,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                      Add Custom Account Type
+                    </Text>
+                    <TouchableOpacity onPress={saveCustomType}>
+                      <Text
+                        style={[styles.pickerDone, { color: colors.primary }]}
+                      >
+                        Add
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.customInputContainer}>
+                    <TextInput
+                      style={[
+                        styles.customInput,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          color: colors.text,
+                        },
+                      ]}
+                      placeholder="Enter account type name"
+                      placeholderTextColor={colors.textSecondary}
+                      value={newCustomType}
+                      onChangeText={setNewCustomType}
+                      maxLength={30}
+                    />
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Custom Institution Modal */}
+        <Modal
+          visible={showCustomInstitutionModal}
+          transparent
+          animationType="slide"
+        >
+          <TouchableWithoutFeedback
+            onPress={() => setShowCustomInstitutionModal(false)}
+          >
+            <View style={styles.pickerOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View
+                  style={[
+                    styles.pickerContainer,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.pickerHeader,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setShowCustomInstitutionModal(false)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerCancel,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                      Add Custom Institution
+                    </Text>
+                    <TouchableOpacity onPress={saveCustomInstitution}>
+                      <Text
+                        style={[styles.pickerDone, { color: colors.primary }]}
+                      >
+                        Add
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.customInputContainer}>
+                    <TextInput
+                      style={[
+                        styles.customInput,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          color: colors.text,
+                        },
+                      ]}
+                      placeholder="Enter institution name"
+                      placeholderTextColor={colors.textSecondary}
+                      value={newCustomInstitution}
+                      onChangeText={setNewCustomInstitution}
+                      maxLength={50}
+                    />
+                  </View>
                 </View>
               </TouchableWithoutFeedback>
             </View>
@@ -394,174 +1108,350 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    paddingTop: 50,
+    paddingTop: 44,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   fieldContainer: {
-    marginBottom: 20,
+    marginBottom: 14,
   },
   fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 6,
   },
-  required: {
-    color: '#EF4444',
+  labelWithAction: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  addButton: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // Logo upload styles
+  logoUploadButton: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 80,
+  },
+  logoUploadContent: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoUploadText: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  logoUploadSubtext: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: "center",
+  },
+  logoPreviewContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  logoPreview: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+  },
+  logoActions: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginLeft: 12,
+  },
+  logoSuccessText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  removeLogo: {
+    padding: 4,
+  },
+  // Custom modal styles
+  customInputContainer: {
+    padding: 24,
+    minHeight: 120,
+  },
+  customInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    minHeight: 48,
   },
   textInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    minHeight: 38,
   },
   amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 38,
   },
   currencySymbol: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginRight: 8,
+    fontSize: 14,
+    fontWeight: "500",
+    marginRight: 6,
   },
   amountInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     padding: 0,
   },
   rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   selectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 38,
   },
   selectContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
-    marginRight: 8,
+    marginRight: 6,
   },
   selectText: {
-    fontSize: 16,
+    fontSize: 14,
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   // Picker Modal Styles
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   pickerContainer: {
-    maxHeight: '70%',
+    maxHeight: "70%",
+    minHeight: 250,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
   pickerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pickerButton: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pickerContent: {
     maxHeight: 300,
   },
   pickerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
   pickerItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   pickerItemText: {
     fontSize: 16,
     flex: 1,
   },
-  sectionContainer: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  sectionTitle: {
+  pickerCancel: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: "400",
   },
-  sectionSubtitle: {
-    fontSize: 12,
+  pickerDone: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  sectionContainer: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
     marginBottom: 16,
   },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 3,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    marginBottom: 12,
+  },
   buttonContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingBottom: 32,
-    marginTop: 8,
+    flexDirection: "row",
+    gap: 10,
+    paddingBottom: 24,
+    marginTop: 6,
   },
   cancelButton: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    minHeight: 44,
   },
   cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: "600",
   },
   saveButton: {
     flex: 2,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    minHeight: 44,
   },
   saveButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "white",
+  },
+  // Header button styles
+  headerButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scanButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  // AI Modal Styles
+  aiModalContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "70%",
+  },
+  aiModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  aiModalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  aiModalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  aiModalSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  // 1x3 Horizontal Grid Layout
+  aiOptionsGrid: {
+    flexDirection: "row",
+    gap: 6,
+    marginVertical: 16,
+  },
+  aiGridOption: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 75,
+    justifyContent: "center",
+  },
+  aiGridTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  aiGridSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+    textAlign: "center",
+    lineHeight: 14,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+    marginTop: 20,
+  },
+  loadingText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
+    fontWeight: "500",
   },
 });
 
