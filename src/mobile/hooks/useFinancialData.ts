@@ -16,6 +16,7 @@ interface FinancialData {
     total: number;
     change: string;
     loading: boolean;
+    count: number;
   };
   creditCards: {
     total: number;
@@ -40,7 +41,7 @@ export const useFinancialData = () => {
 
   const [financialData, setFinancialData] = useState<FinancialData>({
     netWorth: { total: 0, change: "+1.9%", loading: true },
-    accounts: { total: 0, change: "+2.8%", loading: true },
+    accounts: { total: 0, change: "+2.8%", loading: true, count: 0 },
     creditCards: { total: 2321, change: "+0.8%", loading: false },
     income: { total: 566486, change: "0.0%", loading: false },
     expenses: { total: 133846, change: "0.0%", loading: false },
@@ -118,6 +119,7 @@ export const useFinancialData = () => {
             total: accountsTotal,
             change: "+2.8%",
             loading: false,
+            count: bankAccounts.length,
           },
           creditCards: {
             total: 2321,
@@ -140,7 +142,12 @@ export const useFinancialData = () => {
         // Set default fallback data on error
         setFinancialData({
           netWorth: { total: 4776896, change: "+1.9%", loading: false },
-          accounts: { total: 4776896, change: "+2.8%", loading: false },
+          accounts: {
+            total: 4776896,
+            change: "+2.8%",
+            loading: false,
+            count: accounts.length,
+          },
           creditCards: { total: 2321, change: "+0.8%", loading: false },
           income: { total: 566486, change: "0.0%", loading: false },
           expenses: { total: 133846, change: "0.0%", loading: false },

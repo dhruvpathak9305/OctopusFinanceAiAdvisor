@@ -126,7 +126,9 @@ const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
   return (
     <>
       <FinancialSummaryCard
-        title="Accounts"
+        title={`Accounts${
+          bankAccounts.length > 0 ? ` (${bankAccounts.length})` : ""
+        }`}
         icon="🏛️"
         data={chartData}
         total={totalBalance}

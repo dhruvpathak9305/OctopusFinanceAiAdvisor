@@ -118,7 +118,12 @@ interface CompactCardData {
 
 interface FinancialDashboardCompactProps {
   netWorthData?: { total: number; change: string; loading?: boolean };
-  accountsData?: { total: number; change: string; loading?: boolean };
+  accountsData?: {
+    total: number;
+    change: string;
+    loading?: boolean;
+    count?: number;
+  };
   creditCardData?: { total: number; change: string; loading?: boolean };
   incomeData?: { total: number; change: string; loading?: boolean };
   expensesData?: { total: number; change: string; loading?: boolean };
@@ -174,9 +179,9 @@ const FinancialDashboardCompact: React.FC<FinancialDashboardCompactProps> = ({
     return `${isNegative ? "-" : ""}$${formattedValue}`;
   };
 
-  // Default fallback values
-  const getDefaultNetWorthData = () => netWorthData?.total ?? 4776896;
-  const getDefaultAccountsData = () => accountsData?.total ?? 4776896;
+  // Default fallback values - only use if no real data available
+  const getDefaultNetWorthData = () => netWorthData?.total ?? 0;
+  const getDefaultAccountsData = () => accountsData?.total ?? 0;
 
   // Enhanced color palette for accessibility and colorblind-friendly design
   const colorPalette = {
@@ -188,11 +193,11 @@ const FinancialDashboardCompact: React.FC<FinancialDashboardCompactProps> = ({
   };
 
   // Prepare compact card data with enhanced accessibility and sparkline data
-  const netWorthValue = netWorthData?.total ?? getDefaultNetWorthData();
-  const accountsValue = accountsData?.total ?? getDefaultAccountsData();
-  const creditCardValue = creditCardData?.total ?? 2321;
-  const incomeValue = incomeData?.total ?? 566486;
-  const expensesValue = expensesData?.total ?? 133846;
+  const netWorthValue = netWorthData?.total ?? 0;
+  const accountsValue = accountsData?.total ?? 0;
+  const creditCardValue = creditCardData?.total ?? 0;
+  const incomeValue = incomeData?.total ?? 0;
+  const expensesValue = expensesData?.total ?? 0;
 
   const compactCards: CompactCardData[] = [
     {
@@ -209,7 +214,7 @@ const FinancialDashboardCompact: React.FC<FinancialDashboardCompactProps> = ({
       ),
     },
     {
-      title: "Accounts",
+      title: `Accounts${accountsData?.count ? ` (${accountsData.count})` : ""}`,
       icon: "🏛️",
       value: formatCurrency(accountsValue),
       change: accountsData?.change ?? "+2.8%",
