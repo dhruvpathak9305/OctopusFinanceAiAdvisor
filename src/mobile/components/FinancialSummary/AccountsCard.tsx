@@ -3,6 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAccounts } from "../../../../contexts/AccountsContext";
 import { fetchAccountsHistory } from "../../../../services/accountsService";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
+import { useBalances } from "../../../../contexts/BalanceContext";
 import FinancialSummaryCard from "./FinancialSummaryCard";
 import AddAccountModal from "../AddAccountModal";
 
@@ -12,33 +13,52 @@ interface AccountsCardProps {
 
 const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
   const navigation = useNavigation();
-  const { accounts, loading, error, fetchAccounts } = useAccounts();
+  const {
+    accounts,
+    loading: accountsLoading,
+    error: accountsError,
+    fetchAccounts,
+  } = useAccounts();
   const { isDemo } = useDemoMode();
+  const {
+    bankAccountBalances,
+    totalBalance,
+    loading: balancesLoading,
+    error: balancesError,
+    refreshBalances,
+    debugComparison,
+  } = useBalances();
   const [chartData, setChartData] = useState<
     Array<{ month: string; value: number }>
   >([]);
   const [chartLoading, setChartLoading] = useState(true);
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
 
-  // Filter out credit cards and loans (liabilities) - matching working component
-  const bankAccounts = accounts.filter(
-    (account) =>
-      account.type !== "Credit Card" &&
-      account.type !== "Credit" &&
-      account.type !== "Loan"
-  );
+  // Combined loading and error states
+  const loading = accountsLoading || balancesLoading;
+  const error = accountsError || balancesError;
 
-  // Calculate total balance of bank accounts
-  const totalBalance = bankAccounts.reduce(
-    (sum, account) => sum + account.balance,
-    0
-  );
+  // Debug logging
+  console.log("🔍 AccountsCard: Current state:", {
+    isDemo,
+    accountsLoading,
+    balancesLoading,
+    totalBalance,
+    bankAccountBalancesCount: bankAccountBalances.length,
+    bankAccountBalances: bankAccountBalances.map((b) => ({
+      name: b.account_name,
+      current_balance: b.current_balance,
+      account_type: b.account_type,
+    })),
+  });
 
   // Calculate monthly change (this would ideally come from historical data)
   const monthlyChange = "+2.8%"; // This could be calculated from historical data
 
   // Theme-aware colors (using a consistent green theme)
   const chartLineColor = "#059669";
+
+  // Note: Balance fetching is now handled by BalanceContext with real-time updates
 
   // Fetch historical data for chart
   useEffect(() => {
@@ -120,21 +140,32 @@ const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
 
   const handleAccountAdded = (newAccount: any) => {
     fetchAccounts();
+    // Refresh balances from context after adding new account
+    refreshBalances();
     setShowAddAccountModal(false);
+  };
+
+  // Debug function to force refresh balances and run comparison
+  const handleDebugRefresh = async () => {
+    console.log("🔄 AccountsCard: Manual balance refresh triggered");
+    await refreshBalances();
+    await debugComparison();
   };
 
   return (
     <>
       <FinancialSummaryCard
         title={`Accounts${
-          bankAccounts.length > 0 ? ` (${bankAccounts.length})` : ""
+          bankAccountBalances.length > 0
+            ? ` (${bankAccountBalances.length})`
+            : ""
         }`}
         icon="🏛️"
         data={chartData}
         total={totalBalance}
         monthlyChange={monthlyChange}
         themeColor={chartLineColor}
-        loading={loading || chartLoading}
+        loading={loading || chartLoading || balancesLoading}
         error={error}
         onViewAll={handleViewAll}
         onAddNew={handleAddNew}

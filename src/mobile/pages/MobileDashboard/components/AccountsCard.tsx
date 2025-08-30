@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAccounts } from "../../../../../contexts/AccountsContext";
 import FinancialSummaryCard from "../../../components/FinancialSummary/FinancialSummaryCard";
+import { useDemoMode } from "../../../../../contexts/DemoModeContext";
+import { useBalances } from "../../../../../contexts/BalanceContext";
 
 interface AccountsCardProps {
   onPress?: () => void;
@@ -20,22 +22,24 @@ const AccountsCard: React.FC<AccountsCardProps> = ({
   onPress,
   onExpandedPress,
 }) => {
-  const { accounts, loading, error } = useAccounts();
+  const {
+    accounts,
+    loading: accountsLoading,
+    error: accountsError,
+  } = useAccounts();
+  const { isDemo } = useDemoMode();
+  const {
+    bankAccountBalances,
+    totalBalance,
+    loading: balancesLoading,
+    error: balancesError,
+  } = useBalances();
 
-  // Filter out credit cards and loans (liabilities) - matching working component
-  const bankAccounts = accounts.filter(
-    (account) =>
-      account.type !== "Credit Card" &&
-      account.type !== "Credit" &&
-      account.type !== "Loan"
-  );
+  // Combined loading and error states
+  const loading = accountsLoading || balancesLoading;
+  const error = accountsError || balancesError;
 
-  // Calculate total balance of bank accounts
-  const totalBalance = bankAccounts.reduce(
-    (sum, account) => sum + account.balance,
-    0
-  );
-  console.log("🚀 ~ totalBalance:", totalBalance);
+  console.log("🚀 ~ totalBalance from balance_real context:", totalBalance);
 
   // Format for display using Indian currency (matching working component)
   const formattedBalance = new Intl.NumberFormat("en-IN", {
@@ -48,6 +52,8 @@ const AccountsCard: React.FC<AccountsCardProps> = ({
   // For now, we'll use a placeholder value
   const monthlyChange = "+2.8%";
   const themeColor = "#059669";
+
+  // Note: Balance fetching is now handled by BalanceContext with real-time updates
 
   // Generate dynamic chart data based on real balance
   const generateChartData = () => {
@@ -114,14 +120,14 @@ const AccountsCard: React.FC<AccountsCardProps> = ({
   return (
     <FinancialSummaryCard
       title={`Accounts${
-        bankAccounts.length > 0 ? ` (${bankAccounts.length})` : ""
+        bankAccountBalances.length > 0 ? ` (${bankAccountBalances.length})` : ""
       }`}
       icon="🏦"
       data={chartData}
       total={totalBalance}
       monthlyChange={monthlyChange}
       themeColor={themeColor}
-      loading={loading}
+      loading={loading || balancesLoading}
       error={error}
       onViewAll={handleViewAll}
       onAddNew={handleAddNew}

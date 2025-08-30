@@ -466,10 +466,10 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
             </View>
           </View>
 
-          {/* Current Balance */}
+          {/* Opening Balance */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.fieldLabel, { color: colors.text }]}>
-              Current Balance <Text style={{ color: colors.danger }}>*</Text>
+              Opening Balance <Text style={{ color: colors.danger }}>*</Text>
             </Text>
             <View
               style={[

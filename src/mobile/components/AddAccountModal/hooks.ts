@@ -62,7 +62,7 @@ export const useAddAccountModal = () => {
     }
 
     if (!balance.trim() || isNaN(parseFloat(balance))) {
-      Alert.alert("Error", "Please enter a valid balance");
+      Alert.alert("Error", "Please enter a valid opening balance");
       return false;
     }
 

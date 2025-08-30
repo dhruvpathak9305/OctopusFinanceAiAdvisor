@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,31 +11,42 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Image,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useTheme } from '../../../../contexts/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
-import BankStatementUploader from '../BankStatementUploader';
-import BankStatementErrorBoundary from '../BankStatementUploader/BankStatementErrorBoundary';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { useTheme } from "../../../../contexts/ThemeContext";
+import { useNavigation } from "@react-navigation/native";
+import BankStatementUploader from "../BankStatementUploader";
+import BankStatementErrorBoundary from "../BankStatementUploader/BankStatementErrorBoundary";
 // Import database services
-import { fetchBudgetCategories, fetchBudgetSubcategories, BudgetCategory, BudgetSubcategory } from '../../../../services/budgetService';
-import { fetchAccounts } from '../../../../services/accountsService';
-import { Account } from '../../../../contexts/AccountsContext';
-import { addTransaction, updateTransaction } from '../../../../services/transactionsService';
-import { useDemoMode } from '../../../../contexts/DemoModeContext';
+import {
+  fetchBudgetCategories,
+  fetchBudgetSubcategories,
+  BudgetCategory,
+  BudgetSubcategory,
+} from "../../../../services/budgetService";
+import { fetchAccounts } from "../../../../services/accountsService";
+import { Account } from "../../../../contexts/AccountsContext";
+import {
+  addTransaction,
+  updateTransaction,
+} from "../../../../services/transactionsService";
+import { useDemoMode } from "../../../../contexts/DemoModeContext";
 // Import modals
-import AddCategoryModal from '../AddCategoryModal';
-import AddSubcategoryModal from '../AddSubcategoryModal';
-import AddAccountModal from '../AddAccountModal';
-import AddCreditCardModal from '../AddCreditCardModal';
-import { CreditCard } from '../../../../services/creditCardService';
+import AddCategoryModal from "../AddCategoryModal";
+import AddSubcategoryModal from "../AddSubcategoryModal";
+import AddAccountModal from "../AddAccountModal";
+import AddCreditCardModal from "../AddCreditCardModal";
+import { CreditCard } from "../../../../services/creditCardService";
 // Import AI services
-import { OctopusSMSAnalyzer, ContextData } from '../../../../services/smsAnalyzer';
-import { OpenAIService } from '../../../../services/openaiService';
+import {
+  OctopusSMSAnalyzer,
+  ContextData,
+} from "../../../../services/smsAnalyzer";
+import { OpenAIService } from "../../../../services/openaiService";
 // Import image handling
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 
 interface QuickAddButtonProps {
   style?: any;
@@ -53,12 +64,21 @@ interface AddTransactionModalProps {
   onTransactionUpdate?: () => void; // Callback to refresh transactions
 }
 
-const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClose, onBack, editTransaction, isEditMode = false, onTransactionUpdate }) => {
+const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
+  colors,
+  onClose,
+  onBack,
+  editTransaction,
+  isEditMode = false,
+  onTransactionUpdate,
+}) => {
   const { isDemo } = useDemoMode();
-  const [activeTab, setActiveTab] = useState('Manual Entry');
-  const [transactionType, setTransactionType] = useState<'expense' | 'income' | 'transfer'>('expense');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [activeTab, setActiveTab] = useState("Manual Entry");
+  const [transactionType, setTransactionType] = useState<
+    "expense" | "income" | "transfer"
+  >("expense");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
@@ -67,14 +87,15 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showAutopayAccountPicker, setShowAutopayAccountPicker] = useState(false);
-  const [category, setCategory] = useState('');
-  const [subcategory, setSubcategory] = useState('');
-  const [merchant, setMerchant] = useState('');
-  const [account, setAccount] = useState('');
-  const [fromAccount, setFromAccount] = useState('');
-  const [toAccount, setToAccount] = useState('');
-  const [smsText, setSmsText] = useState('');
+  const [showAutopayAccountPicker, setShowAutopayAccountPicker] =
+    useState(false);
+  const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
+  const [merchant, setMerchant] = useState("");
+  const [account, setAccount] = useState("");
+  const [fromAccount, setFromAccount] = useState("");
+  const [toAccount, setToAccount] = useState("");
+  const [smsText, setSmsText] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   // SMS Analysis states
   const [isAnalyzingSMS, setIsAnalyzingSMS] = useState(false);
@@ -83,16 +104,20 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [imageAnalysisResult, setImageAnalysisResult] = useState<any>(null);
-  const [frequency, setFrequency] = useState('Monthly');
+  const [frequency, setFrequency] = useState("Monthly");
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [dueDate, setDueDate] = useState(new Date());
   const [enableAutopay, setEnableAutopay] = useState(false);
-  const [autopayAccount, setAutopayAccount] = useState('');
+  const [autopayAccount, setAutopayAccount] = useState("");
   const [useSameAccount, setUseSameAccount] = useState(true);
 
   // Database state
-  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
-  const [budgetSubcategories, setBudgetSubcategories] = useState<BudgetSubcategory[]>([]);
+  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>(
+    []
+  );
+  const [budgetSubcategories, setBudgetSubcategories] = useState<
+    BudgetSubcategory[]
+  >([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -101,42 +126,49 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   const [showAddSubcategoryModal, setShowAddSubcategoryModal] = useState(false);
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [showAddCreditCardModal, setShowAddCreditCardModal] = useState(false);
-  const [selectedCategoryForSubcategory, setSelectedCategoryForSubcategory] = useState<BudgetCategory | null>(null);
+  const [selectedCategoryForSubcategory, setSelectedCategoryForSubcategory] =
+    useState<BudgetCategory | null>(null);
 
-  const tabs = ['Manual Entry', 'Paste SMS', 'Upload Image'];
-  
+  const tabs = ["Manual Entry", "Paste SMS", "Upload Image"];
+
   const transactionTypes = [
-    { id: 'expense', label: 'Expense', icon: 'arrow-up', color: '#EF4444' },
-    { id: 'income', label: 'Income', icon: 'arrow-down', color: '#10B981' },
-    { id: 'transfer', label: 'Transfer', icon: 'swap-horizontal', color: '#3B82F6' }
+    { id: "expense", label: "Expense", icon: "arrow-up", color: "#EF4444" },
+    { id: "income", label: "Income", icon: "arrow-down", color: "#10B981" },
+    {
+      id: "transfer",
+      label: "Transfer",
+      icon: "swap-horizontal",
+      color: "#3B82F6",
+    },
   ];
 
   // Refresh functions
   const refreshData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch all required data in parallel
-      const [categoriesData, subcategoriesData, accountsData] = await Promise.all([
-        fetchBudgetCategories(isDemo),
-        fetchBudgetSubcategories(isDemo),
-        fetchAccounts(isDemo)
-      ]);
+      const [categoriesData, subcategoriesData, accountsData] =
+        await Promise.all([
+          fetchBudgetCategories(isDemo),
+          fetchBudgetSubcategories(isDemo),
+          fetchAccounts(isDemo),
+        ]);
 
       // Map the database results to the expected format
       const mappedCategories = categoriesData.map((cat: any) => ({
         ...cat,
         limit: cat.budget_limit || 0,
-        bgColor: cat.bg_color || '#047857',
-        ringColor: cat.ring_color || '#10b981',
-        is_active: cat.is_active === 'true' || cat.is_active === true
+        bgColor: cat.bg_color || "#047857",
+        ringColor: cat.ring_color || "#10b981",
+        is_active: cat.is_active === "true" || cat.is_active === true,
       }));
 
       setBudgetCategories(mappedCategories);
       setBudgetSubcategories(subcategoriesData);
       setAccounts(accountsData);
     } catch (error) {
-      console.error('Error refreshing dropdown data:', error);
+      console.error("Error refreshing dropdown data:", error);
     } finally {
       setLoading(false);
     }
@@ -144,19 +176,19 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
 
   // Modal handlers
   const handleCategoryAdded = (newCategory: BudgetCategory) => {
-    setBudgetCategories(prev => [...prev, newCategory]);
+    setBudgetCategories((prev) => [...prev, newCategory]);
     setCategory(newCategory.name);
     setShowAddCategoryModal(false);
   };
 
   const handleSubcategoryAdded = (newSubcategory: BudgetSubcategory) => {
-    setBudgetSubcategories(prev => [...prev, newSubcategory]);
+    setBudgetSubcategories((prev) => [...prev, newSubcategory]);
     setSubcategory(newSubcategory.name);
     setShowAddSubcategoryModal(false);
   };
 
   const handleAccountAdded = (newAccount: Account) => {
-    setAccounts(prev => [...prev, newAccount]);
+    setAccounts((prev) => [...prev, newAccount]);
     setAccount(`${newAccount.name} (${newAccount.institution})`);
     setShowAddAccountModal(false);
   };
@@ -166,11 +198,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
     const creditCardAsAccount: Account = {
       id: newCreditCard.id,
       name: newCreditCard.name,
-      type: 'credit_card',
+      type: "credit_card",
       balance: -newCreditCard.currentBalance, // Negative because it's debt
       institution: newCreditCard.institution,
     };
-    setAccounts(prev => [...prev, creditCardAsAccount]);
+    setAccounts((prev) => [...prev, creditCardAsAccount]);
     setAccount(`${newCreditCard.name} (${newCreditCard.institution})`);
     setShowAddCreditCardModal(false);
   };
@@ -183,25 +215,69 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   // Effect to populate form fields when in edit mode
   useEffect(() => {
     if (isEditMode && editTransaction) {
-      setDescription(editTransaction.name || editTransaction.description || '');
-      setAmount(editTransaction.amount?.toString() || '');
-      setTransactionType(editTransaction.type || 'expense');
+      setDescription(editTransaction.name || editTransaction.description || "");
+      setAmount(editTransaction.amount?.toString() || "");
+      setTransactionType(editTransaction.type || "expense");
       setSelectedDate(new Date(editTransaction.date) || new Date());
-      setMerchant(editTransaction.merchant || '');
-      
+      setMerchant(editTransaction.merchant || "");
+
       // Set category and subcategory names
-      const categoryName = editTransaction.category_name || editTransaction.budget_categories?.name || '';
-      const subcategoryName = editTransaction.subcategory_name || editTransaction.budget_subcategories?.name || '';
+      const categoryName =
+        editTransaction.category_name ||
+        editTransaction.budget_categories?.name ||
+        "";
+      const subcategoryName =
+        editTransaction.subcategory_name ||
+        editTransaction.budget_subcategories?.name ||
+        "";
       setCategory(categoryName);
       setSubcategory(subcategoryName);
-      
-      // Set account
-      const accountName = editTransaction.source_account_name || '';
-      const accountInstitution = editTransaction.source_account_institution || '';
-      if (accountName && accountInstitution) {
-        setAccount(`${accountName} (${accountInstitution})`);
+
+      // Set account fields based on transaction type using correct field names from database
+      const transactionType = editTransaction.type || "expense";
+
+      if (transactionType === "income") {
+        // For income, use destination account (where money goes)
+        const accountName = editTransaction.destination_account_name || "";
+        const accountType = editTransaction.destination_account_type || "";
+        if (accountName) {
+          // Format as "Account Name (Type)" - using type since we don't have institution field
+          setAccount(
+            accountType ? `${accountName} (${accountType})` : accountName
+          );
+        }
+      } else if (transactionType === "expense") {
+        // For expense, use source account (where money comes from)
+        const accountName = editTransaction.source_account_name || "";
+        const accountType = editTransaction.source_account_type || "";
+        if (accountName) {
+          setAccount(
+            accountType ? `${accountName} (${accountType})` : accountName
+          );
+        }
+      } else if (transactionType === "transfer") {
+        // For transfer, use both source and destination accounts
+        const fromAccountName = editTransaction.source_account_name || "";
+        const fromAccountType = editTransaction.source_account_type || "";
+        const toAccountName = editTransaction.destination_account_name || "";
+        const toAccountType = editTransaction.destination_account_type || "";
+
+        if (fromAccountName) {
+          setFromAccount(
+            fromAccountType
+              ? `${fromAccountName} (${fromAccountType})`
+              : fromAccountName
+          );
+        }
+        if (toAccountName) {
+          setToAccount(
+            toAccountType
+              ? `${toAccountName} (${toAccountType})`
+              : toAccountName
+          );
+        }
       }
-      
+
       setIsRecurring(editTransaction.is_recurring || false);
       if (editTransaction.recurrence_pattern) {
         setFrequency(editTransaction.recurrence_pattern);
@@ -214,26 +290,37 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
 
   // Note: Categories and subcategories now come from database via useEffect
 
-
-
   const merchants = [
-    'Starbucks', 'Amazon', 'Walmart', 'Target', 'McDonald\'s', 
-    'Shell', 'Uber', 'Netflix', 'Spotify'
+    "Starbucks",
+    "Amazon",
+    "Walmart",
+    "Target",
+    "McDonald's",
+    "Shell",
+    "Uber",
+    "Netflix",
+    "Spotify",
   ];
 
-  const frequencies = ['Weekly', 'Monthly', 'Quarterly', 'Yearly', 'Custom'];
+  const frequencies = ["Weekly", "Monthly", "Quarterly", "Yearly", "Custom"];
 
   const handleAddTransaction = async () => {
     if (!description || !amount) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert("Error", "Please fill in all required fields");
       return;
     }
 
     try {
       // Find the selected category and subcategory IDs
-      const selectedCategory = budgetCategories.find(cat => cat.name === category);
-      const selectedSubcategory = budgetSubcategories.find(sub => sub.name === subcategory);
-      const selectedAccount = accounts.find(acc => `${acc.name} (${acc.institution})` === account);
+      const selectedCategory = budgetCategories.find(
+        (cat) => cat.name === category
+      );
+      const selectedSubcategory = budgetSubcategories.find(
+        (sub) => sub.name === subcategory
+      );
+      const selectedAccount = accounts.find(
+        (acc) => `${acc.name} (${acc.institution})` === account
+      );
 
       // Prepare transaction data according to the database schema
       const transactionData = {
@@ -247,45 +334,49 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
         icon: null,
         merchant: merchant || null,
         source_account_id: selectedAccount?.id || null,
-        source_account_type: selectedAccount ? 'bank' : 'other',
+        source_account_type: selectedAccount ? "bank" : "other",
         source_account_name: selectedAccount?.name || null,
         destination_account_id: null,
         destination_account_type: null,
         destination_account_name: null,
         is_recurring: isRecurring,
         recurrence_pattern: isRecurring ? frequency : null,
-        recurrence_end_date: isRecurring && endDate ? endDate.toISOString() : null,
+        recurrence_end_date:
+          isRecurring && endDate ? endDate.toISOString() : null,
         parent_transaction_id: null,
         interest_rate: null,
         loan_term_months: null,
         metadata: null,
       };
 
-      console.log(isEditMode ? 'Updating transaction:' : 'Adding transaction:', transactionData);
-      
+      console.log(
+        isEditMode ? "Updating transaction:" : "Adding transaction:",
+        transactionData
+      );
+
       // Save to database
       if (isEditMode && editTransaction) {
         await updateTransaction(editTransaction.id, transactionData, isDemo);
         onTransactionUpdate?.(); // Call refresh callback
-        Alert.alert('Success', 'Transaction updated successfully!', [
-          { text: 'OK', onPress: onClose }
+        Alert.alert("Success", "Transaction updated successfully!", [
+          { text: "OK", onPress: onClose },
         ]);
       } else {
         await addTransaction(transactionData, isDemo);
         onTransactionUpdate?.(); // Call refresh callback
-        Alert.alert('Success', 'Transaction added successfully!', [
-          { text: 'OK', onPress: onClose }
+        Alert.alert("Success", "Transaction added successfully!", [
+          { text: "OK", onPress: onClose },
         ]);
       }
     } catch (error) {
-      console.error('Error adding transaction:', error);
-      Alert.alert('Error', 'Failed to add transaction. Please try again.');
+      console.error("Error adding transaction:", error);
+      Alert.alert("Error", "Failed to add transaction. Please try again.");
     }
   };
 
   const handleAnalyzeSMS = async () => {
     if (!smsText.trim()) {
-      Alert.alert('Error', 'Please paste your SMS text');
+      Alert.alert("Error", "Please paste your SMS text");
       return;
     }
 
@@ -295,63 +386,67 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
     try {
       // Prepare context data for SMS analyzer
       const contextData: ContextData = {
-        accounts: accounts.map(acc => ({
-          id: acc.id || '',
+        accounts: accounts.map((acc) => ({
+          id: acc.id || "",
           name: acc.name,
           type: acc.type,
-          institution: acc.institution
+          institution: acc.institution,
         })),
         creditCards: [], // Could be extended later
-        categories: budgetCategories.map(cat => ({
-          id: cat.id || '',
+        categories: budgetCategories.map((cat) => ({
+          id: cat.id || "",
           name: cat.name,
-          type: cat.category_type || 'expense'
+          type: cat.category_type || "expense",
         })),
-        subcategories: budgetSubcategories.map(sub => ({
+        subcategories: budgetSubcategories.map((sub) => ({
           id: sub.id,
           name: sub.name,
-          category_id: sub.category_id
-        }))
+          category_id: sub.category_id,
+        })),
       };
 
       // Initialize SMS analyzer
       const smsAnalyzer = new OctopusSMSAnalyzer(contextData);
-      
+
       // Analyze SMS
       const result = smsAnalyzer.analyzeSMS(smsText);
-      
-      console.log('SMS Analysis Result:', result);
+
+      console.log("SMS Analysis Result:", result);
       setSmsAnalysisResult(result);
 
       if (result.success && result.data) {
         // Auto-fill form fields with analyzed data
         const data = result.data;
-        
+
         if (data.amount) setAmount(data.amount.toString());
         if (data.description) setDescription(data.description);
         if (data.merchant) setMerchant(data.merchant);
         if (data.categoryName) setCategory(data.categoryName);
         if (data.subcategoryName) setSubcategory(data.subcategoryName);
         if (data.accountName) setAccount(data.accountName);
-        
+
         // Set transaction type based on analysis
-        if (data.transactionType === 'debit') {
-          setTransactionType('expense');
-        } else if (data.transactionType === 'credit') {
-          setTransactionType('income');
+        if (data.transactionType === "debit") {
+          setTransactionType("expense");
+        } else if (data.transactionType === "credit") {
+          setTransactionType("income");
         }
 
         Alert.alert(
-          'SMS Analyzed Successfully!', 
-          `Found transaction: ${data.merchant || 'Unknown'} - ₹${data.amount}\nConfidence: ${Math.round((result.confidence || 0) * 100)}%`
+          "SMS Analyzed Successfully!",
+          `Found transaction: ${data.merchant || "Unknown"} - ₹${
+            data.amount
+          }\nConfidence: ${Math.round((result.confidence || 0) * 100)}%`
         );
       } else {
-        Alert.alert('Analysis Failed', result.error || 'Could not extract transaction data from SMS');
+        Alert.alert(
+          "Analysis Failed",
+          result.error || "Could not extract transaction data from SMS"
+        );
       }
-
     } catch (error) {
-      console.error('SMS Analysis Error:', error);
-      Alert.alert('Error', 'Failed to analyze SMS. Please try again.');
+      console.error("SMS Analysis Error:", error);
+      Alert.alert("Error", "Failed to analyze SMS. Please try again.");
     } finally {
       setIsAnalyzingSMS(false);
     }
@@ -360,10 +455,14 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   const handleSelectImage = async () => {
     try {
       // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        Alert.alert(
+          "Permission Required",
+          "Permission to access camera roll is required!"
+        );
         return;
       }
 
@@ -381,14 +480,14 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
         setImageAnalysisResult(null);
       }
     } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to select image');
+      console.error("Image picker error:", error);
+      Alert.alert("Error", "Failed to select image");
     }
   };
 
   const handleAnalyzeImage = async () => {
     if (!selectedImage) {
-      Alert.alert('Error', 'Please select an image first');
+      Alert.alert("Error", "Please select an image first");
       return;
     }
 
@@ -403,7 +502,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
 
       // Get OpenAI service instance
       const openaiService = OpenAIService.getInstance();
-      
+
       // Create a prompt for image analysis
       const prompt = `Analyze this receipt/bill image and extract transaction details. Return a JSON object with:
       - amount (number)
@@ -417,20 +516,20 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
 
       // Note: This is a simplified approach. In a real implementation, you'd need to use OpenAI's vision API
       // For now, we'll simulate the analysis
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing time
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate processing time
+
       // Simulated result for demonstration
       const simulatedResult = {
         success: true,
         data: {
-          amount: 150.00,
-          merchant: 'Restaurant ABC',
-          date: new Date().toISOString().split('T')[0],
-          description: 'Dining expense',
-          category: 'Food & Dining',
-          type: 'expense'
+          amount: 150.0,
+          merchant: "Restaurant ABC",
+          date: new Date().toISOString().split("T")[0],
+          description: "Dining expense",
+          category: "Food & Dining",
+          type: "expense",
         },
-        confidence: 0.85
+        confidence: 0.85,
       };
 
       setImageAnalysisResult(simulatedResult);
@@ -438,111 +537,128 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
       if (simulatedResult.success && simulatedResult.data) {
         // Auto-fill form fields with analyzed data
         const data = simulatedResult.data;
-        
+
         if (data.amount) setAmount(data.amount.toString());
         if (data.description) setDescription(data.description);
         if (data.merchant) setMerchant(data.merchant);
         if (data.category) setCategory(data.category);
-        
+
         // Set transaction type
-        if (data.type === 'expense') {
-          setTransactionType('expense');
-        } else if (data.type === 'income') {
-          setTransactionType('income');
+        if (data.type === "expense") {
+          setTransactionType("expense");
+        } else if (data.type === "income") {
+          setTransactionType("income");
         }
 
         Alert.alert(
-          'Image Analyzed Successfully!', 
-          `Found transaction: ${data.merchant || 'Unknown'} - ₹${data.amount}\nConfidence: ${Math.round((simulatedResult.confidence || 0) * 100)}%`
+          "Image Analyzed Successfully!",
+          `Found transaction: ${data.merchant || "Unknown"} - ₹${
+            data.amount
+          }\nConfidence: ${Math.round(
+            (simulatedResult.confidence || 0) * 100
+          )}%`
         );
       } else {
-        Alert.alert('Analysis Failed', 'Could not extract transaction data from image');
+        Alert.alert(
+          "Analysis Failed",
+          "Could not extract transaction data from image"
+        );
       }
-
     } catch (error) {
-      console.error('Image Analysis Error:', error);
-      Alert.alert('Error', 'Failed to analyze image. Please try again.');
+      console.error("Image Analysis Error:", error);
+      Alert.alert("Error", "Failed to analyze image. Please try again.");
     } finally {
       setIsAnalyzingImage(false);
     }
   };
 
   const handleDateChange = (event: any, date?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
+    setShowDatePicker(Platform.OS === "ios");
     if (date) {
       setSelectedDate(date);
     }
   };
 
   const handleDueDateChange = (event: any, date?: Date) => {
-    setShowDueDatePicker(Platform.OS === 'ios');
+    setShowDueDatePicker(Platform.OS === "ios");
     if (date) {
       setDueDate(date);
     }
   };
 
   const handleEndDateChange = (event: any, date?: Date) => {
-    setShowEndDatePicker(Platform.OS === 'ios');
+    setShowEndDatePicker(Platform.OS === "ios");
     if (date) {
       setEndDate(date);
     }
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const getCurrentCategories = () => {
     if (loading) return [];
-    
+
     // Filter categories based on transaction type using category_type column
-    let filteredCategories = budgetCategories.filter(cat => {
+    let filteredCategories = budgetCategories.filter((cat) => {
       if (!cat.is_active) return false;
-      
+
       // Check category_type from database
-      if (transactionType === 'expense') {
-        return cat.category_type === 'expense';
-      } else if (transactionType === 'income') {
-        return cat.category_type === 'income';
+      if (transactionType === "expense") {
+        return cat.category_type === "expense";
+      } else if (transactionType === "income") {
+        return cat.category_type === "income";
       }
-      
+
       // For transfer, show all active categories
       return true;
     });
-    
-    console.log(`Active ${transactionType} categories for dropdown:`, filteredCategories.map(cat => cat.name));
-    console.log(`Category types:`, filteredCategories.map(cat => `${cat.name} (${cat.category_type})`));
-    
-    return filteredCategories.map(cat => cat.name);
+
+    console.log(
+      `Active ${transactionType} categories for dropdown:`,
+      filteredCategories.map((cat) => cat.name)
+    );
+    console.log(
+      `Category types:`,
+      filteredCategories.map((cat) => `${cat.name} (${cat.category_type})`)
+    );
+
+    return filteredCategories.map((cat) => cat.name);
   };
 
   const getCurrentSubcategories = () => {
     if (loading || !category) return [];
-    
+
     // Find the selected category
-    const selectedCategory = budgetCategories.find(cat => cat.name === category);
+    const selectedCategory = budgetCategories.find(
+      (cat) => cat.name === category
+    );
     if (!selectedCategory) return [];
-    
+
     // Return subcategories for this category
     return budgetSubcategories
-      .filter(sub => sub.category_id === selectedCategory.id)
-      .map(sub => sub.name);
+      .filter((sub) => sub.category_id === selectedCategory.id)
+      .map((sub) => sub.name);
   };
 
   const getAccountOptions = () => {
     if (loading) return [];
-    return accounts.map(acc => `${acc.name} (${acc.institution})`);
+    return accounts.map((acc) => `${acc.name} (${acc.institution})`);
   };
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'Manual Entry':
+      case "Manual Entry":
         return (
-          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.formContainer}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Transaction Type Selection */}
             <View style={styles.typeContainer}>
               {transactionTypes.map((type) => (
@@ -550,20 +666,28 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                   key={type.id}
                   style={[
                     styles.typeButton,
-                    { backgroundColor: transactionType === type.id ? type.color : colors.card },
-                    transactionType === type.id && styles.typeButtonActive
+                    {
+                      backgroundColor:
+                        transactionType === type.id ? type.color : colors.card,
+                    },
+                    transactionType === type.id && styles.typeButtonActive,
                   ]}
                   onPress={() => setTransactionType(type.id as any)}
                 >
-                  <Ionicons 
-                    name={type.icon as any} 
-                    size={16} 
-                    color={transactionType === type.id ? 'white' : colors.text} 
+                  <Ionicons
+                    name={type.icon as any}
+                    size={16}
+                    color={transactionType === type.id ? "white" : colors.text}
                   />
-                  <Text style={[
-                    styles.typeButtonText,
-                    { color: transactionType === type.id ? 'white' : colors.text }
-                  ]}>
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      {
+                        color:
+                          transactionType === type.id ? "white" : colors.text,
+                      },
+                    ]}
+                  >
                     {type.label}
                   </Text>
                 </TouchableOpacity>
@@ -576,7 +700,14 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                 Description <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={[styles.textInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.card,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
                 placeholder="Coffee, Groceries, Salary, etc."
                 placeholderTextColor={colors.textSecondary}
                 value={description}
@@ -586,12 +717,29 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
 
             {/* Amount and Date Row */}
             <View style={styles.rowContainer}>
-              <View style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}>
+              <View
+                style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}
+              >
                 <Text style={[styles.fieldLabel, { color: colors.text }]}>
                   Amount <Text style={styles.required}>*</Text>
                 </Text>
-                <View style={[styles.amountContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>$</Text>
+                <View
+                  style={[
+                    styles.amountContainer,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.currencySymbol,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    $
+                  </Text>
                   <TextInput
                     style={[styles.amountInput, { color: colors.text }]}
                     placeholder="0.00"
@@ -599,11 +747,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                     value={amount}
                     onChangeText={(text) => {
                       // Only allow numbers and one decimal point
-                      const numericValue = text.replace(/[^0-9.]/g, '');
+                      const numericValue = text.replace(/[^0-9.]/g, "");
                       // Ensure only one decimal point
-                      const parts = numericValue.split('.');
+                      const parts = numericValue.split(".");
                       if (parts.length > 2) {
-                        setAmount(parts[0] + '.' + parts.slice(1).join(''));
+                        setAmount(parts[0] + "." + parts.slice(1).join(""));
                       } else {
                         setAmount(numericValue);
                       }
@@ -612,7 +760,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                   />
                 </View>
               </View>
-
             </View>
 
             {/* Full width date picker */}
@@ -620,78 +767,170 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
               <Text style={[styles.fieldLabel, { color: colors.text }]}>
                 Date <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity 
-                style={[styles.dateButtonFull, { backgroundColor: colors.card, borderColor: colors.border }]}
+              <TouchableOpacity
+                style={[
+                  styles.dateButtonFull,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
                 onPress={() => setShowDatePicker(true)}
               >
-                <Ionicons name="calendar" size={16} color={colors.textSecondary} />
-                <Text style={[styles.dateText, { color: colors.text }]}>{formatDate(selectedDate)}</Text>
+                <Ionicons
+                  name="calendar"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.dateText, { color: colors.text }]}>
+                  {formatDate(selectedDate)}
+                </Text>
               </TouchableOpacity>
             </View>
 
             {/* Category and Subcategory Row (for expense/income) */}
-            {transactionType !== 'transfer' && (
+            {transactionType !== "transfer" && (
               <View style={styles.rowContainer}>
-                <View style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}>
+                <View
+                  style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}
+                >
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>
                     Category <Text style={styles.required}>*</Text>
                   </Text>
                   <View style={styles.selectContainer}>
-                    <TouchableOpacity 
-                      style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    <TouchableOpacity
+                      style={[
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       onPress={() => {
                         if (loading) return;
                         const categories = getCurrentCategories();
-                        console.log('Available categories:', categories);
+                        console.log("Available categories:", categories);
                         setShowCategoryPicker(true);
                       }}
                     >
-                      <Text style={[styles.selectText, { color: category ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                        {category || (loading ? 'Loading...' : getCurrentCategories().length > 0 ? 'Select category' : 'No categories available')}
+                      <Text
+                        style={[
+                          styles.selectText,
+                          {
+                            color: category
+                              ? colors.text
+                              : colors.textSecondary,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {category ||
+                          (loading
+                            ? "Loading..."
+                            : getCurrentCategories().length > 0
+                            ? "Select category"
+                            : "No categories available")}
                       </Text>
-                      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       onPress={() => setShowAddCategoryModal(true)}
                     >
-                      <Ionicons name="add" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <View style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}>
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>Subcategory</Text>
+                <View
+                  style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}
+                >
+                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                    Subcategory
+                  </Text>
                   <View style={styles.selectContainer}>
-                    <TouchableOpacity 
-                      style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    <TouchableOpacity
+                      style={[
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       onPress={() => {
                         if (loading || !category) return;
                         const subcategories = getCurrentSubcategories();
-                        console.log('Available subcategories:', subcategories);
+                        console.log("Available subcategories:", subcategories);
                         setShowSubcategoryPicker(true);
                       }}
                     >
-                      <Text style={[styles.selectText, { color: subcategory ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                        {subcategory || (loading ? 'Loading...' : !category ? 'Select category first' : getCurrentSubcategories().length > 0 ? 'Select subcategory' : 'No subcategories available')}
+                      <Text
+                        style={[
+                          styles.selectText,
+                          {
+                            color: subcategory
+                              ? colors.text
+                              : colors.textSecondary,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {subcategory ||
+                          (loading
+                            ? "Loading..."
+                            : !category
+                            ? "Select category first"
+                            : getCurrentSubcategories().length > 0
+                            ? "Select subcategory"
+                            : "No subcategories available")}
                       </Text>
-                      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       onPress={() => {
                         if (!category) {
-                          Alert.alert('Select Category First', 'Please select a category before adding a subcategory');
+                          Alert.alert(
+                            "Select Category First",
+                            "Please select a category before adding a subcategory"
+                          );
                           return;
                         }
-                        const selectedCat = budgetCategories.find(cat => cat.name === category);
+                        const selectedCat = budgetCategories.find(
+                          (cat) => cat.name === category
+                        );
                         if (selectedCat) {
                           setSelectedCategoryForSubcategory(selectedCat);
                           setShowAddSubcategoryModal(true);
                         }
                       }}
                     >
-                      <Ionicons name="add" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -699,38 +938,110 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
             )}
 
             {/* Transfer Accounts (for transfer) */}
-            {transactionType === 'transfer' && (
+            {transactionType === "transfer" && (
               <View style={styles.rowContainer}>
-                <View style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}>
+                <View
+                  style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}
+                >
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>
                     From Account <Text style={styles.required}>*</Text>
                   </Text>
                   <View style={styles.selectContainer}>
-                    <TouchableOpacity style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <Text style={[styles.selectText, { color: fromAccount ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                        {fromAccount || 'Select source account'}
+                    <TouchableOpacity
+                      style={[
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.selectText,
+                          {
+                            color: fromAccount
+                              ? colors.text
+                              : colors.textSecondary,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {fromAccount || "Select source account"}
                       </Text>
-                      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <Ionicons name="add" size={16} color={colors.textSecondary} />
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <View style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}>
+                <View
+                  style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}
+                >
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>
                     To Account <Text style={styles.required}>*</Text>
                   </Text>
                   <View style={styles.selectContainer}>
-                    <TouchableOpacity style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <Text style={[styles.selectText, { color: toAccount ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                        {toAccount || 'Select destination account'}
+                    <TouchableOpacity
+                      style={[
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.selectText,
+                          {
+                            color: toAccount
+                              ? colors.text
+                              : colors.textSecondary,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {toAccount || "Select destination account"}
                       </Text>
-                      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <Ionicons name="add" size={16} color={colors.textSecondary} />
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -738,12 +1049,23 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
             )}
 
             {/* Merchant and Account Row (for expense/income) */}
-            {transactionType !== 'transfer' && (
+            {transactionType !== "transfer" && (
               <View style={styles.rowContainer}>
-                <View style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}>
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>Merchant/Payee</Text>
+                <View
+                  style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}
+                >
+                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                    Merchant/Payee
+                  </Text>
                   <TextInput
-                    style={[styles.textInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                    style={[
+                      styles.textInput,
+                      {
+                        backgroundColor: colors.card,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
                     placeholder="Store or person name"
                     placeholderTextColor={colors.textSecondary}
                     value={merchant}
@@ -751,30 +1073,65 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                   />
                 </View>
 
-                <View style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}>
+                <View
+                  style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}
+                >
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>
                     Account <Text style={styles.required}>*</Text>
                   </Text>
                   <View style={styles.selectContainer}>
-                    <TouchableOpacity 
-                      style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    <TouchableOpacity
+                      style={[
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       onPress={() => {
                         if (loading) return;
                         const accountOptions = getAccountOptions();
-                        console.log('Available accounts:', accountOptions);
+                        console.log("Available accounts:", accountOptions);
                         setShowAccountPicker(true);
                       }}
                     >
-                      <Text style={[styles.selectText, { color: account ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                        {account || (loading ? 'Loading...' : getAccountOptions().length > 0 ? 'Select account' : 'No accounts available')}
+                      <Text
+                        style={[
+                          styles.selectText,
+                          {
+                            color: account ? colors.text : colors.textSecondary,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {account ||
+                          (loading
+                            ? "Loading..."
+                            : getAccountOptions().length > 0
+                            ? "Select account"
+                            : "No accounts available")}
                       </Text>
-                      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.addButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       onPress={() => setShowAddAccountModal(true)}
                     >
-                      <Ionicons name="add" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -782,49 +1139,104 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
             )}
 
             {/* Recurring Transaction Checkbox */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.checkboxContainer}
               onPress={() => setIsRecurring(!isRecurring)}
             >
-              <View style={[styles.checkbox, { borderColor: colors.border, backgroundColor: isRecurring ? colors.primary : 'transparent' }]}>
-                {isRecurring && <Ionicons name="checkmark" size={16} color="white" />}
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: isRecurring
+                      ? colors.primary
+                      : "transparent",
+                  },
+                ]}
+              >
+                {isRecurring && (
+                  <Ionicons name="checkmark" size={16} color="white" />
+                )}
               </View>
-              <Text style={[styles.checkboxLabel, { color: colors.text }]}>Recurring Transaction</Text>
+              <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                Recurring Transaction
+              </Text>
             </TouchableOpacity>
 
             {/* Recurring Bill Details */}
             {isRecurring && (
-              <View style={[styles.recurringSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.recurringSectionTitle, { color: colors.text }]}>
-                  {transactionType === 'expense' ? 'Recurring Bill Details' : 
-                   transactionType === 'income' ? 'Recurring Income Details' : 
-                   'Recurring Transfer Details'}
+              <View
+                style={[
+                  styles.recurringSection,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[styles.recurringSectionTitle, { color: colors.text }]}
+                >
+                  {transactionType === "expense"
+                    ? "Recurring Bill Details"
+                    : transactionType === "income"
+                    ? "Recurring Income Details"
+                    : "Recurring Transfer Details"}
                 </Text>
-                
+
                 {/* Frequency */}
                 <View style={styles.fieldContainer}>
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>
                     Frequency <Text style={styles.required}>*</Text>
                   </Text>
-                  <TouchableOpacity 
-                    style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  <TouchableOpacity
+                    style={[
+                      styles.selectButton,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
                     onPress={() => setShowFrequencyPicker(true)}
                   >
-                    <Text style={[styles.selectText, { color: colors.text }]} numberOfLines={1}>{frequency}</Text>
-                    <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                    <Text
+                      style={[styles.selectText, { color: colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {frequency}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
 
                 {/* End Date */}
                 <View style={styles.fieldContainer}>
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>End Date (Optional)</Text>
-                  <TouchableOpacity 
-                    style={[styles.dateButtonFull, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                    End Date (Optional)
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.dateButtonFull,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
                     onPress={() => setShowEndDatePicker(true)}
                   >
-                    <Ionicons name="calendar" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.dateText, { color: endDate ? colors.text : colors.textSecondary }]}>
-                      {endDate ? formatDate(endDate) : 'No end date'}
+                    <Ionicons
+                      name="calendar"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.dateText,
+                        { color: endDate ? colors.text : colors.textSecondary },
+                      ]}
+                    >
+                      {endDate ? formatDate(endDate) : "No end date"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -834,26 +1246,52 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>
                     Due Date <Text style={styles.required}>*</Text>
                   </Text>
-                  <TouchableOpacity 
-                    style={[styles.dateButtonFull, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  <TouchableOpacity
+                    style={[
+                      styles.dateButtonFull,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
                     onPress={() => setShowDueDatePicker(true)}
                   >
-                    <Ionicons name="calendar" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.dateText, { color: colors.text }]}>{formatDate(dueDate)}</Text>
+                    <Ionicons
+                      name="calendar"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={[styles.dateText, { color: colors.text }]}>
+                      {formatDate(dueDate)}
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Enable Autopay */}
                 <View style={styles.autopayContainer}>
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>Enable Autopay</Text>
-                  <TouchableOpacity 
-                    style={[styles.toggle, { backgroundColor: enableAutopay ? colors.primary : colors.border }]}
+                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                    Enable Autopay
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.toggle,
+                      {
+                        backgroundColor: enableAutopay
+                          ? colors.primary
+                          : colors.border,
+                      },
+                    ]}
                     onPress={() => setEnableAutopay(!enableAutopay)}
                   >
-                    <View style={[styles.toggleThumb, { 
-                      backgroundColor: 'white',
-                      transform: [{ translateX: enableAutopay ? 20 : 2 }]
-                    }]} />
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        {
+                          backgroundColor: "white",
+                          transform: [{ translateX: enableAutopay ? 20 : 2 }],
+                        },
+                      ]}
+                    />
                   </TouchableOpacity>
                 </View>
 
@@ -862,28 +1300,65 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                   <>
                     <View style={styles.fieldContainer}>
                       <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Autopay Bank Account <Text style={styles.required}>*</Text>
+                        Autopay Bank Account{" "}
+                        <Text style={styles.required}>*</Text>
                       </Text>
-                      <TouchableOpacity 
-                        style={[styles.selectButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      <TouchableOpacity
+                        style={[
+                          styles.selectButton,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                          },
+                        ]}
                         onPress={() => setShowAutopayAccountPicker(true)}
                       >
-                        <Text style={[styles.selectText, { color: autopayAccount ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                          {autopayAccount || 'Select account'}
+                        <Text
+                          style={[
+                            styles.selectText,
+                            {
+                              color: autopayAccount
+                                ? colors.text
+                                : colors.textSecondary,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {autopayAccount || "Select account"}
                         </Text>
-                        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                        <Ionicons
+                          name="chevron-down"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
                       </TouchableOpacity>
                     </View>
 
                     {/* Use Same Account Checkbox */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.checkboxContainer}
                       onPress={() => setUseSameAccount(!useSameAccount)}
                     >
-                      <View style={[styles.checkbox, { borderColor: colors.border, backgroundColor: useSameAccount ? colors.primary : 'transparent' }]}>
-                        {useSameAccount && <Ionicons name="checkmark" size={16} color="white" />}
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: useSameAccount
+                              ? colors.primary
+                              : "transparent",
+                          },
+                        ]}
+                      >
+                        {useSameAccount && (
+                          <Ionicons name="checkmark" size={16} color="white" />
+                        )}
                       </View>
-                      <Text style={[styles.checkboxLabel, { color: colors.text }]}>Use same as transaction account</Text>
+                      <Text
+                        style={[styles.checkboxLabel, { color: colors.text }]}
+                      >
+                        Use same as transaction account
+                      </Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -892,398 +1367,822 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
 
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.cancelButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+              <TouchableOpacity
+                style={[
+                  styles.cancelButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
                 onPress={onClose}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.addTransactionButton, { backgroundColor: transactionTypes.find(t => t.id === transactionType)?.color || colors.primary }]}
+              <TouchableOpacity
+                style={[
+                  styles.addTransactionButton,
+                  {
+                    backgroundColor:
+                      transactionTypes.find((t) => t.id === transactionType)
+                        ?.color || colors.primary,
+                  },
+                ]}
                 onPress={handleAddTransaction}
               >
-                              <Text style={styles.addTransactionButtonText}>
-                  {isEditMode ? 'Update Transaction' : 'Add Transaction'}
+                <Text style={styles.addTransactionButtonText}>
+                  {isEditMode ? "Update Transaction" : "Add Transaction"}
                 </Text>
-            </TouchableOpacity>
-          </View>
+              </TouchableOpacity>
+            </View>
 
-          {/* Date Picker Modal */}
-          {showDatePicker && Platform.OS === 'ios' && (
-            <Modal visible={showDatePicker} transparent animationType="slide">
-              <View style={styles.datePickerOverlay}>
-                <View style={[styles.datePickerContainer, { backgroundColor: colors.background }]}>
-                  <View style={[styles.datePickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                      <Text style={[styles.datePickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                      <Text style={[styles.datePickerButton, { color: colors.primary }]}>Done</Text>
-                    </TouchableOpacity>
+            {/* Date Picker Modal */}
+            {showDatePicker && Platform.OS === "ios" && (
+              <Modal visible={showDatePicker} transparent animationType="slide">
+                <View style={styles.datePickerOverlay}>
+                  <View
+                    style={[
+                      styles.datePickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.datePickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        onPress={() => setShowDatePicker(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setShowDatePicker(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          Done
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleDateChange}
+                      style={[
+                        styles.datePicker,
+                        { backgroundColor: colors.background },
+                      ]}
+                    />
                   </View>
-                  <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleDateChange}
-                    style={[styles.datePicker, { backgroundColor: colors.background }]}
-                  />
                 </View>
-              </View>
-            </Modal>
-          )}
-          
-          {/* Android Date Picker */}
-          {showDatePicker && Platform.OS === 'android' && (
-            <DateTimePicker
-              value={selectedDate}
-              mode="date"
-              display="default"
-              onChange={handleDateChange}
-            />
-          )}
+              </Modal>
+            )}
 
-          {/* Due Date Picker Modal */}
-          {showDueDatePicker && Platform.OS === 'ios' && (
-            <Modal visible={showDueDatePicker} transparent animationType="slide">
-              <View style={styles.datePickerOverlay}>
-                <View style={[styles.datePickerContainer, { backgroundColor: colors.background }]}>
-                  <View style={[styles.datePickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={() => setShowDueDatePicker(false)}>
-                      <Text style={[styles.datePickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowDueDatePicker(false)}>
-                      <Text style={[styles.datePickerButton, { color: colors.primary }]}>Done</Text>
-                    </TouchableOpacity>
+            {/* Android Date Picker */}
+            {showDatePicker && Platform.OS === "android" && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
+
+            {/* Due Date Picker Modal */}
+            {showDueDatePicker && Platform.OS === "ios" && (
+              <Modal
+                visible={showDueDatePicker}
+                transparent
+                animationType="slide"
+              >
+                <View style={styles.datePickerOverlay}>
+                  <View
+                    style={[
+                      styles.datePickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.datePickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        onPress={() => setShowDueDatePicker(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setShowDueDatePicker(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          Done
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <DateTimePicker
+                      value={dueDate}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleDueDateChange}
+                      style={[
+                        styles.datePicker,
+                        { backgroundColor: colors.background },
+                      ]}
+                    />
                   </View>
-                  <DateTimePicker
-                    value={dueDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleDueDateChange}
-                    style={[styles.datePicker, { backgroundColor: colors.background }]}
-                  />
                 </View>
-              </View>
-            </Modal>
-          )}
-          
-          {/* Android Due Date Picker */}
-          {showDueDatePicker && Platform.OS === 'android' && (
-            <DateTimePicker
-              value={dueDate}
-              mode="date"
-              display="default"
-              onChange={handleDueDateChange}
-            />
-          )}
+              </Modal>
+            )}
 
-          {/* Category Picker Modal */}
-          {showCategoryPicker && (
-            <Modal visible={showCategoryPicker} transparent animationType="slide">
-              <TouchableWithoutFeedback onPress={() => setShowCategoryPicker(false)}>
-                <View style={styles.pickerOverlay}>
-                  <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
-                      <View style={[styles.pickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                        <TouchableOpacity onPress={() => setShowCategoryPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Category</Text>
-                        <TouchableOpacity onPress={() => setShowCategoryPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.primary }]}>Done</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <ScrollView style={styles.pickerContent}>
-                    {getCurrentCategories().map((categoryName, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={[styles.pickerItem, { borderBottomColor: colors.border }]}
-                        onPress={() => {
-                          setCategory(categoryName);
-                          setSubcategory(''); // Reset subcategory when category changes
-                          setShowCategoryPicker(false);
-                        }}
+            {/* Android Due Date Picker */}
+            {showDueDatePicker && Platform.OS === "android" && (
+              <DateTimePicker
+                value={dueDate}
+                mode="date"
+                display="default"
+                onChange={handleDueDateChange}
+              />
+            )}
+
+            {/* Category Picker Modal */}
+            {showCategoryPicker && (
+              <Modal
+                visible={showCategoryPicker}
+                transparent
+                animationType="slide"
+              >
+                <TouchableWithoutFeedback
+                  onPress={() => setShowCategoryPicker(false)}
+                >
+                  <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {}}>
+                      <View
+                        style={[
+                          styles.pickerContainer,
+                          { backgroundColor: colors.background },
+                        ]}
                       >
-                        <Text style={[styles.pickerItemText, { 
-                          color: category === categoryName ? colors.primary : colors.text,
-                          fontWeight: category === categoryName ? '600' : '400'
-                        }]}>
-                          {categoryName}
-                        </Text>
-                        {category === categoryName && (
-                          <Ionicons name="checkmark" size={20} color={colors.primary} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                      </ScrollView>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </View>
-              </TouchableWithoutFeedback>
-            </Modal>
-          )}
-
-          {/* Subcategory Picker Modal */}
-          {showSubcategoryPicker && (
-            <Modal visible={showSubcategoryPicker} transparent animationType="slide">
-              <TouchableWithoutFeedback onPress={() => setShowSubcategoryPicker(false)}>
-                <View style={styles.pickerOverlay}>
-                  <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
-                      <View style={[styles.pickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                        <TouchableOpacity onPress={() => setShowSubcategoryPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Subcategory</Text>
-                        <TouchableOpacity onPress={() => setShowSubcategoryPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.primary }]}>Done</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <ScrollView style={styles.pickerContent}>
-                    {getCurrentSubcategories().map((subcategoryName, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={[styles.pickerItem, { borderBottomColor: colors.border }]}
-                        onPress={() => {
-                          setSubcategory(subcategoryName);
-                          setShowSubcategoryPicker(false);
-                        }}
-                      >
-                        <Text style={[styles.pickerItemText, { 
-                          color: subcategory === subcategoryName ? colors.primary : colors.text,
-                          fontWeight: subcategory === subcategoryName ? '600' : '400'
-                        }]}>
-                          {subcategoryName}
-                        </Text>
-                        {subcategory === subcategoryName && (
-                          <Ionicons name="checkmark" size={20} color={colors.primary} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                      </ScrollView>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </View>
-              </TouchableWithoutFeedback>
-            </Modal>
-          )}
-
-          {/* Account Picker Modal */}
-          {showAccountPicker && (
-            <Modal visible={showAccountPicker} transparent animationType="slide">
-              <TouchableWithoutFeedback onPress={() => setShowAccountPicker(false)}>
-                <View style={styles.pickerOverlay}>
-                  <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
-                      <View style={[styles.pickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                        <TouchableOpacity onPress={() => setShowAccountPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Account</Text>
-                        <TouchableOpacity onPress={() => setShowAccountPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.primary }]}>Done</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <ScrollView style={styles.pickerContent}>
-                    {getAccountOptions().map((accountName, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={[styles.pickerItem, { borderBottomColor: colors.border }]}
-                        onPress={() => {
-                          setAccount(accountName);
-                          setShowAccountPicker(false);
-                        }}
-                      >
-                        <Text style={[styles.pickerItemText, { 
-                          color: account === accountName ? colors.primary : colors.text,
-                          fontWeight: account === accountName ? '600' : '400'
-                        }]}>
-                          {accountName}
-                        </Text>
-                        {account === accountName && (
-                          <Ionicons name="checkmark" size={20} color={colors.primary} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                      </ScrollView>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </View>
-              </TouchableWithoutFeedback>
-            </Modal>
-          )}
-
-          {/* Frequency Picker Modal */}
-          {showFrequencyPicker && (
-            <Modal visible={showFrequencyPicker} transparent animationType="slide">
-              <TouchableWithoutFeedback onPress={() => setShowFrequencyPicker(false)}>
-                <View style={styles.pickerOverlay}>
-                  <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
-                      <View style={[styles.pickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                        <TouchableOpacity onPress={() => setShowFrequencyPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Frequency</Text>
-                        <TouchableOpacity onPress={() => setShowFrequencyPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.primary }]}>Done</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <ScrollView style={styles.pickerContent}>
-                        {frequencies.map((freq, index) => (
+                        <View
+                          style={[
+                            styles.pickerHeader,
+                            {
+                              backgroundColor: colors.card,
+                              borderBottomColor: colors.border,
+                            },
+                          ]}
+                        >
                           <TouchableOpacity
-                            key={index}
-                            style={[styles.pickerItem, { borderBottomColor: colors.border }]}
-                            onPress={() => {
-                              setFrequency(freq);
-                              setShowFrequencyPicker(false);
-                            }}
+                            onPress={() => setShowCategoryPicker(false)}
                           >
-                            <Text style={[styles.pickerItemText, { 
-                              color: frequency === freq ? colors.primary : colors.text,
-                              fontWeight: frequency === freq ? '600' : '400'
-                            }]}>
-                              {freq}
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Cancel
                             </Text>
-                            {frequency === freq && (
-                              <Ionicons name="checkmark" size={20} color={colors.primary} />
-                            )}
                           </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </View>
-              </TouchableWithoutFeedback>
-            </Modal>
-          )}
-
-          {/* End Date Picker Modal */}
-          {showEndDatePicker && Platform.OS === 'ios' && (
-            <Modal visible={showEndDatePicker} transparent animationType="slide">
-              <View style={styles.datePickerOverlay}>
-                <View style={[styles.datePickerContainer, { backgroundColor: colors.background }]}>
-                  <View style={[styles.datePickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                      <Text style={[styles.datePickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                      <Text style={[styles.datePickerButton, { color: colors.primary }]}>Done</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <DateTimePicker
-                    value={endDate || new Date()}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleEndDateChange}
-                    style={[styles.datePicker, { backgroundColor: colors.background }]}
-                  />
-                </View>
-              </View>
-            </Modal>
-          )}
-          
-          {/* Android End Date Picker */}
-          {showEndDatePicker && Platform.OS === 'android' && (
-            <DateTimePicker
-              value={endDate || new Date()}
-              mode="date"
-              display="default"
-              onChange={handleEndDateChange}
-            />
-          )}
-
-          {/* Autopay Account Picker Modal */}
-          {showAutopayAccountPicker && (
-            <Modal visible={showAutopayAccountPicker} transparent animationType="slide">
-              <TouchableWithoutFeedback onPress={() => setShowAutopayAccountPicker(false)}>
-                <View style={styles.pickerOverlay}>
-                  <TouchableWithoutFeedback onPress={() => {}}>
-                    <View style={[styles.pickerContainer, { backgroundColor: colors.background }]}>
-                      <View style={[styles.pickerHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                        <TouchableOpacity onPress={() => setShowAutopayAccountPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.textSecondary }]}>Cancel</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Autopay Account</Text>
-                        <TouchableOpacity onPress={() => setShowAutopayAccountPicker(false)}>
-                          <Text style={[styles.pickerButton, { color: colors.primary }]}>Done</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <ScrollView style={styles.pickerContent}>
-                        {getAccountOptions().map((accountName, index) => (
+                          <Text
+                            style={[styles.pickerTitle, { color: colors.text }]}
+                          >
+                            Select Category
+                          </Text>
                           <TouchableOpacity
-                            key={index}
-                            style={[styles.pickerItem, { borderBottomColor: colors.border }]}
-                            onPress={() => {
-                              setAutopayAccount(accountName);
-                              setShowAutopayAccountPicker(false);
-                            }}
+                            onPress={() => setShowCategoryPicker(false)}
                           >
-                            <Text style={[styles.pickerItemText, { 
-                              color: autopayAccount === accountName ? colors.primary : colors.text,
-                              fontWeight: autopayAccount === accountName ? '600' : '400'
-                            }]}>
-                              {accountName}
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Done
                             </Text>
-                            {autopayAccount === accountName && (
-                              <Ionicons name="checkmark" size={20} color={colors.primary} />
-                            )}
                           </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                        </View>
+                        <ScrollView style={styles.pickerContent}>
+                          {getCurrentCategories().map((categoryName, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                setCategory(categoryName);
+                                setSubcategory(""); // Reset subcategory when category changes
+                                setShowCategoryPicker(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerItemText,
+                                  {
+                                    color:
+                                      category === categoryName
+                                        ? colors.primary
+                                        : colors.text,
+                                    fontWeight:
+                                      category === categoryName ? "600" : "400",
+                                  },
+                                ]}
+                              >
+                                {categoryName}
+                              </Text>
+                              {category === categoryName && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
+
+            {/* Subcategory Picker Modal */}
+            {showSubcategoryPicker && (
+              <Modal
+                visible={showSubcategoryPicker}
+                transparent
+                animationType="slide"
+              >
+                <TouchableWithoutFeedback
+                  onPress={() => setShowSubcategoryPicker(false)}
+                >
+                  <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {}}>
+                      <View
+                        style={[
+                          styles.pickerContainer,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.pickerHeader,
+                            {
+                              backgroundColor: colors.card,
+                              borderBottomColor: colors.border,
+                            },
+                          ]}
+                        >
+                          <TouchableOpacity
+                            onPress={() => setShowSubcategoryPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                          <Text
+                            style={[styles.pickerTitle, { color: colors.text }]}
+                          >
+                            Select Subcategory
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setShowSubcategoryPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Done
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerContent}>
+                          {getCurrentSubcategories().map(
+                            (subcategoryName, index) => (
+                              <TouchableOpacity
+                                key={index}
+                                style={[
+                                  styles.pickerItem,
+                                  { borderBottomColor: colors.border },
+                                ]}
+                                onPress={() => {
+                                  setSubcategory(subcategoryName);
+                                  setShowSubcategoryPicker(false);
+                                }}
+                              >
+                                <Text
+                                  style={[
+                                    styles.pickerItemText,
+                                    {
+                                      color:
+                                        subcategory === subcategoryName
+                                          ? colors.primary
+                                          : colors.text,
+                                      fontWeight:
+                                        subcategory === subcategoryName
+                                          ? "600"
+                                          : "400",
+                                    },
+                                  ]}
+                                >
+                                  {subcategoryName}
+                                </Text>
+                                {subcategory === subcategoryName && (
+                                  <Ionicons
+                                    name="checkmark"
+                                    size={20}
+                                    color={colors.primary}
+                                  />
+                                )}
+                              </TouchableOpacity>
+                            )
+                          )}
+                        </ScrollView>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
+
+            {/* Account Picker Modal */}
+            {showAccountPicker && (
+              <Modal
+                visible={showAccountPicker}
+                transparent
+                animationType="slide"
+              >
+                <TouchableWithoutFeedback
+                  onPress={() => setShowAccountPicker(false)}
+                >
+                  <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {}}>
+                      <View
+                        style={[
+                          styles.pickerContainer,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.pickerHeader,
+                            {
+                              backgroundColor: colors.card,
+                              borderBottomColor: colors.border,
+                            },
+                          ]}
+                        >
+                          <TouchableOpacity
+                            onPress={() => setShowAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                          <Text
+                            style={[styles.pickerTitle, { color: colors.text }]}
+                          >
+                            Select Account
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setShowAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Done
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerContent}>
+                          {getAccountOptions().map((accountName, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                setAccount(accountName);
+                                setShowAccountPicker(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerItemText,
+                                  {
+                                    color:
+                                      account === accountName
+                                        ? colors.primary
+                                        : colors.text,
+                                    fontWeight:
+                                      account === accountName ? "600" : "400",
+                                  },
+                                ]}
+                              >
+                                {accountName}
+                              </Text>
+                              {account === accountName && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
+
+            {/* Frequency Picker Modal */}
+            {showFrequencyPicker && (
+              <Modal
+                visible={showFrequencyPicker}
+                transparent
+                animationType="slide"
+              >
+                <TouchableWithoutFeedback
+                  onPress={() => setShowFrequencyPicker(false)}
+                >
+                  <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {}}>
+                      <View
+                        style={[
+                          styles.pickerContainer,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.pickerHeader,
+                            {
+                              backgroundColor: colors.card,
+                              borderBottomColor: colors.border,
+                            },
+                          ]}
+                        >
+                          <TouchableOpacity
+                            onPress={() => setShowFrequencyPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                          <Text
+                            style={[styles.pickerTitle, { color: colors.text }]}
+                          >
+                            Select Frequency
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setShowFrequencyPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Done
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerContent}>
+                          {frequencies.map((freq, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                setFrequency(freq);
+                                setShowFrequencyPicker(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerItemText,
+                                  {
+                                    color:
+                                      frequency === freq
+                                        ? colors.primary
+                                        : colors.text,
+                                    fontWeight:
+                                      frequency === freq ? "600" : "400",
+                                  },
+                                ]}
+                              >
+                                {freq}
+                              </Text>
+                              {frequency === freq && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
+
+            {/* End Date Picker Modal */}
+            {showEndDatePicker && Platform.OS === "ios" && (
+              <Modal
+                visible={showEndDatePicker}
+                transparent
+                animationType="slide"
+              >
+                <View style={styles.datePickerOverlay}>
+                  <View
+                    style={[
+                      styles.datePickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.datePickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        onPress={() => setShowEndDatePicker(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setShowEndDatePicker(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          Done
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableWithoutFeedback>
+                    <DateTimePicker
+                      value={endDate || new Date()}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleEndDateChange}
+                      style={[
+                        styles.datePicker,
+                        { backgroundColor: colors.background },
+                      ]}
+                    />
+                  </View>
                 </View>
-              </TouchableWithoutFeedback>
-            </Modal>
-          )}
+              </Modal>
+            )}
 
-          {/* Add Category Modal */}
-          <AddCategoryModal
-            visible={showAddCategoryModal}
-            onClose={() => setShowAddCategoryModal(false)}
-            onCategoryAdded={handleCategoryAdded}
-            transactionType={transactionType === 'income' ? 'income' : 'expense'}
-          />
+            {/* Android End Date Picker */}
+            {showEndDatePicker && Platform.OS === "android" && (
+              <DateTimePicker
+                value={endDate || new Date()}
+                mode="date"
+                display="default"
+                onChange={handleEndDateChange}
+              />
+            )}
 
-          {/* Add Subcategory Modal */}
-          <AddSubcategoryModal
-            visible={showAddSubcategoryModal}
-            onClose={() => setShowAddSubcategoryModal(false)}
-            onSubcategoryAdded={handleSubcategoryAdded}
-            parentCategory={selectedCategoryForSubcategory}
-          />
+            {/* Autopay Account Picker Modal */}
+            {showAutopayAccountPicker && (
+              <Modal
+                visible={showAutopayAccountPicker}
+                transparent
+                animationType="slide"
+              >
+                <TouchableWithoutFeedback
+                  onPress={() => setShowAutopayAccountPicker(false)}
+                >
+                  <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {}}>
+                      <View
+                        style={[
+                          styles.pickerContainer,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.pickerHeader,
+                            {
+                              backgroundColor: colors.card,
+                              borderBottomColor: colors.border,
+                            },
+                          ]}
+                        >
+                          <TouchableOpacity
+                            onPress={() => setShowAutopayAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                          <Text
+                            style={[styles.pickerTitle, { color: colors.text }]}
+                          >
+                            Select Autopay Account
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setShowAutopayAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Done
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerContent}>
+                          {getAccountOptions().map((accountName, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                setAutopayAccount(accountName);
+                                setShowAutopayAccountPicker(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerItemText,
+                                  {
+                                    color:
+                                      autopayAccount === accountName
+                                        ? colors.primary
+                                        : colors.text,
+                                    fontWeight:
+                                      autopayAccount === accountName
+                                        ? "600"
+                                        : "400",
+                                  },
+                                ]}
+                              >
+                                {accountName}
+                              </Text>
+                              {autopayAccount === accountName && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
 
-          {/* Add Account Modal */}
-          <AddAccountModal
-            visible={showAddAccountModal}
-            onClose={() => setShowAddAccountModal(false)}
-            onAccountAdded={handleAccountAdded}
-          />
+            {/* Add Category Modal */}
+            <AddCategoryModal
+              visible={showAddCategoryModal}
+              onClose={() => setShowAddCategoryModal(false)}
+              onCategoryAdded={handleCategoryAdded}
+              transactionType={
+                transactionType === "income" ? "income" : "expense"
+              }
+            />
 
-          {/* Add Credit Card Modal */}
-          <AddCreditCardModal
-            visible={showAddCreditCardModal}
-            onClose={() => setShowAddCreditCardModal(false)}
-            onCreditCardAdded={handleCreditCardAdded}
-          />
+            {/* Add Subcategory Modal */}
+            <AddSubcategoryModal
+              visible={showAddSubcategoryModal}
+              onClose={() => setShowAddSubcategoryModal(false)}
+              onSubcategoryAdded={handleSubcategoryAdded}
+              parentCategory={selectedCategoryForSubcategory}
+            />
 
-          {/* Add Account Modal */}
-          <AddAccountModal
-            visible={showAddAccountModal}
-            onClose={() => setShowAddAccountModal(false)}
-            onAccountAdded={handleAccountAdded}
-          />
-        </ScrollView>
-      );
+            {/* Add Account Modal */}
+            <AddAccountModal
+              visible={showAddAccountModal}
+              onClose={() => setShowAddAccountModal(false)}
+              onAccountAdded={handleAccountAdded}
+            />
 
-      case 'Paste SMS':
+            {/* Add Credit Card Modal */}
+            <AddCreditCardModal
+              visible={showAddCreditCardModal}
+              onClose={() => setShowAddCreditCardModal(false)}
+              onCreditCardAdded={handleCreditCardAdded}
+            />
+
+            {/* Add Account Modal */}
+            <AddAccountModal
+              visible={showAddAccountModal}
+              onClose={() => setShowAddAccountModal(false)}
+              onAccountAdded={handleAccountAdded}
+            />
+          </ScrollView>
+        );
+
+      case "Paste SMS":
         return (
           <View style={styles.smsContainer}>
-            <Text style={[styles.smsTitle, { color: colors.text }]}>Paste Transaction SMS</Text>
+            <Text style={[styles.smsTitle, { color: colors.text }]}>
+              Paste Transaction SMS
+            </Text>
             <TextInput
-              style={[styles.smsInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              style={[
+                styles.smsInput,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
               placeholder="Paste your transaction SMS here..."
               placeholderTextColor={colors.textSecondary}
               value={smsText}
@@ -1292,146 +2191,279 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
               textAlignVertical="top"
               editable={!isAnalyzingSMS}
             />
-            
+
             {/* Analysis Result Display */}
             {smsAnalysisResult && (
-              <View style={[styles.analysisResultContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.analysisResultTitle, { color: colors.text }]}>Analysis Result</Text>
+              <View
+                style={[
+                  styles.analysisResultContainer,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[styles.analysisResultTitle, { color: colors.text }]}
+                >
+                  Analysis Result
+                </Text>
                 {smsAnalysisResult.success ? (
                   <View>
-                    <Text style={[styles.analysisResultText, { color: colors.primary }]}>
-                      ✅ Success (Confidence: {Math.round((smsAnalysisResult.confidence || 0) * 100)}%)
+                    <Text
+                      style={[
+                        styles.analysisResultText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      ✅ Success (Confidence:{" "}
+                      {Math.round((smsAnalysisResult.confidence || 0) * 100)}%)
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Amount: ₹{smsAnalysisResult.data?.amount || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Amount: ₹{smsAnalysisResult.data?.amount || "N/A"}
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Merchant: {smsAnalysisResult.data?.merchant || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Merchant: {smsAnalysisResult.data?.merchant || "N/A"}
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Type: {smsAnalysisResult.data?.transactionType || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Type: {smsAnalysisResult.data?.transactionType || "N/A"}
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Category: {smsAnalysisResult.data?.categoryName || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Category: {smsAnalysisResult.data?.categoryName || "N/A"}
                     </Text>
                   </View>
                 ) : (
-                  <Text style={[styles.analysisResultText, { color: '#EF4444' }]}>
-                    ❌ {smsAnalysisResult.error || 'Analysis failed'}
+                  <Text
+                    style={[styles.analysisResultText, { color: "#EF4444" }]}
+                  >
+                    ❌ {smsAnalysisResult.error || "Analysis failed"}
                   </Text>
                 )}
               </View>
             )}
-            
+
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.cancelButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+              <TouchableOpacity
+                style={[
+                  styles.cancelButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
                 onPress={onClose}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.analyzeSmsButton, 
-                  { 
-                    backgroundColor: isAnalyzingSMS ? colors.textSecondary : colors.primary,
-                    opacity: isAnalyzingSMS ? 0.7 : 1
-                  }
+                  styles.analyzeSmsButton,
+                  {
+                    backgroundColor: isAnalyzingSMS
+                      ? colors.textSecondary
+                      : colors.primary,
+                    opacity: isAnalyzingSMS ? 0.7 : 1,
+                  },
                 ]}
                 onPress={handleAnalyzeSMS}
                 disabled={isAnalyzingSMS}
               >
                 <Text style={styles.analyzeSmsButtonText}>
-                  {isAnalyzingSMS ? 'Analyzing...' : 'Analyze SMS'}
+                  {isAnalyzingSMS ? "Analyzing..." : "Analyze SMS"}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
         );
 
-      case 'Upload Image':
+      case "Upload Image":
         return (
           <View style={styles.imageContainer}>
-            <Text style={[styles.imageTitle, { color: colors.text }]}>Upload Receipt/Bill Image</Text>
-            
+            <Text style={[styles.imageTitle, { color: colors.text }]}>
+              Upload Receipt/Bill Image
+            </Text>
+
             {selectedImage ? (
-              <View style={[styles.selectedImageContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
-                <TouchableOpacity 
-                  style={[styles.changeImageButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+              <View
+                style={[
+                  styles.selectedImageContainer,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Image
+                  source={{ uri: selectedImage }}
+                  style={styles.selectedImage}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.changeImageButton,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={handleSelectImage}
                 >
-                  <Text style={[styles.changeImageButtonText, { color: colors.text }]}>Change Image</Text>
+                  <Text
+                    style={[
+                      styles.changeImageButtonText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    Change Image
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={[styles.uploadArea, { borderColor: colors.border }]}>
-                <Ionicons name="camera" size={48} color={colors.textSecondary} />
-                <Text style={[styles.uploadText, { color: colors.textSecondary }]}>
+                <Ionicons
+                  name="camera"
+                  size={48}
+                  color={colors.textSecondary}
+                />
+                <Text
+                  style={[styles.uploadText, { color: colors.textSecondary }]}
+                >
                   Click to upload or drag and drop
                 </Text>
-                <Text style={[styles.uploadSubtext, { color: colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.uploadSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
                   JPG, PNG, or HEIC up to 10MB
                 </Text>
-                <TouchableOpacity 
-                  style={[styles.selectImageButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                <TouchableOpacity
+                  style={[
+                    styles.selectImageButton,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={handleSelectImage}
                 >
-                  <Text style={[styles.selectImageText, { color: colors.text }]}>Select Image</Text>
+                  <Text
+                    style={[styles.selectImageText, { color: colors.text }]}
+                  >
+                    Select Image
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
 
             {/* Analysis Result Display */}
             {imageAnalysisResult && (
-              <View style={[styles.analysisResultContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.analysisResultTitle, { color: colors.text }]}>Analysis Result</Text>
+              <View
+                style={[
+                  styles.analysisResultContainer,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[styles.analysisResultTitle, { color: colors.text }]}
+                >
+                  Analysis Result
+                </Text>
                 {imageAnalysisResult.success ? (
                   <View>
-                    <Text style={[styles.analysisResultText, { color: colors.primary }]}>
-                      ✅ Success (Confidence: {Math.round((imageAnalysisResult.confidence || 0) * 100)}%)
+                    <Text
+                      style={[
+                        styles.analysisResultText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      ✅ Success (Confidence:{" "}
+                      {Math.round((imageAnalysisResult.confidence || 0) * 100)}
+                      %)
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Amount: ₹{imageAnalysisResult.data?.amount || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Amount: ₹{imageAnalysisResult.data?.amount || "N/A"}
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Merchant: {imageAnalysisResult.data?.merchant || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Merchant: {imageAnalysisResult.data?.merchant || "N/A"}
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Type: {imageAnalysisResult.data?.type || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Type: {imageAnalysisResult.data?.type || "N/A"}
                     </Text>
-                    <Text style={[styles.analysisResultDetail, { color: colors.text }]}>
-                      Category: {imageAnalysisResult.data?.category || 'N/A'}
+                    <Text
+                      style={[
+                        styles.analysisResultDetail,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Category: {imageAnalysisResult.data?.category || "N/A"}
                     </Text>
                   </View>
                 ) : (
-                  <Text style={[styles.analysisResultText, { color: '#EF4444' }]}>
+                  <Text
+                    style={[styles.analysisResultText, { color: "#EF4444" }]}
+                  >
                     ❌ Analysis failed
                   </Text>
                 )}
               </View>
             )}
-            
+
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.cancelButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+              <TouchableOpacity
+                style={[
+                  styles.cancelButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
                 onPress={onClose}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.analyzeImageButton, 
-                  { 
-                    backgroundColor: isAnalyzingImage ? colors.textSecondary : colors.primary,
-                    opacity: (isAnalyzingImage || !selectedImage) ? 0.7 : 1
-                  }
+                  styles.analyzeImageButton,
+                  {
+                    backgroundColor: isAnalyzingImage
+                      ? colors.textSecondary
+                      : colors.primary,
+                    opacity: isAnalyzingImage || !selectedImage ? 0.7 : 1,
+                  },
                 ]}
                 onPress={handleAnalyzeImage}
                 disabled={isAnalyzingImage || !selectedImage}
               >
                 <Text style={styles.analyzeImageButtonText}>
-                  {isAnalyzingImage ? 'Analyzing...' : 'Analyze Image'}
+                  {isAnalyzingImage ? "Analyzing..." : "Analyze Image"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1444,14 +2476,24 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   };
 
   return (
-    <View style={[styles.transactionModalContainer, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.transactionModalContainer,
+        { backgroundColor: colors.background },
+      ]}
+    >
       {/* Header */}
-      <View style={[styles.transactionModalHeader, { borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.transactionModalHeader,
+          { borderBottomColor: colors.border },
+        ]}
+      >
         <TouchableOpacity onPress={onBack}>
           <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
         <Text style={[styles.transactionModalTitle, { color: colors.text }]}>
-          {isEditMode ? 'Edit Transaction' : 'Add New Transaction'}
+          {isEditMode ? "Edit Transaction" : "Add New Transaction"}
         </Text>
         <TouchableOpacity onPress={onClose}>
           <Ionicons name="close" size={24} color={colors.textSecondary} />
@@ -1459,7 +2501,12 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
       </View>
 
       {/* Grouped Tab Navigation */}
-      <View style={[styles.groupedTabContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.groupedTabContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <View style={[styles.tabGroup, { backgroundColor: colors.card }]}>
           {tabs.map((tab) => (
             <TouchableOpacity
@@ -1467,7 +2514,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
               style={[
                 styles.groupedTab,
                 {
-                  backgroundColor: activeTab === tab ? colors.primary : 'transparent',
+                  backgroundColor:
+                    activeTab === tab ? colors.primary : "transparent",
                 },
               ]}
               onPress={() => setActiveTab(tab)}
@@ -1476,8 +2524,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
                 style={[
                   styles.groupedTabText,
                   {
-                    color: activeTab === tab ? 'white' : colors.text,
-                    fontWeight: activeTab === tab ? '700' : '500'
+                    color: activeTab === tab ? "white" : colors.text,
+                    fontWeight: activeTab === tab ? "700" : "500",
                   },
                 ]}
                 numberOfLines={1}
@@ -1495,7 +2543,12 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ colors, onClo
   );
 };
 
-const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction, isEditMode = false, onTransactionUpdate }) => {
+const QuickAddButton: React.FC<QuickAddButtonProps> = ({
+  style,
+  editTransaction,
+  isEditMode = false,
+  onTransactionUpdate,
+}) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const { isDark } = useTheme();
@@ -1504,129 +2557,131 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
   // Auto-open modal for edit mode
   useEffect(() => {
     if (isEditMode && editTransaction) {
-      setSelectedAction('transaction');
+      setSelectedAction("transaction");
       setIsModalVisible(true);
     }
   }, [isEditMode, editTransaction]);
 
-  const colors = isDark ? {
-    background: '#1F2937',
-    card: '#374151',
-    text: '#FFFFFF',
-    textSecondary: '#9CA3AF',
-    border: '#4B5563',
-    primary: '#10B981',
-    secondary: '#3B82F6',
-    accent: '#F59E0B',
-  } : {
-    background: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#111827',
-    textSecondary: '#6B7280',
-    border: '#E5E7EB',
-    primary: '#10B981',
-    secondary: '#3B82F6',
-    accent: '#F59E0B',
-  };
+  const colors = isDark
+    ? {
+        background: "#1F2937",
+        card: "#374151",
+        text: "#FFFFFF",
+        textSecondary: "#9CA3AF",
+        border: "#4B5563",
+        primary: "#10B981",
+        secondary: "#3B82F6",
+        accent: "#F59E0B",
+      }
+    : {
+        background: "#FFFFFF",
+        card: "#F9FAFB",
+        text: "#111827",
+        textSecondary: "#6B7280",
+        border: "#E5E7EB",
+        primary: "#10B981",
+        secondary: "#3B82F6",
+        accent: "#F59E0B",
+      };
 
   const quickActions = [
     {
-      id: 'transaction',
-      title: 'Add Transaction',
-      subtitle: 'Record income or expense',
-      icon: 'add-circle',
+      id: "transaction",
+      title: "Add Transaction",
+      subtitle: "Record income or expense",
+      icon: "add-circle",
       color: colors.primary,
       action: () => {
-        setSelectedAction('transaction');
+        setSelectedAction("transaction");
         setIsModalVisible(true);
-      }
+      },
     },
     {
-      id: 'bank-statement',
-      title: 'Upload Statement',
-      subtitle: 'Import from bank statement',
-      icon: 'document-text',
+      id: "bank-statement",
+      title: "Upload Statement",
+      subtitle: "Import from bank statement",
+      icon: "document-text",
       color: colors.secondary,
       action: () => {
-        setSelectedAction('bank-statement');
+        setSelectedAction("bank-statement");
         setIsModalVisible(true);
-      }
+      },
     },
     {
-      id: 'goal',
-      title: 'Set Goal',
-      subtitle: 'Create financial goal',
-      icon: 'flag',
+      id: "goal",
+      title: "Set Goal",
+      subtitle: "Create financial goal",
+      icon: "flag",
       color: colors.accent,
       action: () => {
-        setSelectedAction('goal');
+        setSelectedAction("goal");
         setIsModalVisible(true);
-      }
+      },
     },
     {
-      id: 'budget',
-      title: 'Set Budget',
-      subtitle: 'Create spending budget',
-      icon: 'pie-chart',
-      color: '#8B5CF6',
+      id: "budget",
+      title: "Set Budget",
+      subtitle: "Create spending budget",
+      icon: "pie-chart",
+      color: "#8B5CF6",
       action: () => {
-        setSelectedAction('budget');
+        setSelectedAction("budget");
         setIsModalVisible(true);
-      }
+      },
     },
     {
-      id: 'travel',
-      title: 'Travel Expense',
-      subtitle: 'Track travel costs',
-      icon: 'airplane',
-      color: '#8B5CF6',
+      id: "travel",
+      title: "Travel Expense",
+      subtitle: "Track travel costs",
+      icon: "airplane",
+      color: "#8B5CF6",
       action: () => {
-        setSelectedAction('travel');
+        setSelectedAction("travel");
         setIsModalVisible(true);
-      }
+      },
     },
     {
-      id: 'date',
-      title: 'Date Range',
-      subtitle: 'Filter by date',
-      icon: 'calendar',
-      color: '#F59E0B',
+      id: "date",
+      title: "Date Range",
+      subtitle: "Filter by date",
+      icon: "calendar",
+      color: "#F59E0B",
       action: () => {
-        setSelectedAction('date');
+        setSelectedAction("date");
         setIsModalVisible(true);
-      }
+      },
     },
     {
-      id: 'receipt',
-      title: 'Scan Receipt',
-      subtitle: 'Photo to transaction',
-      icon: 'camera',
-      color: '#EF4444',
+      id: "receipt",
+      title: "Scan Receipt",
+      subtitle: "Photo to transaction",
+      icon: "camera",
+      color: "#EF4444",
       action: () => {
-        setSelectedAction('receipt');
+        setSelectedAction("receipt");
         setIsModalVisible(true);
-      }
+      },
     },
     {
-      id: 'recurring',
-      title: 'Recurring Bill',
-      subtitle: 'Set up auto bills',
-      icon: 'refresh',
-      color: '#06B6D4',
+      id: "recurring",
+      title: "Recurring Bill",
+      subtitle: "Set up auto bills",
+      icon: "refresh",
+      color: "#06B6D4",
       action: () => {
-        setSelectedAction('recurring');
+        setSelectedAction("recurring");
         setIsModalVisible(true);
-      }
+      },
     },
   ];
 
   const handleBankStatementUpload = (fileData: any) => {
     if (fileData && fileData.success) {
-      Alert.alert('Upload Successful', fileData.message);
+      Alert.alert("Upload Successful", fileData.message);
       // Here you can add logic to process the uploaded file
       // For example, send it to your backend or parse it
     } else {
-      Alert.alert('Upload Failed', 'Please try uploading the file again.');
+      Alert.alert("Upload Failed", "Please try uploading the file again.");
     }
   };
 
@@ -1641,7 +2696,7 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
 
   const renderModalContent = () => {
     switch (selectedAction) {
-      case 'bank-statement':
+      case "bank-statement":
         return (
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1652,10 +2707,14 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
                 style={styles.closeButton}
                 onPress={handleBackToQuickActions}
               >
-                <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
+                <Ionicons
+                  name="arrow-back"
+                  size={24}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
-            
+
             <BankStatementErrorBoundary>
               <BankStatementUploader
                 onUpload={handleBankStatementUpload}
@@ -1666,20 +2725,20 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
             </BankStatementErrorBoundary>
           </View>
         );
-      
-      case 'transaction':
+
+      case "transaction":
         return (
-          <AddTransactionModal 
-            colors={colors} 
-            onClose={handleCloseModal} 
+          <AddTransactionModal
+            colors={colors}
+            onClose={handleCloseModal}
             onBack={handleBackToQuickActions}
             editTransaction={editTransaction}
             isEditMode={isEditMode}
             onTransactionUpdate={onTransactionUpdate}
           />
         );
-      
-      case 'goal':
+
+      case "goal":
         return (
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1690,23 +2749,32 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
                 style={styles.closeButton}
                 onPress={handleBackToQuickActions}
               >
-                <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
+                <Ionicons
+                  name="arrow-back"
+                  size={24}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.placeholderContent}>
               <Ionicons name="flag" size={64} color={colors.accent} />
               <Text style={[styles.placeholderTitle, { color: colors.text }]}>
                 Set Goal
               </Text>
-              <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.placeholderText,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 Goal setting form will be implemented here
               </Text>
             </View>
           </View>
         );
-      
-      case 'budget':
+
+      case "budget":
         return (
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1717,22 +2785,31 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
                 style={styles.closeButton}
                 onPress={handleBackToQuickActions}
               >
-                <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
+                <Ionicons
+                  name="arrow-back"
+                  size={24}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.placeholderContent}>
               <Ionicons name="pie-chart" size={64} color="#8B5CF6" />
               <Text style={[styles.placeholderTitle, { color: colors.text }]}>
                 Set Budget
               </Text>
-              <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.placeholderText,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 Budget setting form will be implemented here
               </Text>
             </View>
           </View>
         );
-      
+
       default:
         return null;
     }
@@ -1740,14 +2817,20 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
 
   return (
     <>
-      {/* Main Quick Add Button */}
-      <TouchableOpacity
-        style={[styles.quickAddButton, { backgroundColor: colors.primary }, style]}
-        onPress={() => setIsModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={24} color="white" />
-      </TouchableOpacity>
+      {/* Main Quick Add Button - Hide in edit mode */}
+      {!isEditMode && (
+        <TouchableOpacity
+          style={[
+            styles.quickAddButton,
+            { backgroundColor: colors.primary },
+            style,
+          ]}
+          onPress={() => setIsModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={24} color="white" />
+        </TouchableOpacity>
+      )}
 
       {/* Quick Actions Modal */}
       <Modal
@@ -1756,9 +2839,14 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
         presentationStyle="pageSheet"
         onRequestClose={handleCloseModal}
       >
-        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
           {/* Modal Header - Hide when transaction modal is open */}
-          {selectedAction !== 'transaction' && (
+          {selectedAction !== "transaction" && (
             <View style={styles.modalHeaderContainer}>
               <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>
                 Quick Actions
@@ -1779,17 +2867,37 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
                 {quickActions.map((action) => (
                   <TouchableOpacity
                     key={action.id}
-                    style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    style={[
+                      styles.actionCard,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
                     onPress={action.action}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.actionIconContainer, { backgroundColor: `${action.color}20` }]}>
-                      <Ionicons name={action.icon as any} size={32} color={action.color} />
+                    <View
+                      style={[
+                        styles.actionIconContainer,
+                        { backgroundColor: `${action.color}20` },
+                      ]}
+                    >
+                      <Ionicons
+                        name={action.icon as any}
+                        size={32}
+                        color={action.color}
+                      />
                     </View>
                     <Text style={[styles.actionTitle, { color: colors.text }]}>
                       {action.title}
                     </Text>
-                    <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[
+                        styles.actionSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
                       {action.subtitle}
                     </Text>
                   </TouchableOpacity>
@@ -1808,16 +2916,16 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({ style, editTransaction,
 
 const styles = StyleSheet.create({
   quickAddButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 30,
     right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1827,17 +2935,17 @@ const styles = StyleSheet.create({
     paddingTop: 30, // Reduced from 40
   },
   modalHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 10, // Reduced from 12
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   modalHeaderTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   closeButton: {
     padding: 8,
@@ -1847,19 +2955,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     paddingTop: 12,
     gap: 10,
   },
   actionCard: {
-    width: '48%',
+    width: "48%",
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -1869,19 +2977,19 @@ const styles = StyleSheet.create({
     width: 52, // Reduced from 56
     height: 52, // Reduced from 56
     borderRadius: 26, // Reduced from 28
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 10, // Reduced from 12
   },
   actionTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 5, // Reduced from 6
-    textAlign: 'center',
+    textAlign: "center",
   },
   actionSubtitle: {
     fontSize: 11,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 14,
   },
   modalContent: {
@@ -1889,32 +2997,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 10, // Reduced from 12
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   placeholderContent: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 24, // Reduced from 32
   },
   placeholderTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 10, // Reduced from 12
     marginBottom: 5, // Reduced from 6
   },
   placeholderText: {
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 18,
   },
 
@@ -1924,18 +3032,18 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   transactionModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
   transactionModalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     marginHorizontal: 20,
   },
   groupedTabContainer: {
@@ -1943,7 +3051,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   tabGroup: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 25,
     padding: 4,
   },
@@ -1952,13 +3060,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   groupedTabText: {
     fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
   formContainer: {
     flex: 1,
@@ -1966,15 +3074,15 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   typeContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginBottom: 24,
   },
   typeButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
@@ -1985,18 +3093,18 @@ const styles = StyleSheet.create({
   },
   typeButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   fieldContainer: {
     marginBottom: 20,
   },
   fieldLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   required: {
-    color: '#EF4444',
+    color: "#EF4444",
   },
   textInput: {
     borderWidth: 1,
@@ -2006,12 +3114,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -2019,7 +3127,7 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginRight: 8,
   },
   amountInput: {
@@ -2028,8 +3136,8 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -2037,27 +3145,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dateButtonFull: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 8,
-    width: '100%',
+    width: "100%",
   },
   dateText: {
     fontSize: 16,
   },
   selectContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   selectButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -2073,12 +3181,12 @@ const styles = StyleSheet.create({
     height: 48,
     borderWidth: 1,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 32,
     gap: 12,
   },
@@ -2087,15 +3195,15 @@ const styles = StyleSheet.create({
     height: 20,
     borderWidth: 2,
     borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   buttonContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     paddingBottom: 32,
   },
@@ -2104,22 +3212,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   addTransactionButton: {
     flex: 2,
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   addTransactionButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
+    fontWeight: "600",
+    color: "white",
   },
   smsContainer: {
     flex: 1,
@@ -2128,7 +3236,7 @@ const styles = StyleSheet.create({
   },
   smsTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
   },
   smsInput: {
@@ -2145,12 +3253,12 @@ const styles = StyleSheet.create({
     flex: 2,
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   analyzeSmsButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
+    fontWeight: "600",
+    color: "white",
   },
   imageContainer: {
     flex: 1,
@@ -2159,22 +3267,22 @@ const styles = StyleSheet.create({
   },
   imageTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
   },
   uploadArea: {
     flex: 1,
     borderWidth: 2,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 24,
     paddingVertical: 40,
   },
   uploadText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 16,
     marginBottom: 8,
   },
@@ -2190,20 +3298,20 @@ const styles = StyleSheet.create({
   },
   selectImageText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   analyzeImageButton: {
     flex: 2,
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   analyzeImageButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
+    fontWeight: "600",
+    color: "white",
   },
-  
+
   // Recurring Section Styles
   recurringSection: {
     borderWidth: 1,
@@ -2213,97 +3321,97 @@ const styles = StyleSheet.create({
   },
   recurringSectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
   },
   autopayContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   toggle: {
     width: 44,
     height: 24,
     borderRadius: 12,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 2,
   },
   toggleThumb: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 2,
   },
-  
+
   // Date Picker Styles
   datePickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   datePickerContainer: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
-    backgroundColor: '#FFFFFF', // Ensure proper background
+    backgroundColor: "#FFFFFF", // Ensure proper background
   },
   datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB', // Light background for header
+    borderBottomColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB", // Light background for header
   },
   datePickerButton: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   datePicker: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
 
   // Picker Modal Styles
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   pickerContainer: {
-    maxHeight: '70%',
+    maxHeight: "70%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
   pickerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pickerButton: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pickerContent: {
     maxHeight: 300,
   },
   pickerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -2312,7 +3420,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     flex: 1,
   },
-  
+
   // Analysis result styles
   analysisResultContainer: {
     marginTop: 16,
@@ -2322,26 +3430,26 @@ const styles = StyleSheet.create({
   },
   analysisResultTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   analysisResultText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 8,
   },
   analysisResultDetail: {
     fontSize: 13,
     marginBottom: 4,
   },
-  
+
   // Image upload styles
   selectedImageContainer: {
     marginTop: 16,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   selectedImage: {
     width: 200,
@@ -2357,7 +3465,7 @@ const styles = StyleSheet.create({
   },
   changeImageButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
 
