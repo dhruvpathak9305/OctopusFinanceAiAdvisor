@@ -19,6 +19,7 @@ import {
 import { Transaction as SupabaseTransaction } from "../../../../types/transactions";
 import { Ionicons } from "@expo/vector-icons";
 import QuickAddButton from "../../components/QuickAddButton";
+import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
 
 interface RecentTransactionsSectionProps {
   className?: string;
@@ -491,6 +492,67 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   // Load transactions when component mounts or filter changes
   useEffect(() => {
     fetchTransactionsData();
+  }, [fetchTransactionsData]);
+
+  // Listen for bulk transaction uploads to refresh data
+  useEffect(() => {
+    const handleTransactionEvent = (event: {
+      type: string;
+      transactionId?: string;
+    }) => {
+      console.log("🔔 RecentTransactions: Received transaction event:", event);
+
+      // Refresh transaction data for any transaction-related event
+      if (event.type.includes("transaction") || event.type.includes("bulk")) {
+        console.log(
+          "🔄 RecentTransactions: Refreshing transactions due to event:",
+          event.type
+        );
+        setTimeout(() => {
+          fetchTransactionsData();
+        }, 500); // Small delay to allow database operations to complete
+      }
+    };
+
+    // Subscribe to balance events (which include transaction events)
+    const unsubscribe = balanceEventEmitter.subscribe(handleTransactionEvent);
+
+    // Also listen for custom web events (fallback)
+    const handleCustomEvent = (event: CustomEvent) => {
+      console.log(
+        "🔔 RecentTransactions: Received custom event:",
+        event.detail
+      );
+      if (event.detail?.type === "bulk-upload") {
+        console.log("🔄 RecentTransactions: Refreshing due to bulk upload");
+        setTimeout(() => {
+          fetchTransactionsData();
+        }, 500);
+      }
+    };
+
+    if (
+      typeof window !== "undefined" &&
+      typeof window.addEventListener === "function"
+    ) {
+      window.addEventListener(
+        "transactionsRefreshNeeded",
+        handleCustomEvent as EventListener
+      );
+    }
+
+    return () => {
+      unsubscribe();
+      if (
+        typeof window !== "undefined" &&
+        typeof window.removeEventListener === "function"
+      ) {
+        window.removeEventListener(
+          "transactionsRefreshNeeded",
+          handleCustomEvent as EventListener
+        );
+      }
+    };
   }, [fetchTransactionsData]);
 
   const filteredTransactions = transactions;

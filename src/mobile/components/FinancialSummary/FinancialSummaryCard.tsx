@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
-} from 'react-native';
-import { useTheme } from '../../../../contexts/ThemeContext';
+} from "react-native";
+import { useTheme } from "../../../../contexts/ThemeContext";
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get("window");
 
 interface FinancialSummaryCardProps {
   title: string;
@@ -36,27 +36,34 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   error,
   onViewAll,
   onAddNew,
-  backgroundImage
+  backgroundImage,
 }) => {
   const { isDark } = useTheme();
 
-  const colors = isDark ? {
-    background: '#1F2937',
-    text: '#FFFFFF',
-    textSecondary: '#9CA3AF',
-    border: '#374151',
-    card: '#1F2937',
-  } : {
-    background: '#FFFFFF',
-    text: '#111827',
-    textSecondary: '#6B7280',
-    border: '#E5E7EB',
-    card: '#FFFFFF',
-  };
+  const colors = isDark
+    ? {
+        background: "#1F2937",
+        text: "#FFFFFF",
+        textSecondary: "#9CA3AF",
+        border: "#374151",
+        card: "#1F2937",
+      }
+    : {
+        background: "#FFFFFF",
+        text: "#111827",
+        textSecondary: "#6B7280",
+        border: "#E5E7EB",
+        card: "#FFFFFF",
+      };
 
   if (loading) {
     return (
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColor} />
         </View>
@@ -66,19 +73,26 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
 
   if (error) {
     return (
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: '#EF4444' }]}>Error</Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: "#EF4444" }]}>Error</Text>
+          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+            {error}
+          </Text>
         </View>
       </View>
     );
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       maximumFractionDigits: 0,
     }).format(value);
   };
@@ -86,15 +100,16 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   const renderChart = () => {
     if (data.length === 0) return null;
 
-    const maxValue = Math.max(...data.map(d => d.value));
-    const minValue = Math.min(...data.map(d => d.value));
+    const maxValue = Math.max(...data.map((d) => d.value));
+    const minValue = Math.min(...data.map((d) => d.value));
     const range = maxValue - minValue;
 
     return (
       <View style={styles.chartContainer}>
         <View style={styles.chartBars}>
           {data.slice(-6).map((dataPoint, index) => {
-            const height = range > 0 ? ((dataPoint.value - minValue) / range) * 40 : 20;
+            const height =
+              range > 0 ? ((dataPoint.value - minValue) / range) * 40 : 20;
             return (
               <View key={index} style={styles.chartBarContainer}>
                 <View
@@ -103,7 +118,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
                     {
                       height: Math.max(height, 4),
                       backgroundColor: themeColor,
-                    }
+                    },
                   ]}
                 />
               </View>
@@ -112,8 +127,11 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
         </View>
         <View style={styles.chartLabels}>
           {data.slice(-6).map((_, index) => (
-            <Text key={index} style={[styles.chartLabel, { color: colors.textSecondary }]}>
-              {index % 2 === 0 ? data[index]?.month?.slice(0, 3) || 'M' : ''}
+            <Text
+              key={index}
+              style={[styles.chartLabel, { color: colors.textSecondary }]}
+            >
+              {index % 2 === 0 ? data[index]?.month?.slice(0, 3) || "M" : ""}
             </Text>
           ))}
         </View>
@@ -122,17 +140,27 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <View style={styles.titleContainer}>
             <Text style={styles.icon}>{icon}</Text>
-            <Text style={[styles.title, { color: colors.textSecondary }]}>{title}</Text>
+            <Text style={[styles.title, { color: colors.textSecondary }]}>
+              {title}
+            </Text>
           </View>
           <View style={styles.actionsContainer}>
             <TouchableOpacity onPress={onViewAll} style={styles.viewAllButton}>
-              <Text style={[styles.viewAllText, { color: themeColor }]}>View All</Text>
+              <Text style={[styles.viewAllText, { color: themeColor }]}>
+                View All
+              </Text>
             </TouchableOpacity>
+
             {onAddNew && (
               <TouchableOpacity onPress={onAddNew} style={styles.addButton}>
                 <Text style={[styles.addIcon, { color: themeColor }]}>+</Text>
@@ -145,7 +173,12 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
           {formatCurrency(total)}
         </Text>
 
-        <View style={[styles.changeContainer, { backgroundColor: `${themeColor}20` }]}>
+        <View
+          style={[
+            styles.changeContainer,
+            { backgroundColor: `${themeColor}20` },
+          ]}
+        >
           <Text style={styles.changeIcon}>↗</Text>
           <Text style={[styles.changeText, { color: themeColor }]}>
             {monthlyChange} from last month
@@ -166,7 +199,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     marginRight: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -180,32 +213,32 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   errorMessage: {
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 8,
   },
   titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   icon: {
     fontSize: 16,
@@ -213,42 +246,43 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   actionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   viewAllButton: {
     marginRight: 8,
   },
   viewAllText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
+
   addButton: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   addIcon: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   totalValue: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   changeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginBottom: 12,
   },
   changeIcon: {
@@ -257,22 +291,22 @@ const styles = StyleSheet.create({
   },
   changeText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   chartContainer: {
     flex: 1,
   },
   chartBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
     height: 40,
     marginBottom: 4,
   },
   chartBarContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    alignItems: "center",
+    justifyContent: "flex-end",
     marginHorizontal: 2,
   },
   chartBar: {
@@ -281,15 +315,15 @@ const styles = StyleSheet.create({
     minHeight: 4,
   },
   chartLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 4,
   },
   chartLabel: {
     fontSize: 10,
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 
-export default FinancialSummaryCard; 
+export default FinancialSummaryCard;

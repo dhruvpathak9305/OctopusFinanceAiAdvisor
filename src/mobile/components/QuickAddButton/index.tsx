@@ -2551,6 +2551,8 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const { isDark } = useTheme();
   const navigation = useNavigation();
 
@@ -2561,6 +2563,23 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
       setIsModalVisible(true);
     }
   }, [isEditMode, editTransaction]);
+
+  // Fetch accounts for bulk upload
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const accountsData = await fetchAccounts();
+        setAccounts(accountsData);
+        // Auto-select first account if available
+        if (accountsData.length > 0) {
+          setSelectedAccount(accountsData[0]);
+        }
+      } catch (error) {
+        console.error("Failed to load accounts:", error);
+      }
+    };
+    loadAccounts();
+  }, []);
 
   const colors = isDark
     ? {
@@ -2718,9 +2737,24 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
             <BankStatementErrorBoundary>
               <BankStatementUploader
                 onUpload={handleBankStatementUpload}
+                onUploadComplete={(result) => {
+                  console.log("✅ Bank statement upload completed!", result);
+                  if (result.success) {
+                    Alert.alert(
+                      "Upload Successful!",
+                      `Successfully uploaded ${
+                        result.result?.inserted_count || 0
+                      } transactions!`
+                    );
+                    handleCloseModal();
+                  }
+                }}
+                onClose={handleBackToQuickActions}
                 isLoading={false}
                 fileName=""
                 showPlusIcons={true}
+                accountId={selectedAccount?.id}
+                accountName={selectedAccount?.name}
               />
             </BankStatementErrorBoundary>
           </View>

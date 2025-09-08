@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
 import {
@@ -21,9 +21,15 @@ import { Transaction as SupabaseTransaction } from "../../../../types/transactio
 import DateSelector from "../../components/DateSelector";
 import SearchModal from "../../components/SearchModal";
 import QuickAddButton from "../../components/QuickAddButton";
+import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
 
 interface MobileTransactionsProps {
   className?: string;
+  // Confirmation mode props
+  isConfirmationMode?: boolean;
+  parsedTransactions?: any[];
+  onConfirm?: (selectedTransactions: Transaction[]) => void;
+  onCancel?: () => void;
 }
 
 interface SearchData {
@@ -53,6 +59,205 @@ interface GroupedTransactions {
   transactions: Transaction[];
   summary: { income: number; expense: number; transfer: number };
 }
+
+// Helper function to parse and format dates from various formats
+const parseTransactionDate = (dateInput: any): string => {
+  if (!dateInput) {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  // If it's already a valid date string in YYYY-MM-DD format
+  if (typeof dateInput === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    return dateInput;
+  }
+
+  try {
+    let date: Date;
+
+    if (typeof dateInput === "string") {
+      const inputStr = dateInput.trim();
+
+      // Month name mapping for DD-MMM-YYYY format (common in bank statements)
+      const monthMap: { [key: string]: number } = {
+        jan: 0,
+        january: 0,
+        feb: 1,
+        february: 1,
+        mar: 2,
+        march: 2,
+        apr: 3,
+        april: 3,
+        may: 4,
+        jun: 5,
+        june: 5,
+        jul: 6,
+        july: 6,
+        aug: 7,
+        august: 7,
+        sep: 8,
+        september: 8,
+        oct: 9,
+        october: 9,
+        nov: 10,
+        november: 10,
+        dec: 11,
+        december: 11,
+      };
+
+      // Handle DD-MMM-YYYY format (like "02-Aug-2025")
+      const monthNamePattern = /^(\d{1,2})-([a-zA-Z]{3,9})-(\d{4})$/;
+      const monthNameMatch = inputStr.match(monthNamePattern);
+
+      if (monthNameMatch) {
+        const day = parseInt(monthNameMatch[1]);
+        const monthName = monthNameMatch[2].toLowerCase();
+        const year = parseInt(monthNameMatch[3]);
+        const monthIndex = monthMap[monthName];
+
+        if (monthIndex !== undefined) {
+          // Create date string in YYYY-MM-DD format to avoid timezone issues
+          const monthStr = String(monthIndex + 1).padStart(2, "0");
+          const dayStr = String(day).padStart(2, "0");
+          const dateStr = `${year}-${monthStr}-${dayStr}`;
+
+          console.log("Parsed DD-MMM-YYYY format:", inputStr, "->", dateStr);
+          return dateStr; // Return directly as YYYY-MM-DD string
+        } else {
+          throw new Error(`Unknown month: ${monthNameMatch[2]}`);
+        }
+      } else {
+        // Handle numeric date formats
+        const cleanDate = inputStr.replace(/[^\d\/\-\.]/g, ""); // Remove non-date characters
+
+        // Try parsing different common formats
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleanDate)) {
+          // MM/DD/YYYY or DD/MM/YYYY format
+          const parts = cleanDate.split("/");
+          // Assume DD/MM/YYYY format (common in Indian bank statements)
+          const year = parseInt(parts[2]);
+          const month = String(parseInt(parts[1])).padStart(2, "0");
+          const day = String(parseInt(parts[0])).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        } else if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(cleanDate)) {
+          // YYYY-MM-DD format - already in correct format
+          const parts = cleanDate.split("-");
+          const year = parts[0];
+          const month = String(parseInt(parts[1])).padStart(2, "0");
+          const day = String(parseInt(parts[2])).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(cleanDate)) {
+          // DD-MM-YYYY format
+          const parts = cleanDate.split("-");
+          const year = parseInt(parts[2]);
+          const month = String(parseInt(parts[1])).padStart(2, "0");
+          const day = String(parseInt(parts[0])).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        } else {
+          // Try direct parsing as fallback
+          date = new Date(inputStr);
+          // Check if the date is valid
+          if (isNaN(date.getTime())) {
+            console.warn(
+              "Invalid date parsed:",
+              dateInput,
+              "Using current date"
+            );
+            return new Date().toISOString().split("T")[0];
+          }
+          // Format as YYYY-MM-DD
+          return date.toISOString().split("T")[0];
+        }
+      }
+    } else {
+      date = new Date(dateInput);
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date parsed:", dateInput, "Using current date");
+        return new Date().toISOString().split("T")[0];
+      }
+      // Format as YYYY-MM-DD
+      return date.toISOString().split("T")[0];
+    }
+  } catch (error) {
+    console.warn("Error parsing date:", dateInput, error);
+    return new Date().toISOString().split("T")[0];
+  }
+};
+
+// Transform parsed transaction to component transaction
+const transformParsedTransaction = (
+  parsedTransaction: any,
+  index: number
+): Transaction => {
+  try {
+    const parsedDate = parseTransactionDate(parsedTransaction.date);
+    const parsedAmount = Math.abs(parseFloat(parsedTransaction.amount) || 0);
+
+    // Debug logging for date and amount parsing
+    console.log(
+      `Transaction ${index}: Date "${parsedTransaction.date}" -> "${parsedDate}", Amount "${parsedTransaction.amount}" -> ${parsedAmount}`
+    );
+
+    return {
+      id: parsedTransaction.id || `parsed-${index}`,
+      title:
+        parsedTransaction.title ||
+        parsedTransaction.name ||
+        parsedTransaction.description ||
+        "Transaction",
+      source: parsedTransaction.source || "Uploaded Statement",
+      tags: [
+        parsedTransaction.category || "Uncategorized",
+        parsedTransaction.subcategory,
+        parsedTransaction.type?.toUpperCase(),
+      ].filter(Boolean) as string[],
+      description:
+        parsedTransaction.description ||
+        parsedTransaction.title ||
+        parsedTransaction.name ||
+        "",
+      amount: parsedAmount,
+      type: mapParsedTransactionType(parsedTransaction.type),
+      icon: getTransactionIcon(parsedTransaction.type, parsedTransaction.icon),
+      date: parsedDate,
+    };
+  } catch (error) {
+    console.error(
+      "Error transforming parsed transaction:",
+      error,
+      parsedTransaction
+    );
+    return {
+      id: `error-parsed-${index}`,
+      title: "Error Loading Transaction",
+      source: "Unknown",
+      tags: ["Error"],
+      description: "Failed to load transaction data",
+      amount: 0,
+      type: "expense",
+      icon: "⚠️",
+      date: new Date().toISOString().split("T")[0],
+    };
+  }
+};
+
+// Map parsed transaction type to component type
+const mapParsedTransactionType = (
+  type: string
+): "income" | "expense" | "transfer" => {
+  switch (type?.toLowerCase()) {
+    case "credit":
+    case "income":
+      return "income";
+    case "debit":
+    case "expense":
+      return "expense";
+    case "transfer":
+      return "transfer";
+    default:
+      return "expense";
+  }
+};
 
 // Transform Supabase transaction to component transaction
 const transformSupabaseTransaction = (
@@ -148,7 +353,7 @@ const groupTransactionsByDate = (
 
       grouped[date].transactions.push(transaction);
 
-      const amount = Math.abs(transaction.amount || 0);
+      const amount = Math.abs(parseFloat(transaction.amount) || 0);
       switch (transaction.type) {
         case "income":
           grouped[date].summary.income += amount;
@@ -182,6 +387,10 @@ const groupTransactionsByDate = (
 
 const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   className = "",
+  isConfirmationMode = false,
+  parsedTransactions = [],
+  onConfirm,
+  onCancel,
 }) => {
   const navigation = useNavigation();
   const { isDark } = useTheme();
@@ -218,6 +427,13 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
 
+  // Multi-select state for confirmation mode
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(
+    new Set()
+  );
+  const [isMultiSelectMode, setIsMultiSelectMode] =
+    useState(isConfirmationMode);
+
   const colors = isDark
     ? {
         background: "#0B1426",
@@ -236,11 +452,28 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         filterBackground: "#F3F4F6",
       };
 
-  // Fetch transactions from Supabase
+  // Fetch transactions from Supabase or use parsed transactions
   const fetchTransactionsData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // If in confirmation mode, use parsed transactions
+      if (isConfirmationMode && parsedTransactions.length > 0) {
+        const transformedTransactions = parsedTransactions.map(
+          transformParsedTransaction
+        );
+        setTransactions(transformedTransactions);
+        setGroupedTransactions(
+          groupTransactionsByDate(transformedTransactions)
+        );
+
+        // Auto-select all transactions in confirmation mode
+        const allIds = new Set(transformedTransactions.map((t) => t.id));
+        setSelectedTransactions(allIds);
+        setLoading(false);
+        return;
+      }
 
       // Calculate date range based on selected filter
       const now = new Date();
@@ -285,6 +518,17 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         startDate.setDate(1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       }
+
+      // Debug: Log the date range being used
+      console.log(
+        "🗓️ MobileTransactions: Fetching transactions with date filter:",
+        {
+          selectedFilter,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          dateRange: `${startDate.toDateString()} to ${endDate.toDateString()}`,
+        }
+      );
 
       // Fetch transactions for the selected month
       const supabaseTransactions = await fetchTransactions(
@@ -359,6 +603,125 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
     fetchTransactionsData();
   }, [fetchTransactionsData]);
 
+  // Refresh transactions when screen comes into focus (handles navigation back from other screens)
+  useFocusEffect(
+    useCallback(() => {
+      if (!isConfirmationMode) {
+        console.log(
+          "🔄 MobileTransactions: Screen focused, refreshing transactions"
+        );
+        fetchTransactionsData();
+      }
+    }, [isConfirmationMode, fetchTransactionsData])
+  );
+
+  // Listen for bulk transaction uploads to refresh data
+  useEffect(() => {
+    if (isConfirmationMode) {
+      console.log(
+        "🔕 MobileTransactions: Skipping event listeners in confirmation mode"
+      );
+      return; // Don't listen for events in confirmation mode
+    }
+
+    console.log(
+      "📡 MobileTransactions: Setting up event listeners for transaction refresh"
+    );
+
+    const handleTransactionEvent = (event: {
+      type: string;
+      transactionId?: string;
+    }) => {
+      console.log("🔔 MobileTransactions: Received transaction event:", event);
+
+      // Refresh transaction data for any transaction-related event
+      if (event.type.includes("transaction") || event.type.includes("bulk")) {
+        console.log(
+          "🔄 MobileTransactions: Refreshing transactions due to event:",
+          event.type
+        );
+
+        // For bulk uploads, automatically switch to current month to show new transactions
+        if (event.type.includes("bulk")) {
+          const now = new Date();
+          const currentMonthFilter = `${now.toLocaleString("default", {
+            month: "short",
+          })} ${now.getFullYear()}`;
+          console.log(
+            `🗓️ MobileTransactions: Switching to current month filter (${currentMonthFilter}) to show new transactions`
+          );
+          setSelectedFilter(currentMonthFilter);
+        }
+
+        setTimeout(() => {
+          console.log(
+            "🔄 MobileTransactions: Actually calling fetchTransactionsData now"
+          );
+          fetchTransactionsData();
+        }, 500); // Small delay to allow database operations to complete
+      } else {
+        console.log(
+          "⏭️ MobileTransactions: Event type not relevant for refresh:",
+          event.type
+        );
+      }
+    };
+
+    // Subscribe to balance events (which include transaction events)
+    const unsubscribe = balanceEventEmitter.subscribe(handleTransactionEvent);
+    console.log("✅ MobileTransactions: Subscribed to balance event emitter");
+
+    // Also listen for custom web events (fallback)
+    const handleCustomEvent = (event: CustomEvent) => {
+      console.log(
+        "🔔 MobileTransactions: Received custom event:",
+        event.detail
+      );
+      if (event.detail?.type === "bulk-upload") {
+        console.log("🔄 MobileTransactions: Refreshing due to bulk upload");
+
+        // Switch to current month to show new transactions
+        const now = new Date();
+        const currentMonthFilter = `${now.toLocaleString("default", {
+          month: "short",
+        })} ${now.getFullYear()}`;
+        console.log(
+          `🗓️ MobileTransactions: Switching to current month filter (${currentMonthFilter}) to show new transactions`
+        );
+        setSelectedFilter(currentMonthFilter);
+
+        setTimeout(() => {
+          fetchTransactionsData();
+        }, 500);
+      }
+    };
+
+    if (
+      typeof window !== "undefined" &&
+      typeof window.addEventListener === "function"
+    ) {
+      window.addEventListener(
+        "transactionsRefreshNeeded",
+        handleCustomEvent as EventListener
+      );
+      console.log("✅ MobileTransactions: Subscribed to custom web events");
+    }
+
+    return () => {
+      console.log("🧹 MobileTransactions: Cleaning up event listeners");
+      unsubscribe();
+      if (
+        typeof window !== "undefined" &&
+        typeof window.removeEventListener === "function"
+      ) {
+        window.removeEventListener(
+          "transactionsRefreshNeeded",
+          handleCustomEvent as EventListener
+        );
+      }
+    };
+  }, [isConfirmationMode, fetchTransactionsData]);
+
   // Calculate summary data
   const summaryData = {
     income: transactions
@@ -376,7 +739,8 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(value);
   };
 
@@ -447,7 +811,12 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   };
 
   const handleBack = () => {
-    navigation.goBack();
+    if (isConfirmationMode) {
+      // In confirmation mode, use the cancel callback
+      handleCancelConfirmation();
+    } else {
+      navigation.goBack();
+    }
   };
 
   const handleSearch = () => {
@@ -483,45 +852,79 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
-    // We need to fetch the full transaction data from the service to get complete account information
-    fetchTransactionById(transaction.id, isDemo)
-      .then((fullTransaction) => {
-        if (fullTransaction) {
-          // Transform the complete transaction data to match edit modal expected format
-          const editTransactionData = {
-            id: fullTransaction.id,
-            name: fullTransaction.name,
-            description: fullTransaction.description,
-            amount: Math.abs(fullTransaction.amount), // Make sure it's positive for the form
-            type: fullTransaction.type,
-            date: fullTransaction.date,
-            source_account_id: fullTransaction.source_account_id,
-            source_account_name: fullTransaction.source_account_name,
-            source_account_type: fullTransaction.source_account_type,
-            destination_account_id: fullTransaction.destination_account_id,
-            destination_account_name: fullTransaction.destination_account_name,
-            destination_account_type: fullTransaction.destination_account_type,
-            category_name: fullTransaction.category_name,
-            subcategory_name: fullTransaction.subcategory_name,
-            merchant: fullTransaction.merchant,
-            is_recurring: fullTransaction.is_recurring || false,
-            recurrence_pattern: fullTransaction.recurrence_pattern,
-            recurrence_end_date: fullTransaction.recurrence_end_date,
-          };
+    if (isConfirmationMode) {
+      // For parsed transactions in confirmation mode, create edit data from the transaction
+      const editTransactionData = {
+        id: transaction.id,
+        name: transaction.title,
+        description: transaction.description,
+        amount: Math.abs(parseFloat(transaction.amount) || 0), // Make sure it's positive for the form and preserve decimals
+        type: transaction.type,
+        date: transaction.date,
+        source_account_id: null, // Will be set when saving
+        source_account_name: transaction.source,
+        source_account_type: "bank",
+        destination_account_id: null, // Will be set when saving
+        destination_account_name: null,
+        destination_account_type: null,
+        category_name:
+          transaction.tags.find((tag) => tag !== "DEBIT" && tag !== "CREDIT") ||
+          "Uncategorized",
+        subcategory_name: null,
+        merchant: null,
+        is_recurring: false,
+        recurrence_pattern: null,
+        recurrence_end_date: null,
+        // Add flag to indicate this is a parsed transaction being edited
+        isParsedTransaction: true,
+        originalParsedData: transaction,
+      };
 
-          setEditingTransaction(editTransactionData);
-          setIsEditModalVisible(true);
-        } else {
-          Alert.alert(
-            "Error",
-            "Could not load transaction details for editing"
-          );
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching transaction for edit:", error);
-        Alert.alert("Error", "Failed to load transaction details");
-      });
+      setEditingTransaction(editTransactionData);
+      setIsEditModalVisible(true);
+    } else {
+      // For regular transactions, fetch full data from database
+      fetchTransactionById(transaction.id, isDemo)
+        .then((fullTransaction) => {
+          if (fullTransaction) {
+            // Transform the complete transaction data to match edit modal expected format
+            const editTransactionData = {
+              id: fullTransaction.id,
+              name: fullTransaction.name,
+              description: fullTransaction.description,
+              amount: Math.abs(parseFloat(fullTransaction.amount) || 0), // Make sure it's positive for the form and preserve decimals
+              type: fullTransaction.type,
+              date: fullTransaction.date,
+              source_account_id: fullTransaction.source_account_id,
+              source_account_name: fullTransaction.source_account_name,
+              source_account_type: fullTransaction.source_account_type,
+              destination_account_id: fullTransaction.destination_account_id,
+              destination_account_name:
+                fullTransaction.destination_account_name,
+              destination_account_type:
+                fullTransaction.destination_account_type,
+              category_name: fullTransaction.category_name,
+              subcategory_name: fullTransaction.subcategory_name,
+              merchant: fullTransaction.merchant,
+              is_recurring: fullTransaction.is_recurring || false,
+              recurrence_pattern: fullTransaction.recurrence_pattern,
+              recurrence_end_date: fullTransaction.recurrence_end_date,
+            };
+
+            setEditingTransaction(editTransactionData);
+            setIsEditModalVisible(true);
+          } else {
+            Alert.alert(
+              "Error",
+              "Could not load transaction details for editing"
+            );
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching transaction for edit:", error);
+          Alert.alert("Error", "Failed to load transaction details");
+        });
+    }
   };
 
   const handleCloseEditModal = () => {
@@ -529,10 +932,106 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
     setEditingTransaction(null);
   };
 
-  const handleTransactionUpdate = () => {
-    // Refresh transactions after edit
-    fetchTransactionsData();
+  const handleTransactionUpdate = (updatedTransactionData?: any) => {
+    if (isConfirmationMode && updatedTransactionData?.isParsedTransaction) {
+      // For parsed transactions, update the local transactions list
+      const updatedTransactions = transactions.map((t) => {
+        if (t.id === updatedTransactionData.originalParsedData.id) {
+          // Update the transaction with edited data
+          return {
+            ...t,
+            title: updatedTransactionData.name,
+            description: updatedTransactionData.description,
+            amount:
+              updatedTransactionData.amount *
+              (updatedTransactionData.type === "expense" ? -1 : 1),
+            type: updatedTransactionData.type,
+            date: updatedTransactionData.date,
+            tags: [
+              updatedTransactionData.category_name || "Uncategorized",
+              updatedTransactionData.subcategory_name,
+              updatedTransactionData.type.toUpperCase(),
+            ].filter(Boolean) as string[],
+          };
+        }
+        return t;
+      });
+
+      setTransactions(updatedTransactions);
+      setGroupedTransactions(groupTransactionsByDate(updatedTransactions));
+    } else {
+      // For regular transactions, refresh from database
+      fetchTransactionsData();
+    }
+
     handleCloseEditModal();
+  };
+
+  // Multi-select handlers
+  const toggleTransactionSelection = (transactionId: string) => {
+    const newSelection = new Set(selectedTransactions);
+    if (newSelection.has(transactionId)) {
+      newSelection.delete(transactionId);
+    } else {
+      newSelection.add(transactionId);
+    }
+    setSelectedTransactions(newSelection);
+  };
+
+  const selectAllTransactions = () => {
+    const allIds = new Set(transactions.map((t) => t.id));
+    setSelectedTransactions(allIds);
+  };
+
+  const deselectAllTransactions = () => {
+    setSelectedTransactions(new Set());
+  };
+
+  const toggleMultiSelectMode = () => {
+    setIsMultiSelectMode(!isMultiSelectMode);
+    if (isMultiSelectMode) {
+      setSelectedTransactions(new Set());
+    }
+  };
+
+  const handleConfirmSelected = () => {
+    const selectedTxns = transactions.filter((t) =>
+      selectedTransactions.has(t.id)
+    );
+    if (selectedTxns.length === 0) {
+      Alert.alert(
+        "No Selection",
+        "Please select at least one transaction to confirm."
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Confirm Transactions",
+      `Are you sure you want to save ${selectedTxns.length} transaction(s) to the database?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm",
+          onPress: () => onConfirm?.(selectedTxns),
+        },
+      ]
+    );
+  };
+
+  const handleCancelConfirmation = () => {
+    Alert.alert(
+      "Cancel Confirmation",
+      "Are you sure you want to cancel? All parsed transactions will be lost.",
+      [
+        { text: "Stay", style: "cancel" },
+        {
+          text: "Cancel",
+          style: "destructive",
+          onPress: () => onCancel?.(),
+        },
+      ]
+    );
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
@@ -585,8 +1084,9 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(Math.abs(value));
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(Math.abs(parseFloat(value) || 0));
   };
 
   const getTransactionColor = (type: string) => {
@@ -656,51 +1156,102 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
             <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Transactions
+            {isConfirmationMode ? "Parsed Transactions" : "Transactions"}
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={handleSearch} style={styles.headerButton}>
-            <Text style={[styles.headerIcon, { color: colors.text }]}>🔍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleMoreOptions}
-            style={styles.headerButton}
-          >
-            <Text style={[styles.headerIcon, { color: colors.text }]}>⋮</Text>
-          </TouchableOpacity>
+          {isConfirmationMode ? (
+            <>
+              <TouchableOpacity
+                onPress={selectAllTransactions}
+                style={styles.headerButton}
+              >
+                <Text
+                  style={[
+                    styles.headerIcon,
+                    { color: colors.text, fontSize: 14 },
+                  ]}
+                >
+                  Select All
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={deselectAllTransactions}
+                style={styles.headerButton}
+              >
+                <Text
+                  style={[
+                    styles.headerIcon,
+                    { color: colors.text, fontSize: 14 },
+                  ]}
+                >
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={handleSearch}
+                style={styles.headerButton}
+              >
+                <Text style={[styles.headerIcon, { color: colors.text }]}>
+                  🔍
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleMoreOptions}
+                style={styles.headerButton}
+              >
+                <Text style={[styles.headerIcon, { color: colors.text }]}>
+                  ⋮
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
-      {/* Filters */}
+      {/* Filters or Confirmation Summary */}
       <View
         style={[
           styles.filtersContainer,
           { backgroundColor: colors.background },
         ]}
       >
-        <View style={styles.filtersRow}>
-          <DateSelector
-            value={selectedFilter}
-            onValueChange={handleFilterChange}
-            placeholder="Select month"
-          />
-          <Dropdown
-            value={selectedSort}
-            options={[
-              "Oldest First",
-              "Newest First",
-              "Largest Amount",
-              "Smallest Amount",
-              "Transfer",
-              "Income",
-              "Expense",
-              "ALL",
-            ]}
-            onValueChange={handleSortChange}
-            placeholder="Sort by"
-          />
-        </View>
+        {isConfirmationMode ? (
+          <View style={styles.confirmationSummaryContainer}>
+            <Text
+              style={[styles.confirmationSummaryText, { color: colors.text }]}
+            >
+              Selected: {selectedTransactions.size} of {transactions.length}{" "}
+              transactions
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.filtersRow}>
+            <DateSelector
+              value={selectedFilter}
+              onValueChange={handleFilterChange}
+              placeholder="Select month"
+            />
+            <Dropdown
+              value={selectedSort}
+              options={[
+                "Oldest First",
+                "Newest First",
+                "Largest Amount",
+                "Smallest Amount",
+                "Transfer",
+                "Income",
+                "Expense",
+                "ALL",
+              ]}
+              onValueChange={handleSortChange}
+              placeholder="Sort by"
+            />
+          </View>
+        )}
       </View>
 
       {/* Summary Cards - Compact 1x3 Layout */}
@@ -801,146 +1352,241 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
               </View>
 
               {/* Transactions */}
-              {dayGroup.transactions.map((transaction) => (
-                <View
-                  key={transaction.id}
-                  style={[
-                    styles.transactionItem,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.transactionLeft}>
-                    <View
-                      style={[
-                        styles.transactionIcon,
-                        {
-                          backgroundColor: `${getTransactionColor(
-                            transaction.type
-                          )}20`,
-                        },
-                      ]}
-                    >
-                      <Text
+              {dayGroup.transactions.map((transaction) => {
+                const isSelected = selectedTransactions.has(transaction.id);
+                return (
+                  <TouchableOpacity
+                    key={transaction.id}
+                    style={[
+                      styles.transactionItem,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                      isConfirmationMode &&
+                        isSelected &&
+                        styles.transactionItemSelected,
+                    ]}
+                    onPress={() => {
+                      if (isConfirmationMode) {
+                        toggleTransactionSelection(transaction.id);
+                      }
+                    }}
+                    activeOpacity={isConfirmationMode ? 0.7 : 1}
+                  >
+                    <View style={styles.transactionLeft}>
+                      {isConfirmationMode && (
+                        <View style={styles.checkboxContainer}>
+                          <View
+                            style={[
+                              styles.checkbox,
+                              isSelected && styles.checkboxSelected,
+                            ]}
+                          >
+                            {isSelected && (
+                              <Text style={styles.checkmark}>✓</Text>
+                            )}
+                          </View>
+                        </View>
+                      )}
+                      <View
                         style={[
-                          styles.transactionIconText,
-                          { color: getTransactionColor(transaction.type) },
+                          styles.transactionIcon,
+                          {
+                            backgroundColor: `${getTransactionColor(
+                              transaction.type
+                            )}20`,
+                          },
                         ]}
-                      >
-                        {transaction.icon}
-                      </Text>
-                    </View>
-                    <View style={styles.transactionInfo}>
-                      <Text
-                        style={[
-                          styles.transactionTitle,
-                          { color: colors.text },
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {transaction.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.transactionSource,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {transaction.source}
-                      </Text>
-                      <View style={styles.transactionTags}>
-                        {transaction.tags.map((tag, index) => {
-                          const tagColors = getTagColor(tag);
-                          return (
-                            <View
-                              key={index}
-                              style={[
-                                styles.tag,
-                                { backgroundColor: tagColors.background },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.tagText,
-                                  { color: tagColors.text },
-                                ]}
-                              >
-                                {tag}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                      <Text
-                        style={[
-                          styles.transactionDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {transaction.description}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.transactionRight}>
-                    <Text
-                      style={[
-                        styles.transactionAmount,
-                        { color: getTransactionColor(transaction.type) },
-                      ]}
-                    >
-                      {transaction.amount > 0 ? "+" : ""}
-                      {formatCurrency(transaction.amount)}
-                    </Text>
-                    <View style={styles.transactionActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleEditTransaction(transaction)}
-                      >
-                        <Text style={[styles.actionIcon, { color: "#F59E0B" }]}>
-                          ✏️
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => {
-                          Alert.alert(
-                            "Delete Transaction",
-                            "Are you sure you want to delete this transaction?",
-                            [
-                              { text: "Cancel", style: "cancel" },
-                              {
-                                text: "Delete",
-                                style: "destructive",
-                                onPress: () =>
-                                  handleDeleteTransaction(transaction.id),
-                              },
-                            ]
-                          );
-                        }}
                       >
                         <Text
                           style={[
-                            styles.actionIcon,
+                            styles.transactionIconText,
+                            { color: getTransactionColor(transaction.type) },
+                          ]}
+                        >
+                          {transaction.icon}
+                        </Text>
+                      </View>
+                      <View style={styles.transactionInfo}>
+                        <Text
+                          style={[
+                            styles.transactionTitle,
+                            { color: colors.text },
+                          ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {transaction.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.transactionSource,
                             { color: colors.textSecondary },
                           ]}
                         >
-                          🗑️
+                          {transaction.source}
                         </Text>
-                      </TouchableOpacity>
+                        <View style={styles.transactionTags}>
+                          {transaction.tags.map((tag, index) => {
+                            const tagColors = getTagColor(tag);
+                            return (
+                              <View
+                                key={index}
+                                style={[
+                                  styles.tag,
+                                  { backgroundColor: tagColors.background },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.tagText,
+                                    { color: tagColors.text },
+                                  ]}
+                                >
+                                  {tag}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                        <Text
+                          style={[
+                            styles.transactionDescription,
+                            { color: colors.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {transaction.description}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                </View>
-              ))}
+
+                    <View style={styles.transactionRight}>
+                      <Text
+                        style={[
+                          styles.transactionAmount,
+                          { color: getTransactionColor(transaction.type) },
+                        ]}
+                      >
+                        {transaction.amount > 0 ? "+" : ""}
+                        {formatCurrency(transaction.amount)}
+                      </Text>
+                      <View style={styles.transactionActions}>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleEditTransaction(transaction)}
+                        >
+                          <Text
+                            style={[styles.actionIcon, { color: "#F59E0B" }]}
+                          >
+                            ✏️
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => {
+                            if (isConfirmationMode) {
+                              Alert.alert(
+                                "Remove Transaction",
+                                "Remove this transaction from the upload list?",
+                                [
+                                  { text: "Cancel", style: "cancel" },
+                                  {
+                                    text: "Remove",
+                                    style: "destructive",
+                                    onPress: () => {
+                                      // Remove from parsed transactions list
+                                      const updatedTransactions =
+                                        transactions.filter(
+                                          (t) => t.id !== transaction.id
+                                        );
+                                      setTransactions(updatedTransactions);
+                                      setGroupedTransactions(
+                                        groupTransactionsByDate(
+                                          updatedTransactions
+                                        )
+                                      );
+                                      // Remove from selected if it was selected
+                                      const newSelection = new Set(
+                                        selectedTransactions
+                                      );
+                                      newSelection.delete(transaction.id);
+                                      setSelectedTransactions(newSelection);
+                                    },
+                                  },
+                                ]
+                              );
+                            } else {
+                              Alert.alert(
+                                "Delete Transaction",
+                                "Are you sure you want to delete this transaction?",
+                                [
+                                  { text: "Cancel", style: "cancel" },
+                                  {
+                                    text: "Delete",
+                                    style: "destructive",
+                                    onPress: () =>
+                                      handleDeleteTransaction(transaction.id),
+                                  },
+                                ]
+                              );
+                            }
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.actionIcon,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            🗑️
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           ))
         )}
       </ScrollView>
+
+      {/* Search Modal */}
+      <SearchModal
+        visible={isSearchVisible}
+        onClose={handleSearchClose}
+        onSearch={handleSearchSubmit}
+      />
+
+      {/* Confirmation Buttons */}
+      {isConfirmationMode && (
+        <View
+          style={[
+            styles.confirmationButtons,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.cancelButton, { borderColor: colors.border }]}
+            onPress={handleCancelConfirmation}
+          >
+            <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+              Cancel
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.confirmButton}
+            onPress={handleConfirmSelected}
+          >
+            <Text style={styles.confirmButtonText}>
+              Confirm ({selectedTransactions.size})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Search Modal */}
       <SearchModal
@@ -954,7 +1600,9 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         <QuickAddButton
           editTransaction={editingTransaction}
           isEditMode={true}
-          onTransactionUpdate={handleTransactionUpdate}
+          onTransactionUpdate={(updatedData) =>
+            handleTransactionUpdate(updatedData || editingTransaction)
+          }
         />
       )}
     </SafeAreaView>
@@ -1245,6 +1893,75 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     fontSize: 14,
+  },
+  // New styles for confirmation mode
+  confirmationSummaryContainer: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  confirmationSummaryText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  checkboxContainer: {
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#dee2e6",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  checkboxSelected: {
+    backgroundColor: "#007AFF",
+    borderColor: "#007AFF",
+  },
+  checkmark: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  transactionItemSelected: {
+    backgroundColor: "#1F2937", // Darker background for better contrast
+    borderColor: "#007AFF",
+    borderWidth: 2,
+  },
+  confirmationButtons: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 16,
+    paddingBottom: 34, // Account for safe area
+    borderTopWidth: 1,
+    borderTopColor: "#e9ecef",
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  confirmButton: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: "#007AFF",
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
   },
 });
 
