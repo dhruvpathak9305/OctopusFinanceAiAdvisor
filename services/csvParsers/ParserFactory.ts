@@ -1,7 +1,9 @@
-import { ParserFactory as IParserFactory, CSVParser } from './types';
-import { ICICIParser } from './ICICIParser';
-import { HDFCParser } from './HDFCParser';
-import { IDFCParser } from './IDFCParser';
+import { ParserFactory as IParserFactory, CSVParser } from "./types";
+import { ICICIParser } from "./ICICIParser";
+import { HDFCParser } from "./HDFCParser";
+import { IDFCParser } from "./IDFCParser";
+import { AXISParser } from "./AXISParser";
+import { KOTAKParser } from "./KOTAKParser";
 
 export class ParserFactory implements IParserFactory {
   private static instance: ParserFactory;
@@ -10,12 +12,13 @@ export class ParserFactory implements IParserFactory {
   private constructor() {
     this.parsers = [
       // Order matters: More specific parsers should come first
-      new IDFCParser(),  // IDFC has very specific patterns, check first
+      new IDFCParser(), // IDFC has very specific patterns, check first
       new ICICIParser(), // ICICI has specific patterns
-      new HDFCParser(),  // HDFC is more generic, check last
+      new AXISParser(), // AXIS Bank parser
+      new KOTAKParser(), // Kotak Mahindra Bank parser
+      new HDFCParser(), // HDFC is more generic, check last
       // Add more bank parsers here as they are implemented
       // new SBIParser(),
-      // new AxisParser(),
     ];
   }
 
@@ -27,8 +30,8 @@ export class ParserFactory implements IParserFactory {
   }
 
   getParser(content: string): CSVParser | null {
-    console.log('ParserFactory - Checking parsers for content...');
-    
+    console.log("ParserFactory - Checking parsers for content...");
+
     // Try each parser to see which one can handle this content
     for (const parser of this.parsers) {
       console.log(`ParserFactory - Testing ${parser.getBankName()} parser...`);
@@ -37,15 +40,15 @@ export class ParserFactory implements IParserFactory {
         return parser;
       }
     }
-    
-    console.log('ParserFactory - No parser matched, returning null');
+
+    console.log("ParserFactory - No parser matched, returning null");
     // If no specific parser matches, return null
     // You could implement a generic parser here as fallback
     return null;
   }
 
   getSupportedBanks(): string[] {
-    return this.parsers.map(parser => parser.getBankName());
+    return this.parsers.map((parser) => parser.getBankName());
   }
 
   getAllParsers(): CSVParser[] {
@@ -54,7 +57,9 @@ export class ParserFactory implements IParserFactory {
 
   addParser(parser: CSVParser): void {
     // Check if parser already exists
-    const exists = this.parsers.some(p => p.getBankName() === parser.getBankName());
+    const exists = this.parsers.some(
+      (p) => p.getBankName() === parser.getBankName()
+    );
     if (!exists) {
       this.parsers.push(parser);
     }
@@ -62,11 +67,11 @@ export class ParserFactory implements IParserFactory {
 
   removeParser(bankName: string): boolean {
     const initialLength = this.parsers.length;
-    this.parsers = this.parsers.filter(p => p.getBankName() !== bankName);
+    this.parsers = this.parsers.filter((p) => p.getBankName() !== bankName);
     return this.parsers.length < initialLength;
   }
 
   getParserByBankName(bankName: string): CSVParser | null {
-    return this.parsers.find(p => p.getBankName() === bankName) || null;
+    return this.parsers.find((p) => p.getBankName() === bankName) || null;
   }
 }

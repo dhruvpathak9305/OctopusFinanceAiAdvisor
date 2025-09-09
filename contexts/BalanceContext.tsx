@@ -179,11 +179,11 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
 
   // Set up real-time subscription for balance updates (only in production mode)
   useEffect(() => {
-    if (isDemo) {
+    if (isDemo || process.env.EXPO_PUBLIC_DISABLE_REALTIME === "true") {
       console.log(
-        "🎭 BalanceContext: Skipping real-time subscriptions in demo mode"
+        "🎭 BalanceContext: Skipping real-time subscriptions (demo mode or disabled)"
       );
-      return; // Skip real-time subscriptions in demo mode
+      return; // Skip real-time subscriptions in demo mode or if disabled
     }
 
     let balanceSubscription: any = null;
@@ -241,10 +241,11 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
           )
           .subscribe((status, error) => {
             if (error) {
-              console.error(
-                "❌ BalanceContext: Balance subscription error:",
+              console.warn(
+                "⚠️ BalanceContext: Balance subscription error (non-critical):",
                 error
               );
+              // Don't break app - continue with manual refresh methods
             } else {
               console.log(
                 "📡 BalanceContext: Balance subscription status:",
@@ -253,6 +254,10 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
               if (status === "SUBSCRIBED") {
                 console.log(
                   "✅ BalanceContext: Balance real-time subscription is active!"
+                );
+              } else if (status === "CHANNEL_ERROR") {
+                console.warn(
+                  "⚠️ BalanceContext: Channel error - using fallback refresh methods"
                 );
               }
             }
@@ -286,11 +291,11 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
 
   // Also listen to transaction changes as a fallback
   useEffect(() => {
-    if (isDemo) {
+    if (isDemo || process.env.EXPO_PUBLIC_DISABLE_REALTIME === "true") {
       console.log(
-        "🎭 BalanceContext: Skipping transaction subscription in demo mode"
+        "🎭 BalanceContext: Skipping transaction subscription (demo mode or disabled)"
       );
-      return; // Skip in demo mode
+      return; // Skip in demo mode or if disabled
     }
 
     let transactionSubscription: any = null;
@@ -348,10 +353,11 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
           )
           .subscribe((status, error) => {
             if (error) {
-              console.error(
-                "❌ BalanceContext: Transaction subscription error:",
+              console.warn(
+                "⚠️ BalanceContext: Transaction subscription error (non-critical):",
                 error
               );
+              // Don't break app - continue with manual refresh methods
             } else {
               console.log(
                 "📡 BalanceContext: Transaction subscription status:",
@@ -360,6 +366,10 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
               if (status === "SUBSCRIBED") {
                 console.log(
                   "✅ BalanceContext: Transaction-balance sync is active!"
+                );
+              } else if (status === "CHANNEL_ERROR") {
+                console.warn(
+                  "⚠️ BalanceContext: Transaction channel error - using fallback methods"
                 );
               }
             }

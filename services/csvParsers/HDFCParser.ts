@@ -1,534 +1,437 @@
-import { BaseCSVParser } from './BaseCSVParser';
-import { CSVParserResult, ParsedBankStatement, CustomerInfo, AccountSummary, AccountDetail, FixedDeposit, BankTransaction, RewardPoint, AccountInfo } from './types';
+import { BaseCSVParser } from "./BaseCSVParser";
+import { ParsedTransaction, TransactionType } from "./types";
 
+/**
+ * HDFC Bank CSV Parser
+ * Handles HDFC bank statement formats based on actual CSV structure
+ */
 export class HDFCParser extends BaseCSVParser {
-  protected bankName = 'HDFC Bank';
-  protected supportedFormats = ['HDFC Bank Statement', 'HDFC CSV'];
+  static readonly BANK_NAME = "HDFC Bank";
 
-  canParse(content: string): boolean {
-    const lines = content.split('\n').slice(0, 50); // Check more lines for HDFC
-    const contentUpper = content.toUpperCase();
-    
-    // Look for HDFC-specific identifiers in content
-    const hasHDFCIdentifier = lines.some(line => 
-      line.toUpperCase().includes('HDFC') || 
-      line.toUpperCase().includes('HDFC BANK') ||
-      line.toUpperCase().includes('HDFC BANK LIMITED') ||
-      line.toUpperCase().includes('HDFC BANK LTD')
-    ) || contentUpper.includes('HDFC0'); // HDFC IFSC pattern
+  /**
+   * Detect if this CSV is from HDFC Bank
+   * Based on actual HDFC CSV format with specific patterns
+   */
+  canParse(headers: string[], firstRow?: string[]): boolean {
+    const headerStr = headers.join("|").toLowerCase();
+    const firstRowStr = firstRow?.join("|").toLowerCase() || "";
 
-    // Exclude IDFC content explicitly
-    const isIDFCContent = lines.some(line => 
-      line.toUpperCase().includes('IDFC') ||
-      line.toUpperCase().includes('IDFB0') ||
-      line.toUpperCase().includes('MUNSHIPULIA')
-    ) || contentUpper.includes('IDFC') || contentUpper.includes('IDFB0');
+    // Check for HDFC specific patterns from actual CSV
+    const hdfcPatterns = [
+      "narration",
+      "chq./ref.no",
+      "value dt",
+      "withdrawal amt",
+      "deposit amt",
+      "closing balance",
+    ];
 
-    // Look for HDFC statement format patterns
-    const hasStatementFormat = lines.some(line => 
-      line.toUpperCase().includes('STATEMENT OF ACCOUNT') ||
-      line.toUpperCase().includes('STATEMENT OF ACCOUNTS') ||
-      line.toUpperCase().includes('ACCOUNT STATEMENT') ||
-      line.toUpperCase().includes('TRANSACTION DETAILS')
+    const hasHDFCColumns =
+      hdfcPatterns.filter(
+        (pattern) =>
+          headerStr.includes(pattern) || firstRowStr.includes(pattern)
+      ).length >= 4; // Must have at least 4 HDFC-specific columns
+
+    // Check for HDFC bank identifier
+    const hasHDFCIdentifier =
+      headerStr.includes("hdfc") ||
+      firstRowStr.includes("hdfc") ||
+      headerStr.includes("statement of accounts") ||
+      headerStr.includes("hdfc bank ltd");
+
+    // Exclude IDFC and ICICI content
+    const isOtherBank =
+      headerStr.includes("idfc") ||
+      headerStr.includes("icici") ||
+      headerStr.includes("s no.") ||
+      headerStr.includes("transaction remarks");
+
+    return hasHDFCColumns && hasHDFCIdentifier && !isOtherBank;
+  }
+
+  /**
+   * Parse HDFC CSV format based on actual structure
+   */
+  async parseCSV(csvData: string[][]): Promise<ParsedTransaction[]> {
+    const transactions: ParsedTransaction[] = [];
+
+    if (csvData.length < 2) {
+      throw new Error("HDFC CSV must have at least header and one data row");
+    }
+
+    // Find header row (might not be the first row due to bank header info)
+    let headerRowIndex = -1;
+    let headers: string[] = [];
+
+    for (let i = 0; i < Math.min(csvData.length, 15); i++) {
+      const row = csvData[i];
+      const rowStr = row.join("|").toLowerCase();
+
+      // Look for row with transaction table headers
+      if (
+        rowStr.includes("date") &&
+        rowStr.includes("narration") &&
+        (rowStr.includes("withdrawal amt") || rowStr.includes("deposit amt"))
+      ) {
+        headerRowIndex = i;
+        headers = row;
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      throw new Error("Could not find HDFC transaction headers in CSV");
+    }
+
+    const dataRows = csvData.slice(headerRowIndex + 1);
+
+    // Map headers to indices based on actual HDFC format
+    const headerMap = this.createHDFCHeaderMap(headers);
+
+    console.log("🏦 HDFC Parser: Processing", dataRows.length, "transactions");
+    console.log("📋 HDFC Headers detected:", headers);
+    console.log("🗺️ HDFC Header mapping:", headerMap);
+
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+
+      try {
+        const transaction = this.parseHDFCRow(
+          row,
+          headerMap,
+          headerRowIndex + i + 2
+        );
+        if (transaction && this.isValidTransaction(transaction)) {
+          transactions.push(transaction);
+        }
+      } catch (error) {
+        console.warn(
+          `⚠️ HDFC Parser: Error parsing row ${headerRowIndex + i + 2}:`,
+          error
+        );
+        // Continue parsing other rows
+      }
+    }
+
+    console.log(
+      `✅ HDFC Parser: Successfully parsed ${transactions.length} transactions`
     );
+    return transactions;
+  }
 
-    // Look for HDFC transaction format with narration
-    const hasTransactionFormat = lines.some(line => 
-      (line.toUpperCase().includes('DATE') && line.toUpperCase().includes('NARRATION')) ||
-      (line.toUpperCase().includes('CHEQUE') && line.toUpperCase().includes('VALUE')) ||
-      (line.toUpperCase().includes('WITHDRAWAL') && line.toUpperCase().includes('DEPOSIT')) ||
-      line.toUpperCase().includes('WITHDRAWAL AMOUNT') ||
-      line.toUpperCase().includes('DEPOSIT AMOUNT')
-    );
+  /**
+   * Create header mapping for HDFC columns based on actual format
+   */
+  private createHDFCHeaderMap(headers: string[]): Record<string, number> {
+    const headerMap: Record<string, number> = {};
 
-    // Look for HDFC-specific account info patterns
-    const hasAccountInfo = lines.some(line =>
-      line.toUpperCase().includes('ACCOUNT BRANCH') ||
-      line.toUpperCase().includes('RTGS/NEFT IFSC') ||
-      line.toUpperCase().includes('VIRTUAL PREFERRED') ||
-      line.toUpperCase().includes('CUST ID') ||
-      line.toUpperCase().includes('CUSTOMER ID')
-    );
+    headers.forEach((header, index) => {
+      const normalizedHeader = header.toLowerCase().trim();
 
-    // Look for HDFC-specific patterns like branch names, cities, etc.
-    const hasHDFCSpecificPatterns = lines.some(line =>
-      line.toUpperCase().includes('RAJARHAT') ||
-      line.toUpperCase().includes('GOPALPUR') ||
-      line.toUpperCase().includes('KOLKATA') ||
-      line.toUpperCase().includes('MUMBAI') ||
-      line.toUpperCase().includes('LOWER PAREL')
-    );
-
-    // Look for HDFC MICR codes (start with specific patterns)
-    const hasHDFCMICR = contentUpper.includes('700240064') || // HDFC MICR from your example
-                        contentUpper.match(/\b7002[0-9]{5}\b/); // HDFC MICR pattern
-
-    console.log('HDFC Parser - Detection results:', {
-      hasHDFCIdentifier,
-      hasStatementFormat,
-      hasTransactionFormat,
-      hasAccountInfo,
-      hasHDFCSpecificPatterns,
-      hasHDFCMICR,
-      isIDFCContent
+      // Map based on actual HDFC CSV structure
+      if (
+        normalizedHeader.includes("date") &&
+        !normalizedHeader.includes("value")
+      ) {
+        headerMap.date = index;
+      } else if (normalizedHeader.includes("narration")) {
+        headerMap.narration = index;
+      } else if (
+        normalizedHeader.includes("chq") ||
+        normalizedHeader.includes("ref")
+      ) {
+        headerMap.reference = index;
+      } else if (normalizedHeader.includes("value dt")) {
+        headerMap.valueDate = index;
+      } else if (normalizedHeader.includes("withdrawal amt")) {
+        headerMap.withdrawal = index;
+      } else if (normalizedHeader.includes("deposit amt")) {
+        headerMap.deposit = index;
+      } else if (normalizedHeader.includes("closing balance")) {
+        headerMap.balance = index;
+      }
     });
 
-    // HDFC parser should trigger if:
-    // 1. Has HDFC identifier OR HDFC-specific patterns AND
-    // 2. Is NOT IDFC content AND  
-    // 3. Has supporting patterns
-    return !isIDFCContent && (
-      hasHDFCIdentifier || 
-      hasHDFCMICR || 
-      (hasHDFCSpecificPatterns && hasStatementFormat) ||
-      (hasTransactionFormat && hasAccountInfo)
-    );
+    return headerMap;
   }
 
-  async parse(content: string): Promise<CSVParserResult> {
+  /**
+   * Parse individual HDFC row based on actual format
+   */
+  private parseHDFCRow(
+    row: string[],
+    headerMap: Record<string, number>,
+    rowNumber: number
+  ): ParsedTransaction | null {
+    // Skip empty rows
+    if (
+      !row ||
+      row.length === 0 ||
+      row.every((cell) => !cell || !cell.trim())
+    ) {
+      return null;
+    }
+
     try {
-      const rows = this.parseCSVContent(content);
-      
-      if (rows.length < 5) {
-        return this.createErrorResult(['CSV file is too short to be a valid bank statement']);
+      // Extract date
+      const dateStr = this.getColumnValue(row, headerMap.date);
+      if (!dateStr) {
+        console.warn(`⚠️ HDFC: No date found in row ${rowNumber}`);
+        return null;
       }
 
-      const extractedData: ParsedBankStatement = {
-        customerInfo: {},
-        accountSummary: {},
-        accountDetails: [],
-        fixedDeposits: [],
-        transactions: [],
-        rewardPoints: [],
-        accountInfo: [{}],
-        metadata: this.createStatementMetadata([], 'HDFC Bank Statement')
-      };
-
-      console.log('HDFC Parser - Starting to parse', rows.length, 'rows');
-      console.log('HDFC Parser - First 30 rows for debugging:');
-      for (let debugIndex = 0; debugIndex < Math.min(30, rows.length); debugIndex++) {
-        console.log(`Row ${debugIndex}:`, rows[debugIndex]);
-      }
-      
-      // Log rows that contain key identifiers
-      console.log('HDFC Parser - Searching for key data patterns:');
-      for (let debugIndex = 0; debugIndex < rows.length; debugIndex++) {
-        const rowText = rows[debugIndex].join(' ').toLowerCase();
-        const row = rows[debugIndex];
-        
-        // Check for customer name patterns
-        if (rowText.includes('dhruv') || rowText.includes('pathak')) {
-          console.log(`Name Row ${debugIndex}:`, row);
-        }
-        
-        // Check for address patterns
-        if (rowText.includes('ashok') || rowText.includes('e-146') || rowText.includes('aliganj')) {
-          console.log(`Address Row ${debugIndex}:`, row);
-        }
-        
-        // Check for account info patterns
-        if (rowText.includes('rajarhat') || rowText.includes('gopalpur') || 
-            rowText.includes('112549956') || rowText.includes('5010022599687') || 
-            rowText.includes('hdfc0002068')) {
-          console.log(`Account Row ${debugIndex}:`, row);
-        }
+      const date = this.parseHDFCDate(dateStr);
+      if (!date) {
+        console.warn(`⚠️ HDFC: Invalid date "${dateStr}" in row ${rowNumber}`);
+        return null;
       }
 
-      let transactionStarted = false;
-      
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.length === 0) continue;
-        
-        const firstCell = row[0] ? String(row[0]).trim() : '';
-        const secondCell = row[1] ? String(row[1]).trim() : '';
-        
-        // Debug logging for first 20 rows
-        if (i < 20) {
-          console.log(`HDFC Parser - Row ${i}: [${firstCell}] [${secondCell}] [${row[2] || ''}] [${row[3] || ''}]`);
-        }
+      // Extract narration (description)
+      const narration =
+        this.getColumnValue(row, headerMap.narration) || "HDFC Transaction";
 
-        // Extract customer information - more precise logic
-        const fullRowText = row.join(' ').trim().toUpperCase();
-        
-        // Customer name should be in early rows (0-5) and NOT contain transaction keywords
-        if (i < 6 && !extractedData.customerInfo.name) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim().toUpperCase() : '';
-            
-            // Check if this looks like a customer name (contains MR/MS/MRS and DHRUV PATHAK)
-            // but exclude transaction descriptions
-            if (cellValue.includes('MR') && cellValue.includes('DHRUV') && cellValue.includes('PATHAK') &&
-                !cellValue.includes('NEFT') && !cellValue.includes('UPI') && !cellValue.includes('ZERODHA') &&
-                !cellValue.includes('CR-') && !cellValue.includes('BROKING') && !cellValue.includes('LTD') &&
-                cellValue.length < 50) { // Customer names shouldn't be too long
-              extractedData.customerInfo.name = 'MR DHRUV PATHAK'; // Standardize the name
-              console.log('HDFC Parser - Found customer name (standardized):', extractedData.customerInfo.name);
-              break;
-            }
-          }
-        }
+      // Extract amounts from separate withdrawal/deposit columns
+      const withdrawalStr = this.getColumnValue(row, headerMap.withdrawal);
+      const depositStr = this.getColumnValue(row, headerMap.deposit);
 
-        // Extract joint holders
-        if (firstCell.includes('JOINT HOLDERS') && secondCell) {
-          extractedData.customerInfo.jointHolders = secondCell;
-        }
+      const withdrawalAmount = this.parseAmount(withdrawalStr);
+      const depositAmount = this.parseAmount(depositStr);
 
-        // Extract nomination
-        if (firstCell.includes('Nomination') && secondCell) {
-          extractedData.customerInfo.nomination = secondCell;
-        }
-
-        // Extract statement period - check for date patterns
-        if (fullRowText.includes('01/07/2025') && fullRowText.includes('31/07/2025')) {
-          extractedData.customerInfo.statementPeriod = '01/07/2025 – 31/07/2025';
-          console.log('HDFC Parser - Found statement period:', extractedData.customerInfo.statementPeriod);
-        }
-        
-        // Extract nomination status
-        if (i < 15 && firstCell && firstCell.includes('Registered')) {
-          extractedData.customerInfo.nomination = 'Registered';
-          console.log('HDFC Parser - Found nomination:', 'Registered');
-        }
-
-        // Extract complete address - build from multiple parts
-        if (i < 15 && !extractedData.customerInfo.address) {
-          let addressParts = [];
-          
-          // Check all cells in early rows for address components
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            
-            // Look for father's name
-            if (cellValue.includes('S/O') && cellValue.includes('ASHOK')) {
-              addressParts.push(cellValue);
-            }
-            
-            // Look for address components
-            if (cellValue.includes('E-146') || cellValue.includes('SECTOR B') || 
-                cellValue.includes('ALIGANJ') || cellValue.includes('NIRALA PARK') ||
-                cellValue.includes('LUCKNOW') || cellValue.includes('226024')) {
-              addressParts.push(cellValue);
-            }
-          }
-          
-          // If we found address parts, combine them
-          if (addressParts.length > 0) {
-            // Build the complete address
-            extractedData.customerInfo.address = 'S/O ASHOK PATHAK, E-146, SECTOR B, ALIGANJ, NIRALA PARK, LUCKNOW 226024, UTTAR PRADESH, INDIA';
-            console.log('HDFC Parser - Built complete address:', extractedData.customerInfo.address);
-          }
-        }
-        
-        // Extract email - look for the specific email pattern
-        if (!extractedData.customerInfo.email) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('DHRUVPATHAK9305@GMAIL.COM') || 
-                (cellValue.includes('@') && cellValue.includes('GMAIL.COM'))) {
-              extractedData.customerInfo.email = 'DHRUVPATHAK9305@GMAIL.COM';
-              console.log('HDFC Parser - Found email:', extractedData.customerInfo.email);
-              break;
-            }
-          }
-        }
-        
-        // Extract phone - look for specific phone patterns
-        if (!extractedData.customerInfo.phone) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('18002007') || cellValue.includes('8001600') || 
-                cellValue.match(/^1800\d+/) || cellValue.match(/^800\d+/)) {
-              extractedData.customerInfo.phone = '18002007xxxx / 8001600';
-              console.log('HDFC Parser - Found phone:', extractedData.customerInfo.phone);
-              break;
-            }
-          }
-        }
-        
-        // Extract Customer ID - look more broadly
-        if (!extractedData.customerInfo.customerId) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue === '112549956' || (cellValue.match(/^\d{9}$/) && cellValue.includes('1125'))) {
-              extractedData.customerInfo.customerId = '112549956';
-              console.log('HDFC Parser - Found Customer ID:', extractedData.customerInfo.customerId);
-              break;
-            }
-          }
-        }
-        
-        // Extract Account Number - look more broadly
-        if (!extractedData.accountInfo[0].accountNumber) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue === '5010022599687' || (cellValue.match(/^\d{13}$/) && cellValue.includes('5010'))) {
-              extractedData.accountInfo[0].accountNumber = '5010022599687';
-              console.log('HDFC Parser - Found Account Number:', extractedData.accountInfo[0].accountNumber);
-              break;
-            }
-          }
-        }
-
-        // Extract account branch - standardize
-        if (!extractedData.accountInfo[0].branch) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('RAJARHAT') || cellValue.includes('GOPALPUR') || 
-                cellValue.includes('Account Branch')) {
-              extractedData.accountInfo[0].branch = 'RAJARHAT GOPALPUR';
-              console.log('HDFC Parser - Found branch (standardized):', extractedData.accountInfo[0].branch);
-              break;
-            }
-          }
-        }
-        
-        // Extract account type
-        if (!extractedData.accountInfo[0].accountType) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('VIRTUAL PREFERRED') || cellValue.includes('PREFERRED')) {
-              extractedData.accountInfo[0].accountType = 'VIRTUAL PREFERRED';
-              console.log('HDFC Parser - Found account type:', extractedData.accountInfo[0].accountType);
-              break;
-            }
-          }
-        }
-
-        // Extract branch address
-        if (fullRowText.includes('SURJA APARTMENT') || fullRowText.includes('DHARAPARA') ||
-            (firstCell.includes('Address') && secondCell && !extractedData.accountInfo[0].branchAddress)) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('SURJA') || cellValue.includes('DHARAPARA') || cellValue.includes('KOLKATA')) {
-              extractedData.accountInfo[0].branchAddress = cellValue;
-              console.log('HDFC Parser - Found branch address:', cellValue);
-              break;
-            }
-          }
-        }
-
-        // Extract phone
-        if ((firstCell.includes('Phone') && secondCell) ||
-            fullRowText.includes('1800260018600') || fullRowText.includes('180020918600')) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('1800260018600') || cellValue.includes('180020918600')) {
-              extractedData.customerInfo.phone = cellValue;
-              console.log('HDFC Parser - Found phone:', cellValue);
-              break;
-            }
-          }
-        }
-
-        // Extract email
-        if ((firstCell.includes('Email') && secondCell) ||
-            fullRowText.includes('DHRUVPATHAK9305@GMAIL.COM')) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('@GMAIL.COM') || cellValue.includes('DHRUVPATHAK9305')) {
-              extractedData.customerInfo.email = cellValue;
-              console.log('HDFC Parser - Found email:', cellValue);
-              break;
-            }
-          }
-        }
-
-        // Extract currency
-        if ((firstCell.includes('Currency') && secondCell) || fullRowText.includes('INR')) {
-          extractedData.accountInfo[0].currency = 'INR';
-        }
-
-        // Extract customer ID
-        if ((firstCell.includes('Cust ID') && secondCell) ||
-            fullRowText.includes('11259966')) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('11259966')) {
-              extractedData.customerInfo.customerId = cellValue;
-              console.log('HDFC Parser - Found customer ID:', cellValue);
-              break;
-            }
-          }
-        }
-
-        // Extract account number
-        if ((firstCell.includes('Account No.') && secondCell) ||
-            fullRowText.includes('50100223569697')) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('50100223569697')) {
-              extractedData.accountInfo[0].accountNumber = cellValue;
-              console.log('HDFC Parser - Found account number:', cellValue);
-              break;
-            }
-          }
-        }
-
-        // Extract account type
-        if (firstCell.includes('Account Type') && secondCell) {
-          extractedData.accountInfo[0].accountType = secondCell;
-        }
-
-        // Extract account open date
-        if (firstCell.includes('Account Open Date') && secondCell) {
-          extractedData.accountInfo[0].accountOpenDate = secondCell;
-        }
-
-        // Extract IFSC - updated to correct code
-        if ((firstCell.includes('RTGS/NEFT IFSC') && secondCell) ||
-            fullRowText.includes('HDFC0002068') || fullRowText.includes('HDFC0002305')) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('HDFC0002068') || cellValue.includes('HDFC0002305')) {
-              extractedData.accountInfo[0].ifscCode = cellValue;
-              console.log('HDFC Parser - Found IFSC:', cellValue);
-              break;
-            }
-          }
-        }
-
-        // Extract MICR
-        if ((firstCell.includes('MICR') && secondCell) ||
-            fullRowText.includes('700240064')) {
-          for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cellValue = row[cellIndex] ? String(row[cellIndex]).trim() : '';
-            if (cellValue.includes('700240064')) {
-              extractedData.accountInfo[0].micrCode = cellValue;
-              console.log('HDFC Parser - Found MICR:', cellValue);
-          break;
-        }
-          }
-        }
-
-        // Extract credit limits
-        if (firstCell.includes('Credit Limit') && secondCell) {
-          extractedData.accountInfo[0].creditLimit = this.parseAmount(secondCell);
-        }
-
-        if (firstCell.includes('CD Limit') && secondCell) {
-          extractedData.accountInfo[0].cdLimit = this.parseAmount(secondCell);
-        }
-
-        // Extract statement summary
-        if (firstCell.includes('Opening Balance') && secondCell) {
-          extractedData.accountSummary.openingBalance = this.parseAmount(secondCell);
-          console.log('HDFC Parser - Found opening balance:', extractedData.accountSummary.openingBalance);
-        }
-
-        if (firstCell.includes('Debits') && secondCell) {
-          extractedData.accountSummary.totalDebits = this.parseAmount(secondCell);
-          console.log('HDFC Parser - Found total debits:', extractedData.accountSummary.totalDebits);
-        }
-
-        if (firstCell.includes('Credits') && secondCell) {
-          extractedData.accountSummary.totalCredits = this.parseAmount(secondCell);
-          console.log('HDFC Parser - Found total credits:', extractedData.accountSummary.totalCredits);
-        }
-
-        if (firstCell.includes('Closing Balance') && secondCell) {
-          extractedData.accountSummary.closingBalance = this.parseAmount(secondCell);
-          console.log('HDFC Parser - Found closing balance:', extractedData.accountSummary.closingBalance);
-        }
-
-        if (firstCell.includes('Dr Count') && secondCell) {
-          extractedData.accountSummary.debitCount = parseInt(secondCell) || 0;
-        }
-
-        if (firstCell.includes('Cr Count') && secondCell) {
-          extractedData.accountSummary.creditCount = parseInt(secondCell) || 0;
-        }
-
-        // Extract GSTIN
-        if (firstCell.includes('GSTIN') && secondCell) {
-          extractedData.accountInfo[0].gstin = secondCell;
-        }
-
-        // Extract registered office
-        if (firstCell.includes('Registered Office') && secondCell) {
-          extractedData.accountInfo[0].registeredOffice = `${secondCell} ${row[2] || ''}`.trim();
-        }
-
-        // Look for transaction header
-        if (firstCell.includes('Date') && row[1] && String(row[1]).includes('Narration')) {
-          transactionStarted = true;
-          console.log('HDFC Parser - Found transaction header at row', i);
-          console.log('Transaction headers:', row.slice(0, 7));
-            continue;
-          }
-
-        // Parse transactions
-        if (transactionStarted && firstCell && firstCell.match(/^\d{2}\/\d{2}\/\d{2,4}$/)) {
-          const transaction: BankTransaction = {
-            date: firstCell,
-            narration: row[1] ? String(row[1]).trim() : 'Unknown Transaction',
-            particulars: row[1] ? String(row[1]).trim() : 'Unknown Transaction',
-            chequeRefNo: row[2] ? String(row[2]).trim() : undefined,
-            valueDate: row[3] ? String(row[3]).trim() : undefined,
-            type: 'debit',
-            amount: 0,
-            deposits: 0,
-            withdrawals: 0
-          };
-
-          // Extract withdrawal amount (column 4)
-          if (row[4] && String(row[4]).trim() !== '') {
-            const withdrawalAmount = this.parseAmount(String(row[4]));
-            if (withdrawalAmount > 0) {
-              transaction.type = 'debit';
-              transaction.amount = withdrawalAmount;
-              transaction.withdrawals = withdrawalAmount;
-            }
-          }
-
-          // Extract deposit amount (column 5)
-          if (row[5] && String(row[5]).trim() !== '') {
-            const depositAmount = this.parseAmount(String(row[5]));
-            if (depositAmount > 0) {
-              transaction.type = 'credit';
-              transaction.amount = depositAmount;
-              transaction.deposits = depositAmount;
-            }
-          }
-
-          // Extract closing balance (column 6)
-          if (row[6] && String(row[6]).trim() !== '') {
-            transaction.balance = this.parseAmount(String(row[6]));
-          }
-
-          if (transaction.amount > 0) {
-            extractedData.transactions.push(transaction);
-            console.log(`HDFC Parser - Added transaction: ${transaction.date} - ${transaction.narration} - ${transaction.type} - ${transaction.amount}`);
-          }
-        }
+      // Skip rows with no amount
+      if (withdrawalAmount === 0 && depositAmount === 0) {
+        return null;
       }
 
-      // Update metadata with actual transaction data
-      extractedData.metadata = this.createStatementMetadata(
-        extractedData.transactions,
-        'HDFC Bank Statement'
+      // Determine transaction type and amount
+      let type: TransactionType;
+      let amount: number;
+
+      if (depositAmount > 0) {
+        type = "income";
+        amount = depositAmount;
+      } else if (withdrawalAmount > 0) {
+        type = "expense";
+        amount = withdrawalAmount;
+      } else {
+        return null; // No valid amount
+      }
+
+      // Extract balance
+      const balance = this.parseAmount(
+        this.getColumnValue(row, headerMap.balance)
       );
 
-      console.log('HDFC Parser - Parsing completed:', {
-        customerName: extractedData.customerInfo.name,
-        accountNumber: extractedData.accountInfo[0]?.accountNumber,
-        transactionCount: extractedData.transactions.length,
-        openingBalance: extractedData.accountSummary.openingBalance,
-        closingBalance: extractedData.accountSummary.closingBalance
-      });
+      // Extract additional info
+      const referenceNo = this.getColumnValue(row, headerMap.reference);
+      const valueDate = this.getColumnValue(row, headerMap.valueDate);
 
-      // Validate that we have at least some data
-      if (!extractedData.customerInfo.name && !extractedData.accountInfo[0]?.accountNumber && extractedData.transactions.length === 0) {
-        return this.createErrorResult(['No valid HDFC bank statement data found']);
-      }
+      // Extract merchant from narration
+      const merchant = this.extractHDFCMerchant(narration);
 
-      return this.createSuccessResult(extractedData);
+      const transaction: ParsedTransaction = {
+        date: date.toISOString().split("T")[0], // YYYY-MM-DD format
+        description: narration.trim(),
+        amount,
+        type,
+        merchant: merchant || "HDFC Transaction",
+        category: this.categorizeHDFCTransaction(narration, merchant),
+        balance,
+        reference_number: referenceNo || undefined,
+        bank: "HDFC Bank",
+        raw_data: {
+          original_row: row,
+          withdrawal_amount: withdrawalAmount,
+          deposit_amount: depositAmount,
+          row_number: rowNumber,
+          value_date: valueDate,
+          reference_number: referenceNo,
+        },
+      };
 
+      return transaction;
     } catch (error) {
-      console.error('Error parsing HDFC CSV:', error);
-      return this.createErrorResult([
-        `Failed to parse HDFC CSV: ${error instanceof Error ? error.message : 'Unknown error'}`
-      ]);
+      console.error(`❌ HDFC Parser: Error parsing row ${rowNumber}:`, error);
+      throw error;
     }
   }
+
+  /**
+   * Parse HDFC date formats (DD/MM/YY or DD/MM/YYYY)
+   */
+  private parseHDFCDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+
+    const cleaned = dateStr.trim();
+
+    // HDFC uses DD/MM/YY format (2-digit year)
+    const dmySlash2 = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+    if (dmySlash2) {
+      const [, day, month, year] = dmySlash2;
+      const fullYear = parseInt(year) + 2000; // Convert 25 to 2025
+      return new Date(fullYear, parseInt(month) - 1, parseInt(day));
+    }
+
+    // HDFC might also use DD/MM/YYYY format (4-digit year)
+    const dmySlash4 = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dmySlash4) {
+      const [, day, month, year] = dmySlash4;
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+
+    // Fallback to standard parsing
+    return this.parseDate(cleaned);
+  }
+
+  /**
+   * Extract merchant name from HDFC narration
+   * Based on actual HDFC transaction patterns
+   */
+  private extractHDFCMerchant(narration: string): string | null {
+    if (!narration) return null;
+
+    const desc = narration.trim();
+
+    // HDFC specific patterns from actual transactions
+    const patterns = [
+      // Credit card autopay
+      /CC\s+\d+X+\d+\s+AUTOPAY\s+([^-]+)/,
+      // ACH patterns
+      /ACH\s+C-\s*([^-\d]+)/,
+      // UPI patterns
+      /UPI-([^-]+)-/,
+      /UPI\/([^\/]+)\//,
+      // NEFT patterns
+      /NEFT[^\w]*([^-]+)-/,
+      // IMPS patterns
+      /IMPS[^\w]*([^-]+)-/,
+      // Online banking
+      /([A-Z\s]+)\s+BANK\s+SPL/,
+      // Investment/Dividend patterns
+      /([A-Z\s]+)\s+(DIV|DIVIDEND)/,
+      // Salary patterns
+      /SALARY\s+([^-]+)/,
+      // General company names
+      /([A-Z][A-Z\s]{3,20})\s+(LTD|LIMITED|SERVICES|INDUSTRIES)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = desc.match(pattern);
+      if (match && match[1]) {
+        let merchantName = match[1].trim();
+        return this.cleanMerchantName(merchantName);
+      }
+    }
+
+    // If no pattern matches, try to extract meaningful words
+    const words = desc.split(/[\s\/-]+/).filter((w) => w.length > 2);
+    if (words.length > 1) {
+      // Skip common prefixes and codes
+      const meaningfulWords = words.filter(
+        (w) =>
+          ![
+            "ACH",
+            "UPI",
+            "NEFT",
+            "IMPS",
+            "BANK",
+            "LTD",
+            "SPL",
+            "INT",
+            "DIV",
+          ].includes(w.toUpperCase()) &&
+          !w.match(/^\d+$/) && // Skip pure numbers
+          !w.match(/^[X]+$/) // Skip masked numbers
+      );
+      if (meaningfulWords.length > 0) {
+        return this.cleanMerchantName(meaningfulWords[0]);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Categorize HDFC transactions based on narration
+   */
+  private categorizeHDFCTransaction(
+    narration: string,
+    merchant: string | null
+  ): string {
+    const desc = narration.toLowerCase();
+
+    // HDFC specific categorization patterns
+    if (desc.includes("salary") || desc.includes("sal ")) return "Salary";
+    if (
+      desc.includes("dividend") ||
+      desc.includes("div ") ||
+      desc.includes(" div")
+    )
+      return "Investment";
+    if (desc.includes("interest") || desc.includes("int ")) return "Investment";
+    if (desc.includes("autopay") || desc.includes("cc ")) return "Credit Card";
+    if (desc.includes("ach c-")) return "Investment";
+    if (desc.includes("kotak") || desc.includes("mahindra"))
+      return "Investment";
+    if (desc.includes("reliance") || desc.includes("industries"))
+      return "Investment";
+    if (desc.includes("coal india")) return "Investment";
+    if (desc.includes("bharat dynamics")) return "Investment";
+    if (desc.includes("torrent power")) return "Bills & Utilities";
+    if (
+      desc.includes("fuel") ||
+      desc.includes("petrol") ||
+      desc.includes("diesel")
+    )
+      return "Transport";
+    if (desc.includes("medical") || desc.includes("hospital"))
+      return "Healthcare";
+    if (desc.includes("grocery") || desc.includes("supermarket"))
+      return "Food & Dining";
+    if (
+      desc.includes("mobile") ||
+      desc.includes("airtel") ||
+      desc.includes("jio")
+    )
+      return "Mobile";
+    if (
+      desc.includes("electricity") ||
+      desc.includes("gas") ||
+      desc.includes("water")
+    )
+      return "Bills & Utilities";
+    if (desc.includes("insurance")) return "Insurance";
+
+    // Use merchant for additional categorization
+    if (merchant) {
+      const merchantLower = merchant.toLowerCase();
+      if (
+        merchantLower.includes("amazon") ||
+        merchantLower.includes("flipkart")
+      )
+        return "Shopping";
+      if (merchantLower.includes("uber") || merchantLower.includes("ola"))
+        return "Transport";
+      if (merchantLower.includes("zomato") || merchantLower.includes("swiggy"))
+        return "Food & Dining";
+      if (
+        merchantLower.includes("netflix") ||
+        merchantLower.includes("hotstar")
+      )
+        return "Entertainment";
+      if (merchantLower.includes("coal") || merchantLower.includes("reliance"))
+        return "Investment";
+    }
+
+    return "General";
+  }
+
+  /**
+   * Get bank name
+   */
+  getBankName(): string {
+    return HDFCParser.BANK_NAME;
+  }
 }
+
+
+
