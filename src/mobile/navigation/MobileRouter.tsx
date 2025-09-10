@@ -19,7 +19,7 @@ import MobileDashboard from "../pages/MobileDashboard";
 import MobileTransactions from "../pages/MobileTransactions";
 import MobilePortfolio from "../pages/MobilePortfolio";
 import MobileGoals from "../pages/MobileGoals";
-import MobileSettings from "../pages/MobileSettings";
+import MobileSettings from "../pages/MobileSettings/index";
 import MobileAuth from "../pages/MobileAuth";
 import MobileNetWorth from "../pages/MobileNetWorth";
 import MobileAccounts from "../pages/MobileAccounts";
