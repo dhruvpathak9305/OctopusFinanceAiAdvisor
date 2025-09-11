@@ -1,6 +1,14 @@
-export type BudgetPeriod = 'monthly' | 'quarterly' | 'yearly';
-export type BudgetStrategy = 'zero-based' | 'ai-powered' | 'envelope' | 'rolling';
-export type BudgetStatus = 'under_budget' | 'on_budget' | 'over_budget' | 'not_set';
+export type BudgetPeriod = "monthly" | "quarterly" | "yearly";
+export type BudgetStrategy =
+  | "zero-based"
+  | "ai-powered"
+  | "envelope"
+  | "rolling";
+export type BudgetStatus =
+  | "under_budget"
+  | "on_budget"
+  | "over_budget"
+  | "not_set";
 
 export interface SubCategory {
   id?: string;
@@ -31,6 +39,8 @@ export interface BudgetCategory {
   display_order?: number;
   created_at?: string;
   updated_at?: string;
+  category_type?: "expense" | "income";
+  icon?: string;
 }
 
 export interface BudgetTemplate {
@@ -43,7 +53,11 @@ export interface BudgetTemplate {
   popular?: boolean;
 }
 
-export type BudgetingMethod = "traditional" | "zero-based" | "envelope" | "rolling";
+export type BudgetingMethod =
+  | "traditional"
+  | "zero-based"
+  | "envelope"
+  | "rolling";
 
 export interface EnvelopeAllocation {
   categoryId: string;

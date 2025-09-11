@@ -1,42 +1,46 @@
 import { supabase } from "../lib/supabase/client";
 import { BudgetCategory, BudgetStatus } from "../types/budget";
 import { mapDbCategoryToModel } from "../utils/budgetMappers";
-import Toast from 'react-native-toast-message';
+import Toast from "react-native-toast-message";
 import type { Database } from "../types/supabase";
-import { 
-  getTableMap, 
-  validateTableConsistency, 
-  type TableMap 
-} from '../utils/tableMapping';
+import {
+  getTableMap,
+  validateTableConsistency,
+  type TableMap,
+} from "../utils/tableMapping";
 
 // Helper function to get the appropriate table mapping
 const getTableMapping = (isDemo: boolean): TableMap => {
   const tableMap = getTableMap(isDemo);
-  
+
   // Validate consistency during development
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     validateTableConsistency(tableMap);
   }
-  
+
   return tableMap;
 };
 
 // Fetch budget categories and their subcategories
-export const fetchBudgetCategories = async (isDemo: boolean = false): Promise<BudgetCategory[]> => {
+export const fetchBudgetCategories = async (
+  isDemo: boolean = false
+): Promise<BudgetCategory[]> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       throw new Error("User not authenticated");
     }
-    
+
     const tableMap = getTableMap(isDemo);
-    
+
     const { data, error } = await (supabase as any)
       .from(tableMap.budget_categories)
-      .select('*')
-      .eq('user_id', user.id)
-      .order('display_order', { ascending: true });
+      .select("*")
+      .eq("user_id", user.id)
+      .order("display_order", { ascending: true });
 
     if (error) {
       console.error("Error fetching budget categories:", error);
@@ -44,7 +48,9 @@ export const fetchBudgetCategories = async (isDemo: boolean = false): Promise<Bu
     }
 
     // Map the database data to BudgetCategory type
-    return (data || []).map((category: any) => mapDbCategoryToModel(category, []));
+    return (data || []).map((category: any) =>
+      mapDbCategoryToModel(category, [])
+    );
   } catch (err) {
     console.error("Error fetching budget categories:", err);
     throw err;
@@ -52,13 +58,18 @@ export const fetchBudgetCategories = async (isDemo: boolean = false): Promise<Bu
 };
 
 // Create a new category in the database
-export const createCategoryInDB = async (category: Partial<BudgetCategory>, isDemo: boolean = false) => {
+export const createCategoryInDB = async (
+  category: Partial<BudgetCategory>,
+  isDemo: boolean = false
+) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated");
-    
+
     const tableMap = getTableMapping(isDemo);
-    
+
     const { data, error } = await (supabase as any)
       .from(tableMap.budget_categories)
       .insert({
@@ -67,11 +78,11 @@ export const createCategoryInDB = async (category: Partial<BudgetCategory>, isDe
         ring_color: category.ringColor,
         budget_limit: category.limit,
         percentage: 0,
-        user_id: user.id
+        user_id: user.id,
       })
       .select()
       .single();
-    
+
     if (error) {
       console.error("Error creating category:", error);
       throw error;
@@ -95,7 +106,7 @@ export const updateCategoryInDB = async (
 ) => {
   try {
     const tableMap = getTableMapping(isDemo);
-    
+
     const { error } = await (supabase as any)
       .from(tableMap.budget_categories)
       .update({
@@ -104,8 +115,8 @@ export const updateCategoryInDB = async (
         ring_color: updates.ringColor,
         budget_limit: updates.limit,
       })
-      .eq('id', categoryId);
-    
+      .eq("id", categoryId);
+
     if (error) {
       console.error("Error updating category:", error);
       throw error;
@@ -117,27 +128,32 @@ export const updateCategoryInDB = async (
 };
 
 // Delete a category from the database
-export const deleteCategoryFromDB = async (categoryId: string, isDemo: boolean = false) => {
+export const deleteCategoryFromDB = async (
+  categoryId: string,
+  isDemo: boolean = false
+) => {
   try {
     const tableMap = getTableMapping(isDemo);
-    
+
     // First, delete all subcategories
     const { error: subCategoryError } = await (supabase as any)
       .from(tableMap.budget_subcategories)
       .delete()
-      .eq('category_id', categoryId);
-    
+      .eq("category_id", categoryId);
+
     if (subCategoryError) {
       console.error("Error deleting subcategories:", subCategoryError);
-      throw new Error(`Failed to delete subcategories: ${subCategoryError.message}`);
+      throw new Error(
+        `Failed to delete subcategories: ${subCategoryError.message}`
+      );
     }
-    
+
     // Then delete the category
     const { error } = await (supabase as any)
       .from(tableMap.budget_categories)
       .delete()
-      .eq('id', categoryId);
-    
+      .eq("id", categoryId);
+
     if (error) {
       console.error("Error deleting category:", error);
       throw new Error(`Failed to delete category: ${error.message}`);
@@ -152,46 +168,76 @@ export const budgetCategoryService = {
   async fetchCategories(isDemo: boolean = false): Promise<BudgetCategory[]> {
     try {
       const { data: user } = await supabase.auth.getUser();
-      
+
       if (!user.user) return [];
-      
+
       const tableMap = getTableMapping(isDemo);
-      
+
+      // Fetch categories with their subcategories to calculate spent amounts
       const { data: categories, error } = await (supabase as any)
         .from(tableMap.budget_categories)
-        .select('*')
-        .eq('user_id', user.user.id)
-        .order('created_at', { ascending: true });
+        .select(
+          `
+          *,
+          subcategories:${tableMap.budget_subcategories}(
+            id,
+            name,
+            current_spend,
+            budget_limit,
+            is_active
+          )
+        `
+        )
+        .eq("user_id", user.user.id)
+        .order("display_order", { ascending: true });
 
       if (error) {
-        console.error('Error fetching budget categories:', error);
+        console.error("Error fetching budget categories:", error);
         return [];
       }
 
-      return (categories || []).map((cat: any) => ({
-        id: cat.id,
-        name: cat.name,
-        percentage: cat.percentage || 0,
-        limit: cat.budget_limit || 0,
-        spent: 0,
-        remaining: cat.budget_limit || 0,
-        bgColor: cat.bg_color || "#047857",
-        ringColor: cat.ring_color || "#10b981",
-        subcategories: [],
-        is_active: cat.is_active ?? true,
-        status: cat.status as BudgetStatus || 'not_set',
-        display_order: cat.display_order || 0
-      }));
+      return (categories || []).map((cat: any) => {
+        // Calculate total spent from active subcategories
+        const activeSubcategories = (cat.subcategories || []).filter(
+          (sub: any) => sub.is_active !== false
+        );
+        const totalSpent = activeSubcategories.reduce(
+          (sum: number, sub: any) => sum + (parseFloat(sub.current_spend) || 0),
+          0
+        );
+
+        const budgetLimit = parseFloat(cat.budget_limit) || 0;
+
+        return {
+          id: cat.id,
+          name: cat.name,
+          percentage: cat.percentage || 0,
+          limit: budgetLimit,
+          spent: totalSpent,
+          remaining: Math.max(0, budgetLimit - totalSpent),
+          bgColor: cat.bg_color || "#047857",
+          ringColor: cat.ring_color || "#10b981",
+          subcategories: activeSubcategories,
+          is_active: cat.is_active ?? true,
+          status: (cat.status as BudgetStatus) || "not_set",
+          display_order: cat.display_order || 0,
+          category_type: cat.category_type || "expense",
+          icon: cat.icon || null,
+        };
+      });
     } catch (error) {
-      console.error('Error in fetchCategories:', error);
+      console.error("Error in fetchCategories:", error);
       return [];
     }
   },
 
-  async updateCategory(category: BudgetCategory, isDemo: boolean = false): Promise<void> {
+  async updateCategory(
+    category: BudgetCategory,
+    isDemo: boolean = false
+  ): Promise<void> {
     try {
       const { data: user } = await supabase.auth.getUser();
-      
+
       if (!user.user) return;
 
       const tableMap = getTableMapping(isDemo);
@@ -206,25 +252,28 @@ export const budgetCategoryService = {
           ring_color: category.ringColor,
           is_active: category.is_active,
           status: category.status,
-          display_order: category.display_order
+          display_order: category.display_order,
         })
-        .eq('id', category.id)
-        .eq('user_id', user.user.id);
+        .eq("id", category.id)
+        .eq("user_id", user.user.id);
 
       if (error) {
-        console.error('Error updating budget category:', error);
+        console.error("Error updating budget category:", error);
         throw error;
       }
     } catch (error) {
-      console.error('Error in updateCategory:', error);
+      console.error("Error in updateCategory:", error);
       throw error;
     }
   },
 
-  async createCategory(category: Omit<BudgetCategory, 'id'>, isDemo: boolean = false): Promise<BudgetCategory> {
+  async createCategory(
+    category: Omit<BudgetCategory, "id">,
+    isDemo: boolean = false
+  ): Promise<BudgetCategory> {
     try {
       const { data: user } = await supabase.auth.getUser();
-      
+
       if (!user.user) throw new Error("User not authenticated");
 
       const tableMap = getTableMapping(isDemo);
@@ -240,13 +289,13 @@ export const budgetCategoryService = {
           is_active: category.is_active,
           status: category.status,
           display_order: category.display_order,
-          user_id: user.user.id
+          user_id: user.user.id,
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating budget category:', error);
+        console.error("Error creating budget category:", error);
         throw error;
       }
 
@@ -261,25 +310,28 @@ export const budgetCategoryService = {
         ringColor: data.ring_color || "#10b981",
         subcategories: [],
         is_active: data.is_active ?? true,
-        status: data.status as BudgetStatus || 'not_set',
-        display_order: data.display_order || 0
+        status: (data.status as BudgetStatus) || "not_set",
+        display_order: data.display_order || 0,
       };
     } catch (error) {
-      console.error('Error in createCategory:', error);
+      console.error("Error in createCategory:", error);
       throw error;
     }
   },
 
-  async updateCategories(categories: BudgetCategory[], isDemo: boolean = false): Promise<void> {
+  async updateCategories(
+    categories: BudgetCategory[],
+    isDemo: boolean = false
+  ): Promise<void> {
     try {
       const { data: user } = await supabase.auth.getUser();
-      
+
       if (!user.user) return;
 
       const tableMap = getTableMapping(isDemo);
 
       // Update each category
-      const updates = categories.map(category => ({
+      const updates = categories.map((category) => ({
         id: category.id,
         name: category.name,
         percentage: category.percentage,
@@ -289,7 +341,7 @@ export const budgetCategoryService = {
         is_active: category.is_active,
         status: category.status,
         display_order: category.display_order,
-        user_id: user.user.id
+        user_id: user.user.id,
       }));
 
       const { error } = await (supabase as any)
@@ -297,19 +349,22 @@ export const budgetCategoryService = {
         .upsert(updates);
 
       if (error) {
-        console.error('Error updating budget categories:', error);
+        console.error("Error updating budget categories:", error);
         throw error;
       }
     } catch (error) {
-      console.error('Error in updateCategories:', error);
+      console.error("Error in updateCategories:", error);
       throw error;
     }
   },
 
-  async saveCategories(categories: BudgetCategory[], isDemo: boolean = false): Promise<void> {
+  async saveCategories(
+    categories: BudgetCategory[],
+    isDemo: boolean = false
+  ): Promise<void> {
     try {
       const { data: user } = await supabase.auth.getUser();
-      
+
       if (!user.user) return;
 
       const tableMap = getTableMapping(isDemo);
@@ -325,7 +380,7 @@ export const budgetCategoryService = {
         is_active: category.is_active,
         status: category.status,
         display_order: index,
-        user_id: user.user.id
+        user_id: user.user.id,
       }));
 
       const { error } = await (supabase as any)
@@ -333,16 +388,19 @@ export const budgetCategoryService = {
         .upsert(updates);
 
       if (error) {
-        console.error('Error saving budget categories:', error);
+        console.error("Error saving budget categories:", error);
         throw error;
       }
     } catch (error) {
-      console.error('Error in saveCategories:', error);
+      console.error("Error in saveCategories:", error);
       throw error;
     }
   },
 
-  async deleteCategory(categoryId: string, isDemo: boolean = false): Promise<void> {
+  async deleteCategory(
+    categoryId: string,
+    isDemo: boolean = false
+  ): Promise<void> {
     try {
       const tableMap = getTableMapping(isDemo);
 
@@ -350,21 +408,21 @@ export const budgetCategoryService = {
       await (supabase as any)
         .from(tableMap.budget_subcategories)
         .delete()
-        .eq('category_id', categoryId);
+        .eq("category_id", categoryId);
 
       // Then delete the category
       const { error } = await (supabase as any)
         .from(tableMap.budget_categories)
         .delete()
-        .eq('id', categoryId);
+        .eq("id", categoryId);
 
       if (error) {
-        console.error('Error deleting budget category:', error);
+        console.error("Error deleting budget category:", error);
         throw error;
       }
     } catch (error) {
-      console.error('Error in deleteCategory:', error);
+      console.error("Error in deleteCategory:", error);
       throw error;
     }
-  }
+  },
 };
