@@ -875,26 +875,56 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                         setShowSubcategoryPicker(true);
                       }}
                     >
-                      <Text
-                        style={[
-                          styles.selectText,
-                          {
-                            color: subcategory
-                              ? colors.text
-                              : colors.textSecondary,
-                          },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {subcategory ||
-                          (loading
-                            ? "Loading..."
-                            : !category
-                            ? "Select category first"
-                            : getCurrentSubcategories().length > 0
-                            ? "Select subcategory"
-                            : "No subcategories available")}
-                      </Text>
+                      <View style={styles.selectTextContainer}>
+                        {subcategory &&
+                          (() => {
+                            const {
+                              getSubcategoryIconFromDB,
+                              getSubcategoryIconName,
+                            } = require("../../../../utils/subcategoryIcons");
+
+                            // Try to get icon from database first, fallback to name-based lookup
+                            const subcategoryData = budgetSubcategories.find(
+                              (sub) => sub.name === subcategory
+                            );
+                            const dbIconName = subcategoryData?.icon;
+                            const iconElement = getSubcategoryIconFromDB(
+                              dbIconName,
+                              subcategory,
+                              16,
+                              "#10B981"
+                            );
+
+                            if (iconElement) {
+                              return (
+                                <View style={styles.subcategoryIconContainer}>
+                                  {iconElement}
+                                </View>
+                              );
+                            }
+                            return null;
+                          })()}
+                        <Text
+                          style={[
+                            styles.selectText,
+                            {
+                              color: subcategory
+                                ? colors.text
+                                : colors.textSecondary,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {subcategory ||
+                            (loading
+                              ? "Loading..."
+                              : !category
+                              ? "Select category first"
+                              : getCurrentSubcategories().length > 0
+                              ? "Select subcategory"
+                              : "No subcategories available")}
+                        </Text>
+                      </View>
                       <Ionicons
                         name="chevron-down"
                         size={16}
@@ -1711,23 +1741,59 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                                   setShowSubcategoryPicker(false);
                                 }}
                               >
-                                <Text
-                                  style={[
-                                    styles.pickerItemText,
-                                    {
-                                      color:
-                                        subcategory === subcategoryName
-                                          ? colors.primary
-                                          : colors.text,
-                                      fontWeight:
-                                        subcategory === subcategoryName
-                                          ? "600"
-                                          : "400",
-                                    },
-                                  ]}
-                                >
-                                  {subcategoryName}
-                                </Text>
+                                <View style={styles.pickerItemContent}>
+                                  {(() => {
+                                    const {
+                                      getSubcategoryIconFromDB,
+                                    } = require("../../../../utils/subcategoryIcons");
+
+                                    // Find the subcategory data to get the database icon
+                                    const subcategoryData =
+                                      budgetSubcategories.find(
+                                        (sub) => sub.name === subcategoryName
+                                      );
+                                    const dbIconName = subcategoryData?.icon;
+                                    const iconElement =
+                                      getSubcategoryIconFromDB(
+                                        dbIconName,
+                                        subcategoryName,
+                                        20,
+                                        "#10B981"
+                                      );
+
+                                    if (iconElement) {
+                                      return (
+                                        <View style={styles.pickerItemIcon}>
+                                          {iconElement}
+                                        </View>
+                                      );
+                                    }
+                                    return (
+                                      <View style={styles.pickerItemIcon}>
+                                        <Text style={styles.pickerItemEmoji}>
+                                          📄
+                                        </Text>
+                                      </View>
+                                    );
+                                  })()}
+                                  <Text
+                                    style={[
+                                      styles.pickerItemText,
+                                      {
+                                        color:
+                                          subcategory === subcategoryName
+                                            ? colors.primary
+                                            : colors.text,
+                                        fontWeight:
+                                          subcategory === subcategoryName
+                                            ? "600"
+                                            : "400",
+                                      },
+                                    ]}
+                                  >
+                                    {subcategoryName}
+                                  </Text>
+                                </View>
                                 {subcategory === subcategoryName && (
                                   <Ionicons
                                     name="checkmark"
@@ -3453,6 +3519,37 @@ const styles = StyleSheet.create({
   pickerItemText: {
     fontSize: 16,
     flex: 1,
+  },
+  pickerItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  pickerItemIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  pickerItemEmoji: {
+    fontSize: 16,
+  },
+  selectTextContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    minHeight: 20, // Ensure consistent height
+  },
+  subcategoryIconContainer: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+    flexShrink: 0, // Prevent shrinking
   },
 
   // Analysis result styles

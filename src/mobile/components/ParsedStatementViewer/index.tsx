@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,13 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { ParsedTransaction } from '../../types/bankStatement';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ParsedTransaction } from "../../types/bankStatement";
+import {
+  getFallbackIconConfig,
+  shouldUseFallbackIcon,
+} from "../../../../utils/fallbackIcons";
 
 interface ParsedStatementViewerProps {
   transactions: ParsedTransaction[];
@@ -17,7 +21,9 @@ interface ParsedStatementViewerProps {
 const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
   transactions,
 }) => {
-  const [expandedTransaction, setExpandedTransaction] = useState<string | null>(null);
+  const [expandedTransaction, setExpandedTransaction] = useState<string | null>(
+    null
+  );
 
   const toggleExpanded = (transactionId: string) => {
     setExpandedTransaction(
@@ -26,65 +32,78 @@ const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
   };
 
   const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const formatAmount = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(amount);
   };
 
   const getTransactionIcon = (type: string, category: string): string => {
-    if (type === 'credit') return 'arrow-down-circle';
-    if (type === 'debit') return 'arrow-up-circle';
-    
-    // Category-based icons
+    // Use fallback icons when category info is missing or invalid
+    if (shouldUseFallbackIcon(category, null, null)) {
+      const normalizedType = type === "credit" ? "income" : "expense";
+      if (normalizedType === "income") return "arrow-down-circle";
+      if (normalizedType === "expense") return "arrow-up-circle";
+      return "swap-horizontal"; // for transfers
+    }
+
+    // Category-based icons for valid categories
     switch (category.toLowerCase()) {
-      case 'food':
-      case 'restaurant':
-        return 'restaurant';
-      case 'transport':
-      case 'gas':
-        return 'car';
-      case 'shopping':
-        return 'bag';
-      case 'entertainment':
-        return 'game-controller';
-      case 'health':
-      case 'medical':
-        return 'medical';
-      case 'utilities':
-        return 'flash';
+      case "food":
+      case "restaurant":
+        return "restaurant";
+      case "transport":
+      case "gas":
+        return "car";
+      case "shopping":
+        return "bag";
+      case "entertainment":
+        return "game-controller";
+      case "health":
+      case "medical":
+        return "medical";
+      case "utilities":
+        return "flash";
       default:
-        return 'card';
+        return "card";
     }
   };
 
-  const getTransactionColor = (type: string): string => {
-    return type === 'credit' ? '#28a745' : '#dc3545';
+  const getTransactionColor = (type: string, category: string): string => {
+    // Use fallback colors when category info is missing or invalid
+    if (shouldUseFallbackIcon(category, null, null)) {
+      const normalizedType = type === "credit" ? "income" : "expense";
+      const fallbackConfig = getFallbackIconConfig(normalizedType);
+      return fallbackConfig.borderColor;
+    }
+
+    // Default colors for categorized transactions
+    return type === "credit" ? "#28a745" : "#dc3545";
   };
 
   const handleEditTransaction = (transaction: ParsedTransaction) => {
     Alert.alert(
-      'Edit Transaction',
-      'Edit functionality will be implemented here',
-      [{ text: 'OK' }]
+      "Edit Transaction",
+      "Edit functionality will be implemented here",
+      [{ text: "OK" }]
     );
   };
 
   const handleDeleteTransaction = (transaction: ParsedTransaction) => {
     Alert.alert(
-      'Delete Transaction',
-      'Are you sure you want to delete this transaction?',
+      "Delete Transaction",
+      "Are you sure you want to delete this transaction?",
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive' },
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive" },
       ]
     );
   };
@@ -92,10 +111,18 @@ const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
   const renderTransaction = ({ item }: { item: ParsedTransaction }) => {
     const isExpanded = expandedTransaction === item.id;
     const iconName = getTransactionIcon(item.type, item.category);
-    const transactionColor = getTransactionColor(item.type);
+    const transactionColor = getTransactionColor(item.type, item.category);
 
     return (
-      <View style={styles.transactionCard}>
+      <View
+        style={[
+          styles.transactionCard,
+          shouldUseFallbackIcon(item.category, null, null) && {
+            borderLeftWidth: 4,
+            borderLeftColor: transactionColor,
+          },
+        ]}
+      >
         <TouchableOpacity
           style={styles.transactionHeader}
           onPress={() => toggleExpanded(item.id)}
@@ -103,31 +130,30 @@ const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
           <View style={styles.transactionIconContainer}>
             <Ionicons name={iconName} size={24} color={transactionColor} />
           </View>
-          
+
           <View style={styles.transactionInfo}>
             <Text style={styles.transactionDescription} numberOfLines={1}>
               {item.description}
             </Text>
-            <Text style={styles.transactionDate}>
-              {formatDate(item.date)}
-            </Text>
+            <Text style={styles.transactionDate}>{formatDate(item.date)}</Text>
           </View>
-          
+
           <View style={styles.transactionAmount}>
             <Text style={[styles.amountText, { color: transactionColor }]}>
-              {item.type === 'debit' ? '-' : '+'}{formatAmount(item.amount)}
+              {item.type === "debit" ? "-" : "+"}
+              {formatAmount(item.amount)}
             </Text>
             <Text style={styles.transactionType}>
               {item.type.toUpperCase()}
             </Text>
           </View>
-          
+
           <TouchableOpacity
             style={styles.expandButton}
             onPress={() => toggleExpanded(item.id)}
           >
             <Ionicons
-              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              name={isExpanded ? "chevron-up" : "chevron-down"}
               size={20}
               color="#6c757d"
             />
@@ -140,30 +166,32 @@ const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
               <Text style={styles.detailLabel}>Category:</Text>
               <Text style={styles.detailValue}>{item.category}</Text>
             </View>
-            
+
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Account:</Text>
               <Text style={styles.detailValue}>{item.account}</Text>
             </View>
-            
+
             {item.merchant && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Merchant:</Text>
                 <Text style={styles.detailValue}>{item.merchant}</Text>
               </View>
             )}
-            
+
             {item.reference && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Reference:</Text>
                 <Text style={styles.detailValue}>{item.reference}</Text>
               </View>
             )}
-            
+
             {item.balance && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Balance:</Text>
-                <Text style={styles.detailValue}>{formatAmount(item.balance)}</Text>
+                <Text style={styles.detailValue}>
+                  {formatAmount(item.balance)}
+                </Text>
               </View>
             )}
 
@@ -175,13 +203,15 @@ const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
                 <Ionicons name="create-outline" size={16} color="#007AFF" />
                 <Text style={styles.actionButtonText}>Edit</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.actionButton, styles.deleteButton]}
                 onPress={() => handleDeleteTransaction(item)}
               >
                 <Ionicons name="trash-outline" size={16} color="#dc3545" />
-                <Text style={[styles.actionButtonText, styles.deleteButtonText]}>
+                <Text
+                  style={[styles.actionButtonText, styles.deleteButtonText]}
+                >
                   Delete
                 </Text>
               </TouchableOpacity>
@@ -194,15 +224,15 @@ const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
 
   const getSummaryStats = () => {
     const totalDebits = transactions
-      .filter(t => t.type === 'debit')
+      .filter((t) => t.type === "debit")
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     const totalCredits = transactions
-      .filter(t => t.type === 'credit')
+      .filter((t) => t.type === "credit")
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     const netAmount = totalCredits - totalDebits;
-    
+
     return { totalDebits, totalCredits, netAmount };
   };
 
@@ -218,29 +248,33 @@ const ParsedStatementViewer: React.FC<ParsedStatementViewerProps> = ({
             {formatAmount(summaryStats.totalDebits)}
           </Text>
         </View>
-        
+
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Total Credits</Text>
           <Text style={styles.summaryValueCredit}>
             {formatAmount(summaryStats.totalCredits)}
           </Text>
         </View>
-        
+
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Net Amount</Text>
-          <Text style={[
-            styles.summaryValueNet,
-            { color: summaryStats.netAmount >= 0 ? '#28a745' : '#dc3545' }
-          ]}>
+          <Text
+            style={[
+              styles.summaryValueNet,
+              { color: summaryStats.netAmount >= 0 ? "#28a745" : "#dc3545" },
+            ]}
+          >
             {formatAmount(Math.abs(summaryStats.netAmount))}
-            {summaryStats.netAmount >= 0 ? ' (Credit)' : ' (Debit)'}
+            {summaryStats.netAmount >= 0 ? " (Credit)" : " (Debit)"}
           </Text>
         </View>
       </View>
 
       {/* Transactions List */}
       <View style={styles.transactionsHeader}>
-        <Text style={styles.transactionsTitle}>Transactions ({transactions.length})</Text>
+        <Text style={styles.transactionsTitle}>
+          Transactions ({transactions.length})
+        </Text>
         <TouchableOpacity style={styles.sortButton}>
           <Ionicons name="funnel-outline" size={16} color="#6c757d" />
           <Text style={styles.sortButtonText}>Sort</Text>
@@ -263,17 +297,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 20,
     gap: 12,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -284,53 +318,53 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#6c757d',
+    color: "#6c757d",
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   summaryValueDebit: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#dc3545',
+    fontWeight: "bold",
+    color: "#dc3545",
   },
   summaryValueCredit: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#28a745',
+    fontWeight: "bold",
+    color: "#28a745",
   },
   summaryValueNet: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   transactionsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   transactionsTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
+    fontWeight: "600",
+    color: "#1a1a1a",
   },
   sortButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 8,
   },
   sortButtonText: {
     fontSize: 14,
-    color: '#6c757d',
+    color: "#6c757d",
     marginLeft: 4,
   },
   transactionsList: {
     paddingBottom: 20,
   },
   transactionCard: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -340,8 +374,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   transactionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
   },
   transactionIconContainer: {
@@ -353,27 +387,27 @@ const styles = StyleSheet.create({
   },
   transactionDescription: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#1a1a1a',
+    fontWeight: "500",
+    color: "#1a1a1a",
     marginBottom: 4,
   },
   transactionDate: {
     fontSize: 14,
-    color: '#6c757d',
+    color: "#6c757d",
   },
   transactionAmount: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     marginRight: 12,
   },
   amountText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   transactionType: {
     fontSize: 12,
-    color: '#6c757d',
-    textTransform: 'uppercase',
+    color: "#6c757d",
+    textTransform: "uppercase",
   },
   expandButton: {
     padding: 4,
@@ -382,48 +416,47 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 0,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: "#e9ecef",
   },
   detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   detailLabel: {
     fontSize: 14,
-    color: '#6c757d',
-    fontWeight: '500',
+    color: "#6c757d",
+    fontWeight: "500",
   },
   detailValue: {
     fontSize: 14,
-    color: '#1a1a1a',
+    color: "#1a1a1a",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 16,
     gap: 12,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   actionButtonText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: "#007AFF",
     marginLeft: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   deleteButton: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: "#fff5f5",
   },
   deleteButtonText: {
-    color: '#dc3545',
+    color: "#dc3545",
   },
 });
 
 export default ParsedStatementViewer;
-

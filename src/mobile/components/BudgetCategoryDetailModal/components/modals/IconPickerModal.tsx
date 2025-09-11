@@ -11,6 +11,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { ThemeColors } from "../../hooks/useThemeColors";
 import { getFilledIcons, getAllIconCategories } from "../../utils/allIonicons";
+import {
+  getAvailableSubcategoryIcons,
+  getSubcategoryIconName,
+  renderIconFromName,
+} from "../../../../../../utils/subcategoryIcons";
 
 interface IconPickerModalProps {
   visible: boolean;
@@ -34,12 +39,47 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
   const [emojiInput, setEmojiInput] = useState("");
   const [showEmojiInput, setShowEmojiInput] = useState(false);
 
-  const iconCategories = ["All", ...getAllIconCategories(), "Custom", "Emoji"];
+  const iconCategories = [
+    "All",
+    ...getAllIconCategories(),
+    "SUBCATEGORY",
+    "Custom",
+    "Emoji",
+  ];
+
+  // Get subcategory icons for the SUBCATEGORY category
+  const getSubcategoryIcons = () => {
+    try {
+      return getAvailableSubcategoryIcons().map((subcategoryName) => ({
+        name: getSubcategoryIconName(subcategoryName), // Now returns Lucide icon name
+        displayName:
+          subcategoryName.charAt(0).toUpperCase() + subcategoryName.slice(1),
+        category: "SUBCATEGORY",
+        keywords: [subcategoryName],
+      }));
+    } catch (error) {
+      console.warn("Could not load subcategory icons:", error);
+      // Fallback to empty array if import fails
+      return [];
+    }
+  };
 
   // Filter icons based on search and category (only filled icons)
   const filteredIcons =
     selectedCategory === "Custom" || selectedCategory === "Emoji"
       ? [] // Don't show predefined icons when Custom or Emoji is selected
+      : selectedCategory === "SUBCATEGORY"
+      ? getSubcategoryIcons().filter((iconOption) => {
+          const matchesSearch =
+            searchText === "" ||
+            iconOption.displayName
+              .toLowerCase()
+              .includes(searchText.toLowerCase()) ||
+            iconOption.keywords.some((keyword) =>
+              keyword.toLowerCase().includes(searchText.toLowerCase())
+            );
+          return matchesSearch;
+        })
       : getFilledIcons().filter((iconOption) => {
           const matchesCategory =
             selectedCategory === "All" ||
@@ -365,13 +405,29 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
                   onPress={() => handleSelectIcon(iconOption.name)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons
-                    name={iconOption.name as any}
-                    size={22}
-                    color={
-                      currentIcon === iconOption.name ? "#FFFFFF" : colors.text
-                    }
-                  />
+                  {iconOption.category === "SUBCATEGORY" ? (
+                    <Text
+                      style={{
+                        fontSize: 22,
+                        color:
+                          currentIcon === iconOption.name
+                            ? "#FFFFFF"
+                            : colors.text,
+                      }}
+                    >
+                      {iconOption.name}
+                    </Text>
+                  ) : (
+                    <Ionicons
+                      name={iconOption.name as any}
+                      size={22}
+                      color={
+                        currentIcon === iconOption.name
+                          ? "#FFFFFF"
+                          : colors.text
+                      }
+                    />
+                  )}
                   <Text
                     style={[
                       styles.iconLabel,

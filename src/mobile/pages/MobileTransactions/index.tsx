@@ -218,7 +218,12 @@ const transformParsedTransaction = (
         "",
       amount: parsedAmount,
       type: mapParsedTransactionType(parsedTransaction.type),
-      icon: getTransactionIcon(parsedTransaction.type, parsedTransaction.icon),
+      icon: getTransactionIcon(
+        parsedTransaction.type,
+        parsedTransaction.icon,
+        parsedTransaction.category,
+        parsedTransaction.subcategory
+      ),
       date: parsedDate,
     };
   } catch (error) {
@@ -283,7 +288,9 @@ const transformSupabaseTransaction = (
         "expense",
       icon: getTransactionIcon(
         supabaseTransaction.type,
-        supabaseTransaction.icon
+        supabaseTransaction.icon,
+        supabaseTransaction.category_name,
+        supabaseTransaction.subcategory_name
       ),
       date: supabaseTransaction.date || new Date().toISOString().split("T")[0],
     };
@@ -311,10 +318,25 @@ const transformSupabaseTransaction = (
 // Get appropriate icon for transaction type
 const getTransactionIcon = (
   type: string,
-  customIcon?: string | null
+  customIcon?: string | null,
+  category?: string | null,
+  subcategory?: string | null
 ): string => {
+  // Import fallback icon utilities
+  const {
+    getFallbackIconEmoji,
+    shouldUseFallbackIcon,
+  } = require("../../../../utils/fallbackIcons");
+
+  // Use custom icon if provided
   if (customIcon) return customIcon;
 
+  // Use fallback icons when category/subcategory info is missing
+  if (shouldUseFallbackIcon(category, subcategory, customIcon)) {
+    return getFallbackIconEmoji(type);
+  }
+
+  // Legacy icon mapping for backwards compatibility
   const iconMap: { [key: string]: string } = {
     income: "💰",
     expense: "💸",
@@ -326,6 +348,28 @@ const getTransactionIcon = (
   };
 
   return iconMap[type] || "📄";
+};
+
+// Get appropriate border color for transaction type
+const getTransactionBorderColor = (
+  type: string,
+  category?: string | null,
+  subcategory?: string | null,
+  customIcon?: string | null
+): string => {
+  // Import fallback icon utilities
+  const {
+    getFallbackBorderColor,
+    shouldUseFallbackIcon,
+  } = require("../../../../utils/fallbackIcons");
+
+  // Use fallback border colors when category/subcategory info is missing
+  if (shouldUseFallbackIcon(category, subcategory, customIcon)) {
+    return getFallbackBorderColor(type);
+  }
+
+  // Default border colors for categorized transactions
+  return "#E5E7EB"; // Light gray for categorized transactions
 };
 
 // Group transactions by date
@@ -353,7 +397,7 @@ const groupTransactionsByDate = (
 
       grouped[date].transactions.push(transaction);
 
-      const amount = Math.abs(parseFloat(transaction.amount) || 0);
+      const amount = Math.abs(transaction.amount || 0);
       switch (transaction.type) {
         case "income":
           grouped[date].summary.income += amount;
@@ -858,7 +902,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         id: transaction.id,
         name: transaction.title,
         description: transaction.description,
-        amount: Math.abs(parseFloat(transaction.amount) || 0), // Make sure it's positive for the form and preserve decimals
+        amount: Math.abs(transaction.amount || 0), // Make sure it's positive for the form and preserve decimals
         type: transaction.type,
         date: transaction.date,
         source_account_id: null, // Will be set when saving
@@ -892,7 +936,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
               id: fullTransaction.id,
               name: fullTransaction.name,
               description: fullTransaction.description,
-              amount: Math.abs(parseFloat(fullTransaction.amount) || 0), // Make sure it's positive for the form and preserve decimals
+              amount: Math.abs(fullTransaction.amount || 0), // Make sure it's positive for the form and preserve decimals
               type: fullTransaction.type,
               date: fullTransaction.date,
               source_account_id: fullTransaction.source_account_id,
@@ -1086,7 +1130,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
       currency: "INR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
-    }).format(Math.abs(parseFloat(value) || 0));
+    }).format(Math.abs(value || 0));
   };
 
   const getTransactionColor = (type: string) => {
@@ -1361,7 +1405,12 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
                       styles.transactionItem,
                       {
                         backgroundColor: colors.card,
-                        borderColor: colors.border,
+                        borderColor: getTransactionBorderColor(
+                          transaction.type,
+                          transaction.tags?.[0], // category from tags
+                          transaction.tags?.[1], // subcategory from tags
+                          transaction.icon
+                        ),
                       },
                       isConfirmationMode &&
                         isSelected &&
@@ -1600,8 +1649,8 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         <QuickAddButton
           editTransaction={editingTransaction}
           isEditMode={true}
-          onTransactionUpdate={(updatedData) =>
-            handleTransactionUpdate(updatedData || editingTransaction)
+          onTransactionUpdate={() =>
+            handleTransactionUpdate(editingTransaction)
           }
         />
       )}

@@ -36,7 +36,7 @@ interface Transaction {
   category: string;
   subcategory?: string;
   note?: string;
-  icon: string;
+  icon: string | null;
   date: string;
   tags?: string[];
 }
@@ -55,17 +55,52 @@ interface GroupedTransactions {
 const transformSupabaseTransaction = (
   supabaseTransaction: SupabaseTransaction
 ): Transaction => {
+  // Determine transaction type based on Supabase type or amount
+  let transactionType: "income" | "expense" | "transfer" = "expense"; // default
+
+  if (supabaseTransaction.type) {
+    switch (supabaseTransaction.type) {
+      case "income":
+        transactionType = "income";
+        break;
+      case "expense":
+        transactionType = "expense";
+        break;
+      case "transfer":
+        transactionType = "transfer";
+        break;
+      case "loan":
+      case "debt":
+        transactionType = "expense"; // Loans and debts are expenses
+        break;
+      case "loan_repayment":
+      case "debt_collection":
+        transactionType = "income"; // Loan repayments and debt collections are income
+        break;
+      default:
+        // Fallback: determine type from amount (negative = expense, positive = income)
+        transactionType = supabaseTransaction.amount < 0 ? "expense" : "income";
+    }
+  } else {
+    // Fallback: determine type from amount (negative = expense, positive = income)
+    transactionType = supabaseTransaction.amount < 0 ? "expense" : "income";
+  }
+
+  console.log(
+    `🔄 Transform transaction ${supabaseTransaction.id}: originalAmount=${supabaseTransaction.amount}, type=${transactionType}, supabaseType=${supabaseTransaction.type}`
+  );
+
   return {
     id: supabaseTransaction.id,
     description: supabaseTransaction.name || "Transaction",
     isRecurring: supabaseTransaction.is_recurring,
     account: supabaseTransaction.source_account_name || "Unknown Account",
-    type: supabaseTransaction.type as "income" | "expense" | "transfer",
+    type: transactionType,
     amount: Math.abs(supabaseTransaction.amount).toFixed(2),
-    category: supabaseTransaction.category_name || "Uncategorized",
+    category: supabaseTransaction.category_name || "uncategorized",
     subcategory: supabaseTransaction.subcategory_name || undefined,
     note: supabaseTransaction.description || undefined,
-    icon: supabaseTransaction.icon || "receipt",
+    icon: supabaseTransaction.icon || null,
     date: supabaseTransaction.date,
     tags: [
       supabaseTransaction.category_name,
@@ -241,21 +276,26 @@ const TransactionGroup: React.FC<{
     }
   };
 
-  const getIconName = (icon: string) => {
-    const iconMap: { [key: string]: string } = {
-      "credit-card": "💳",
-      "shopping-basket": "🛒",
-      home: "🏠",
-      receipt: "📄",
-      briefcase: "💼",
-      utensils: "🍽️",
-      car: "🚗",
-      gamepad: "🎮",
-      "shopping-bag": "🛍️",
-      heartbeat: "❤️",
-      bolt: "⚡",
-    };
-    return iconMap[icon] || "📊";
+  const getTransactionBorderColor = (transaction: Transaction) => {
+    // Import fallback icon utilities
+    const {
+      getFallbackBorderColor,
+      shouldUseFallbackIcon,
+    } = require("../../../../utils/fallbackIcons");
+
+    // Use fallback border colors when category/subcategory info is missing
+    if (
+      shouldUseFallbackIcon(
+        transaction.category,
+        transaction.subcategory,
+        transaction.icon
+      )
+    ) {
+      return getFallbackBorderColor(transaction.type);
+    }
+
+    // Default border color for categorized transactions
+    return colors.border;
   };
 
   return (
@@ -311,10 +351,84 @@ const TransactionGroup: React.FC<{
           }}
         >
           <View style={styles.transactionLeft}>
-            <View style={styles.transactionIcon}>
-              <Text style={styles.transactionIconText}>
-                {getIconName(transaction.icon)}
-              </Text>
+            <View
+              style={[
+                styles.transactionIcon,
+                (() => {
+                  const {
+                    shouldUseFallbackIcon,
+                    getFallbackIconConfig,
+                  } = require("../../../../utils/fallbackIcons");
+                  const useFallback = shouldUseFallbackIcon(
+                    transaction.category,
+                    transaction.subcategory,
+                    transaction.icon
+                  );
+                  if (useFallback) {
+                    console.log(
+                      `🎯 Styling fallback for transaction ${transaction.id}: type="${transaction.type}", amount="${transaction.amount}"`
+                    );
+                    const config = getFallbackIconConfig(transaction.type);
+                    return {
+                      borderWidth: 2,
+                      borderColor: config.borderColor,
+                      backgroundColor: config.backgroundColor,
+                    };
+                  }
+                  return {};
+                })(),
+              ]}
+            >
+              {(() => {
+                const {
+                  shouldUseFallbackIcon,
+                  getFallbackIconConfig,
+                } = require("../../../../utils/fallbackIcons");
+                const {
+                  getSubcategoryIconFromDB,
+                  renderIconFromName,
+                } = require("../../../../utils/subcategoryIcons");
+
+                // Priority 1: Use database-driven subcategory icon if available
+                if (transaction.subcategory) {
+                  // For RecentTransactionsSection, we need to get subcategory data from the transaction
+                  // The transaction.icon might contain the database icon name for the subcategory
+                  const subcategoryIcon = getSubcategoryIconFromDB(
+                    transaction.icon, // This should be the Lucide icon name from database
+                    transaction.subcategory,
+                    20,
+                    "#10B981"
+                  );
+
+                  if (subcategoryIcon) {
+                    console.log(
+                      `🎯 Using database-driven subcategory icon for "${transaction.subcategory}" with icon "${transaction.icon}"`
+                    );
+                    return subcategoryIcon;
+                  }
+                }
+
+                // Priority 2: Use fallback icons for transactions without proper categorization
+                const useFallback = shouldUseFallbackIcon(
+                  transaction.category,
+                  transaction.subcategory,
+                  transaction.icon
+                );
+                if (useFallback) {
+                  console.log(
+                    `🎯 Using fallback for transaction ${transaction.id}: type="${transaction.type}", amount="${transaction.amount}"`
+                  );
+                  const config = getFallbackIconConfig(transaction.type);
+                  return config.icon;
+                }
+
+                // Priority 3: Use transaction icon as fallback
+                return (
+                  <Text style={styles.transactionIconText}>
+                    {transaction.icon || "📄"}
+                  </Text>
+                );
+              })()}
             </View>
             <View style={styles.transactionInfo}>
               <Text
