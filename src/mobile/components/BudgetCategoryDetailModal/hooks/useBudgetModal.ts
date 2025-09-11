@@ -70,10 +70,43 @@ export const useBudgetModal = (
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
-  // Data state - using mock data for now, replace with real data later
-  const [subcategories, setSubcategories] = useState<BudgetSubcategory[]>(
-    getMockSubcategories()
-  );
+  // Data state - use real subcategories from the category if available, otherwise use mock data
+  const [subcategories, setSubcategories] = useState<BudgetSubcategory[]>([]);
+
+  // Initialize subcategories when category changes
+  useEffect(() => {
+    const categoryWithSubs = category as BudgetCategory & {
+      subcategories?: any[];
+    };
+    if (
+      categoryWithSubs?.subcategories &&
+      categoryWithSubs.subcategories.length > 0
+    ) {
+      // Map the category's subcategories to the expected format
+      const mappedSubcategories: BudgetSubcategory[] =
+        categoryWithSubs.subcategories.map((sub: any) => ({
+          id: sub.id,
+          name: sub.name,
+          amount: parseFloat(sub.budget_limit) || 0, // This should be the budget limit, not current spend
+          budgetLimit: parseFloat(sub.budget_limit) || 0,
+          color: sub.color || "#10B981",
+          icon: sub.icon || "circle",
+          spent: parseFloat(sub.current_spend) || 0,
+          current_spend: parseFloat(sub.current_spend) || 0,
+          remaining: Math.max(
+            0,
+            (parseFloat(sub.budget_limit) || 0) -
+              (parseFloat(sub.current_spend) || 0)
+          ),
+          category_id: categoryWithSubs.id || "",
+          is_active: sub.is_active !== false,
+        }));
+      setSubcategories(mappedSubcategories);
+    } else {
+      // Fallback to mock data if no real subcategories available
+      setSubcategories(getMockSubcategories());
+    }
+  }, [category]);
   const [selectedSubcategory, setSelectedSubcategory] =
     useState<BudgetSubcategory | null>(null);
 
@@ -82,10 +115,10 @@ export const useBudgetModal = (
     () => calculateTotalSpent(subcategories),
     [subcategories]
   );
-  const totalBudget = useMemo(
-    () => calculateTotalBudget(subcategories),
-    [subcategories]
-  );
+  const totalBudget = useMemo(() => {
+    // Use the main category's budget limit, not the sum of subcategories
+    return category?.budget_limit || 0;
+  }, [category?.budget_limit]);
   const totalPercentage = useMemo(
     () => calculatePercentage(totalSpent, totalBudget),
     [totalSpent, totalBudget]

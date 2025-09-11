@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import CircularProgress from "../../common/CircularProgress";
 import { BudgetCategory } from "../types";
 import { ThemeColors } from "../hooks/useThemeColors";
+import { renderIconFromName } from "../../../../../utils/subcategoryIcons";
 import {
   formatCurrency,
   formatPercentage,
@@ -29,6 +30,39 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
 }) => {
   const progressColor = getProgressColor(totalSpent, totalBudget, colors);
 
+  // Map database icon names to Lucide React icon names
+  const mapIconNameToLucide = (iconName: string): string => {
+    const iconMap: { [key: string]: string } = {
+      // Expense icons
+      home: "Home",
+      heart: "Heart",
+      "piggy-bank": "PiggyBank",
+      wallet: "Wallet",
+
+      // Income icons
+      briefcase: "Briefcase",
+      "trending-up": "TrendingUp",
+      building: "Building",
+      gift: "Gift",
+      receipt: "Receipt",
+      "dollar-sign": "DollarSign",
+
+      // Fallback
+      circle: "Circle",
+    };
+
+    return iconMap[iconName] || "Circle";
+  };
+
+  const renderCategoryIcon = () => {
+    if (category.icon) {
+      const lucideIconName = mapIconNameToLucide(category.icon);
+      return renderIconFromName(lucideIconName, 22, category.ring_color);
+    }
+    // Fallback to emoji for backward compatibility
+    return <Text style={styles.categoryIconText}>🏠</Text>;
+  };
+
   return (
     <View
       style={[
@@ -44,7 +78,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
             { backgroundColor: category.ring_color + "15" }, // 15% opacity like Quick Actions
           ]}
         >
-          <Text style={styles.categoryIconText}>🏠</Text>
+          {renderCategoryIcon()}
         </View>
 
         <View style={styles.summaryInfo}>

@@ -529,7 +529,9 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
           strategy: "zero-based",
           is_active: realCategory.is_active ? "true" : "false",
           percentage: realCategory.percentage,
-          category_type: "expense",
+          category_type: realCategory.category_type || "expense",
+          icon: realCategory.icon,
+          subcategories: realCategory.subcategories || [],
         };
 
         setSelectedCategory(categoryForModal);

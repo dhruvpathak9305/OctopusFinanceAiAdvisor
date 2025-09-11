@@ -184,7 +184,9 @@ export const budgetCategoryService = {
             name,
             current_spend,
             budget_limit,
-            is_active
+            is_active,
+            icon,
+            color
           )
         `
         )

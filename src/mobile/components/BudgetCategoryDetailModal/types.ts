@@ -23,6 +23,8 @@ export interface BudgetCategory {
   bg_color: string;
   percentage?: number;
   category_type: string;
+  icon?: string;
+  subcategories?: any[]; // Real subcategories from the database
 }
 
 export type ViewMode = "grid" | "list";

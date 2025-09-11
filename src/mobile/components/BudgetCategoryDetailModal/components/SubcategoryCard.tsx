@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import CircularProgress from "../../common/CircularProgress";
 import { BudgetSubcategory, ViewMode } from "../types";
 import { ThemeColors } from "../hooks/useThemeColors";
+import { renderIconFromName } from "../../../../../utils/subcategoryIcons";
 import {
   formatCurrency,
   calculatePercentage,
@@ -47,6 +48,24 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
     colors
   );
 
+  // Render Lucide React icon for subcategory
+  const renderSubcategoryIcon = (size: number = 24) => {
+    if (subcategory.icon) {
+      // Use renderIconFromName directly with the database icon name
+      const iconComponent = renderIconFromName(
+        subcategory.icon,
+        size,
+        subcategory.color || "#10B981"
+      );
+
+      // renderIconFromName returns a Receipt icon if not found, so we'll use it
+      return iconComponent;
+    }
+
+    // Final fallback to question mark emoji if no icon name
+    return <Text style={{ fontSize: size, textAlign: "center" }}>❓</Text>;
+  };
+
   if (viewMode === "grid") {
     return (
       <TouchableOpacity
@@ -73,17 +92,10 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
           <Ionicons name="pencil" size={8} color={colors.textSecondary} />
         </View>
 
-        {/* Icon - prominent placement with Ionicons support */}
-        {subcategory.icon.length === 1 || /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(subcategory.icon) ? (
-          <Text style={styles.gridIcon}>{subcategory.icon}</Text>
-        ) : (
-          <Ionicons 
-            name={subcategory.icon as any} 
-            size={24} 
-            color={subcategory.color || "#10B981"}
-            style={styles.gridIconIon}
-          />
-        )}
+        {/* Icon - prominent placement with Lucide React support */}
+        <View style={styles.gridIconContainer}>
+          {renderSubcategoryIcon(24)}
+        </View>
 
         {/* Name - clear hierarchy */}
         <Text
@@ -110,18 +122,20 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
             style={[styles.gridAmount, { color: colors.textSecondary }]}
             numberOfLines={1}
           >
-            {formatCurrency(subcategory.current_spend || 0, 0)} / {formatCurrency(subcategory.amount, 0)}
+            {formatCurrency(subcategory.current_spend || 0, 0)} /{" "}
+            {formatCurrency(subcategory.amount, 0)}
           </Text>
           <Text
             style={[
               styles.gridRemaining,
               {
                 color: progressColor,
-              }
+              },
             ]}
             numberOfLines={1}
           >
-            {formatCurrency(Math.abs(remaining), 0)} {remaining >= 0 ? "left" : "over"}
+            {formatCurrency(Math.abs(remaining), 0)}{" "}
+            {remaining >= 0 ? "left" : "over"}
           </Text>
         </View>
       </TouchableOpacity>
@@ -162,16 +176,7 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
             { backgroundColor: subcategory.color + "20" }, // 20% opacity like Quick Actions
           ]}
         >
-          {subcategory.icon.length === 1 || /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(subcategory.icon) ? (
-            <Text style={styles.listIcon}>{subcategory.icon}</Text>
-          ) : (
-            <Ionicons 
-              name={subcategory.icon as any} 
-              size={20} 
-              color={subcategory.color || "#10B981"}
-              style={styles.listIconIon}
-            />
-          )}
+          {renderSubcategoryIcon(20)}
         </View>
 
         {/* Info section */}
@@ -187,12 +192,13 @@ const SubCategoryCard: React.FC<SubCategoryCardProps> = ({
             <Text
               style={[
                 styles.listPending,
-                { 
+                {
                   color: progressColor,
-                }
+                },
               ]}
             >
-              {formatCurrency(Math.abs(remaining), 0)} {remaining >= 0 ? "left" : "over"}
+              {formatCurrency(Math.abs(remaining), 0)}{" "}
+              {remaining >= 0 ? "left" : "over"}
             </Text>
           </View>
         </View>
@@ -230,7 +236,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     // Quick Actions card styling
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -259,6 +265,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: -0.2,
+  },
+  gridIconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6, // Reduced spacing for compactness
   },
   gridIcon: {
     fontSize: 18, // Slightly smaller for compact layout
@@ -302,7 +313,7 @@ const styles = StyleSheet.create({
     position: "relative", // Enable absolute positioning for edit button
     // Quick Actions card styling
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -375,4 +386,3 @@ const styles = StyleSheet.create({
 });
 
 export default SubCategoryCard;
-
