@@ -10,11 +10,11 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemeColors } from "../../hooks/useThemeColors";
-import { getFilledIcons, getAllIconCategories } from "../../utils/allIonicons";
 import {
   getAvailableSubcategoryIcons,
   getSubcategoryIconName,
   renderIconFromName,
+  subcategoryIconMap,
 } from "../../../../../../utils/subcategoryIcons";
 
 interface IconPickerModalProps {
@@ -41,8 +41,15 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
 
   const iconCategories = [
     "All",
-    ...getAllIconCategories(),
-    "SUBCATEGORY",
+    "FINANCIAL",
+    "HOME",
+    "FOOD",
+    "TRANSPORT",
+    "HEALTH",
+    "ENTERTAINMENT",
+    "SHOPPING",
+    "EDUCATION",
+    "OTHER",
     "Custom",
     "Emoji",
   ];
@@ -418,15 +425,11 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
                       {iconOption.name}
                     </Text>
                   ) : (
-                    <Ionicons
-                      name={iconOption.name as any}
-                      size={22}
-                      color={
-                        currentIcon === iconOption.name
-                          ? "#FFFFFF"
-                          : colors.text
-                      }
-                    />
+                    renderIconFromName(
+                      iconOption.name,
+                      22,
+                      currentIcon === iconOption.name ? "#FFFFFF" : colors.text
+                    )
                   )}
                   <Text
                     style={[

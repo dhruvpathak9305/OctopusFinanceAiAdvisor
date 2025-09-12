@@ -15,7 +15,8 @@ import { ThemeColors } from "../hooks/useThemeColors";
 import { useSubcategoryForm } from "../hooks/useSubcategoryForm";
 import { AVAILABLE_COLORS } from "../utils/subcategoryHelpers";
 import { ALL_IONICONS } from "../utils/allIonicons";
-import { IconPickerModal } from "./modals/IconPickerModal";
+import { renderIconFromName } from "../../../../../utils/subcategoryIcons";
+import { LucideIconPickerModal } from "./modals/LucideIconPickerModal";
 import { ColorPickerModal } from "./modals/ColorPickerModal";
 
 export interface SubCategoryFormProps {
@@ -39,6 +40,50 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
   const form = useSubcategoryForm();
   const [showIconModal, setShowIconModal] = useState(false);
   const [showColorModal, setShowColorModal] = useState(false);
+
+  // Calculate budget remaining and validation
+  const calculateBudgetInfo = () => {
+    const categoryBudget = category.budget_limit || 0;
+    const currentSubcategoryAmount = parseFloat(form.amount) || 0;
+
+    // Calculate total allocated to other subcategories (excluding current one being edited)
+    const otherSubcategoriesTotal = (category.subcategories || [])
+      .filter((sub) => !isEditMode || sub.id !== subcategory?.id)
+      .reduce(
+        (sum, sub) =>
+          sum + (parseFloat(sub.budget_limit) || parseFloat(sub.amount) || 0),
+        0
+      );
+
+    const totalAllocated = otherSubcategoriesTotal + currentSubcategoryAmount;
+    const remaining = categoryBudget - otherSubcategoriesTotal; // This is what's actually available
+    const isOverBudget = totalAllocated > categoryBudget;
+    const utilizationPercentage =
+      categoryBudget > 0 ? (totalAllocated / categoryBudget) * 100 : 0;
+
+    return {
+      categoryBudget,
+      remaining: remaining, // Can be negative if over budget
+      totalAllocated,
+      isOverBudget,
+      utilizationPercentage,
+      otherSubcategoriesTotal,
+    };
+  };
+
+  const budgetInfo = calculateBudgetInfo();
+
+  // Calculate default warning limit only when budget amount is entered
+  const getCurrentBudgetAmount = parseFloat(form.amount) || 0;
+  const defaultWarningLimit =
+    getCurrentBudgetAmount > 0 ? Math.round(getCurrentBudgetAmount * 0.7) : 0;
+
+  // Update warning limit when budget amount changes (not on form load)
+  useEffect(() => {
+    if (!isEditMode && getCurrentBudgetAmount > 0 && !form.budgetLimit) {
+      form.updateBudgetLimit(defaultWarningLimit.toString());
+    }
+  }, [getCurrentBudgetAmount, isEditMode]);
 
   // Helper function to get current icon display info
   const getCurrentIcon = () => {
@@ -64,6 +109,20 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
   }, [subcategory]);
 
   const handleSave = () => {
+    // Validate budget before saving
+    if (budgetInfo.isOverBudget) {
+      Alert.alert(
+        "Budget Exceeded",
+        `This subcategory amount ($${
+          parseFloat(form.amount) || 0
+        }) would exceed the category budget. Available: $${budgetInfo.remaining.toFixed(
+          0
+        )}`,
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     form.handleSubmit(onSave);
   };
 
@@ -178,6 +237,96 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
                 {form.errors.amount}
               </Text>
             )}
+
+            {/* Budget Validation Info */}
+            <View
+              style={[
+                styles.budgetValidationCard,
+                {
+                  backgroundColor: budgetInfo.isOverBudget
+                    ? colors.error + "15"
+                    : colors.primary + "10",
+                  borderColor: budgetInfo.isOverBudget
+                    ? colors.error + "40"
+                    : colors.primary + "30",
+                },
+              ]}
+            >
+              <View style={styles.budgetValidationHeader}>
+                <Ionicons
+                  name={
+                    budgetInfo.isOverBudget ? "warning" : "information-circle"
+                  }
+                  size={16}
+                  color={
+                    budgetInfo.isOverBudget ? colors.error : colors.primary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.budgetValidationTitle,
+                    {
+                      color: budgetInfo.isOverBudget
+                        ? colors.error
+                        : colors.primary,
+                    },
+                  ]}
+                >
+                  {budgetInfo.isOverBudget
+                    ? "Over Budget!"
+                    : "Budget Available"}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.budgetValidationText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {budgetInfo.isOverBudget
+                  ? `Exceeds category budget by $${(
+                      budgetInfo.totalAllocated - budgetInfo.categoryBudget
+                    ).toFixed(0)}`
+                  : `$${Math.max(0, budgetInfo.remaining).toFixed(
+                      0
+                    )} remaining from $${budgetInfo.categoryBudget.toFixed(
+                      0
+                    )} category budget (${budgetInfo.otherSubcategoriesTotal.toFixed(
+                      0
+                    )} already allocated)`}
+              </Text>
+              <View style={styles.budgetProgressBar}>
+                <View
+                  style={[
+                    styles.budgetProgressTrack,
+                    { backgroundColor: colors.border + "40" },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.budgetProgressFill,
+                      {
+                        backgroundColor: budgetInfo.isOverBudget
+                          ? colors.error
+                          : colors.primary,
+                        width: `${Math.min(
+                          budgetInfo.utilizationPercentage,
+                          100
+                        )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.budgetProgressText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {budgetInfo.utilizationPercentage.toFixed(1)}% used
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Current Spend & Budget Limit Row */}
@@ -231,11 +380,18 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
                   style={[styles.currencyInput, { color: colors.text }]}
                   value={form.budgetLimit}
                   onChangeText={form.updateBudgetLimit}
-                  placeholder="0.00"
+                  placeholder={defaultWarningLimit.toString()}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="decimal-pad"
                 />
               </View>
+              {getCurrentBudgetAmount > 0 && (
+                <Text
+                  style={[styles.helperText, { color: colors.textSecondary }]}
+                >
+                  Default: 70% of budget amount (${defaultWarningLimit})
+                </Text>
+              )}
             </View>
           </View>
 
@@ -257,11 +413,11 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
                 activeOpacity={0.7}
               >
                 <View style={styles.selectedIconContainer}>
-                  <Ionicons
-                    name={getCurrentIcon().name as any}
-                    size={20}
-                    color={colors.primary}
-                  />
+                  {renderIconFromName(
+                    getCurrentIcon().name,
+                    20,
+                    colors.primary
+                  )}
                 </View>
                 <Text style={[styles.selectorText, { color: colors.text }]}>
                   {getCurrentIcon().displayName || "Choose Icon"}
@@ -425,12 +581,14 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
               styles.saveButton,
               !isEditMode && styles.saveButtonFull,
               {
-                backgroundColor: colors.primary, // Always use primary color
-                opacity: form.isSubmitting ? 0.7 : 1, // Only dim when submitting
+                backgroundColor: budgetInfo.isOverBudget
+                  ? colors.error
+                  : colors.primary,
+                opacity: form.isSubmitting ? 0.7 : 1,
               },
             ]}
             onPress={handleSave}
-            disabled={form.isSubmitting} // Only disable when submitting
+            disabled={form.isSubmitting}
             activeOpacity={0.7}
           >
             <Text style={styles.saveButtonText}>
@@ -453,7 +611,7 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
       </View>
 
       {/* Modals */}
-      <IconPickerModal
+      <LucideIconPickerModal
         visible={showIconModal}
         onClose={() => setShowIconModal(false)}
         onSelectIcon={(iconName) => {
@@ -681,5 +839,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     letterSpacing: 0.2,
+  },
+  // Budget Validation Styles
+  budgetValidationCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  budgetValidationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  budgetValidationTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  budgetValidationText: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  budgetProgressBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  budgetProgressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  budgetProgressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  budgetProgressText: {
+    fontSize: 11,
+    fontWeight: "600",
+    minWidth: 60,
+    textAlign: "right",
+  },
+  helperText: {
+    fontSize: 11,
+    marginTop: 4,
+    fontStyle: "italic",
   },
 });
