@@ -11,6 +11,7 @@ export interface SortSectionProps {
   colors: ThemeColors;
   onSortModeChange: (mode: SortMode) => void;
   onToggleDropdown: () => void;
+  onBulkAllocation?: () => void;
 }
 
 const SortSection: React.FC<SortSectionProps> = ({
@@ -19,6 +20,7 @@ const SortSection: React.FC<SortSectionProps> = ({
   colors,
   onSortModeChange,
   onToggleDropdown,
+  onBulkAllocation,
 }) => {
   const currentSortOption = SORT_OPTIONS.find(
     (option) => option.key === sortMode
@@ -31,116 +33,138 @@ const SortSection: React.FC<SortSectionProps> = ({
 
   return (
     <View style={styles.sortSection}>
-      {/* Section title and description */}
-      <View style={styles.sectionInfo}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Budget Progress
-        </Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-          Individual sub-category breakdown
-        </Text>
-      </View>
-
-      {/* Sort button with dropdown container */}
-      <View style={styles.sortContainer}>
-        <TouchableOpacity
-          style={[
-            styles.sortButton,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              shadowColor: colors.shadow,
-            },
-          ]}
-          onPress={onToggleDropdown}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={currentSortOption?.icon as any}
-            size={16}
-            color={colors.text}
-          />
-          <Text style={[styles.sortButtonText, { color: colors.text }]}>
-            {currentSortOption?.label}
+      {/* Single row with title, bulk edit icon, and sort dropdown */}
+      <View style={styles.singleRow}>
+        <View style={styles.sectionInfo}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Budget Progress
           </Text>
-          <Ionicons
-            name={showDropdown ? "chevron-up" : "chevron-down"}
-            size={16}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
+          <Text
+            style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
+          >
+            Individual sub-category breakdown
+          </Text>
+        </View>
 
-        {/* Dropdown overlay */}
-        {showDropdown && (
-          <>
-            {/* Backdrop to close dropdown */}
+        <View style={styles.rightActions}>
+          {onBulkAllocation && (
             <TouchableOpacity
-              style={styles.dropdownBackdrop}
-              onPress={onToggleDropdown}
-              activeOpacity={1}
-            />
-
-            {/* Dropdown menu positioned right under button */}
-            <View
+              onPress={onBulkAllocation}
               style={[
-                styles.sortDropdown,
+                styles.bulkEditButton,
+                {
+                  backgroundColor: colors.primary + "20",
+                  borderColor: colors.primary + "40",
+                },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="options" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+
+          {/* Sort dropdown integrated in the same row */}
+          <View style={styles.sortContainer}>
+            <TouchableOpacity
+              style={[
+                styles.sortButton,
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
                   shadowColor: colors.shadow,
                 },
               ]}
+              onPress={onToggleDropdown}
+              activeOpacity={0.7}
             >
-              {SORT_OPTIONS.map((option) => (
+              <Ionicons
+                name={currentSortOption?.icon as any}
+                size={16}
+                color={colors.text}
+              />
+              <Text style={[styles.sortButtonText, { color: colors.text }]}>
+                {currentSortOption?.label}
+              </Text>
+              <Ionicons
+                name={showDropdown ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+
+            {/* Dropdown overlay */}
+            {showDropdown && (
+              <>
+                {/* Backdrop to close dropdown */}
                 <TouchableOpacity
-                  key={option.key}
+                  style={styles.dropdownBackdrop}
+                  onPress={onToggleDropdown}
+                  activeOpacity={1}
+                />
+
+                {/* Dropdown menu positioned right under button */}
+                <View
                   style={[
-                    styles.sortOption,
+                    styles.sortDropdown,
                     {
-                      backgroundColor:
-                        sortMode === option.key
-                          ? colors.primary + "20"
-                          : "transparent",
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      shadowColor: colors.shadow,
                     },
                   ]}
-                  onPress={() => handleSortOptionPress(option.key)}
-                  activeOpacity={0.7}
                 >
-                  <Ionicons
-                    name={option.icon as any}
-                    size={16}
-                    color={
-                      sortMode === option.key
-                        ? colors.primary
-                        : colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.sortOptionText,
-                      {
-                        color:
+                  {SORT_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[
+                        styles.sortOption,
+                        {
+                          backgroundColor:
+                            sortMode === option.key
+                              ? colors.primary + "20"
+                              : "transparent",
+                        },
+                      ]}
+                      onPress={() => handleSortOptionPress(option.key)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={option.icon as any}
+                        size={16}
+                        color={
                           sortMode === option.key
                             ? colors.primary
-                            : colors.text,
-                        fontWeight: sortMode === option.key ? "600" : "400",
-                      },
-                    ]}
-                  >
-                    {`  ${option.label}`}
-                  </Text>
-                  {sortMode === option.key && (
-                    <Ionicons
-                      name="checkmark"
-                      size={16}
-                      color={colors.primary}
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
+                            : colors.textSecondary
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.sortOptionText,
+                          {
+                            color:
+                              sortMode === option.key
+                                ? colors.primary
+                                : colors.text,
+                            fontWeight: sortMode === option.key ? "600" : "400",
+                          },
+                        ]}
+                      >
+                        {`  ${option.label}`}
+                      </Text>
+                      {sortMode === option.key && (
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color={colors.primary}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -148,15 +172,36 @@ const SortSection: React.FC<SortSectionProps> = ({
 
 const styles = StyleSheet.create({
   sortSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
     paddingHorizontal: 16,
     marginTop: 24,
     marginBottom: 16,
   },
+  singleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   sectionInfo: {
     flex: 1,
+  },
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bulkEditButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    marginRight: 8,
   },
   sectionTitle: {
     fontSize: 15, // Match Quick Actions title size

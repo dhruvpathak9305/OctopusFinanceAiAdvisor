@@ -17,7 +17,12 @@ import {
   generateSubcategoryId,
 } from "../utils/subcategoryHelpers";
 
-export type ModalView = "main" | "edit-subcategory" | "add-subcategory";
+export type ModalView =
+  | "main"
+  | "edit-subcategory"
+  | "add-subcategory"
+  | "bulk-allocation"
+  | "edit-category";
 
 export interface BudgetModalState {
   // View state
@@ -47,6 +52,8 @@ export interface BudgetModalActions {
   goToMain: () => void;
   goToEditSubcategory: (subcategory: BudgetSubcategory) => void;
   goToAddSubcategory: () => void;
+  goToBulkAllocation: () => void;
+  goToEditCategory: () => void;
 
   // Data actions
   addSubcategory: (subcategory: Omit<BudgetSubcategory, "id">) => void;
@@ -55,6 +62,7 @@ export interface BudgetModalActions {
     updates: Partial<Omit<BudgetSubcategory, "id">>
   ) => void;
   deleteSubcategory: (id: string) => void;
+  bulkUpdateSubcategories: (subcategories: BudgetSubcategory[]) => void;
 
   // Reset actions
   resetModal: () => void;
@@ -147,6 +155,18 @@ export const useBudgetModal = (
     setShowSortDropdown(false);
   };
 
+  const goToBulkAllocation = () => {
+    setSelectedSubcategory(null);
+    setCurrentView("bulk-allocation");
+    setShowSortDropdown(false);
+  };
+
+  const goToEditCategory = () => {
+    // Edit category will be handled by a separate modal, not a view change
+    setSelectedSubcategory(null);
+    setShowSortDropdown(false);
+  };
+
   // Data actions
   const addSubcategory = (newSubcategory: Omit<BudgetSubcategory, "id">) => {
     const subcategoryWithId: BudgetSubcategory = {
@@ -187,6 +207,13 @@ export const useBudgetModal = (
         },
       ]
     );
+  };
+
+  const bulkUpdateSubcategories = (
+    updatedSubcategories: BudgetSubcategory[]
+  ) => {
+    setSubcategories(updatedSubcategories);
+    goToMain();
   };
 
   // Reset modal to initial state
@@ -235,9 +262,12 @@ export const useBudgetModal = (
     goToMain,
     goToEditSubcategory,
     goToAddSubcategory,
+    goToBulkAllocation,
+    goToEditCategory,
     addSubcategory,
     updateSubcategory,
     deleteSubcategory,
+    bulkUpdateSubcategories,
     resetModal,
   };
 };

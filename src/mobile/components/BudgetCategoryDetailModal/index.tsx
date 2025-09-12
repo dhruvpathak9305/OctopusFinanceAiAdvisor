@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Modal, View, ScrollView, StyleSheet } from "react-native";
 
 // Components
@@ -7,6 +7,8 @@ import BudgetSummary from "./components/BudgetSummary";
 import SortSection from "./components/SortSection";
 import SubcategoryList from "./components/SubcategoryList";
 import { SubcategoryForm } from "./components/SubcategoryForm";
+import BulkBudgetAllocation from "./components/BulkBudgetAllocation";
+import AddCategoryModal from "../AddCategoryModal";
 
 // Hooks and utilities
 import { useBudgetModal, ModalView } from "./hooks/useBudgetModal";
@@ -31,6 +33,7 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
 }) => {
   const colors = useThemeColors();
   const modal = useBudgetModal(visible, category);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
 
   // Don't render if no category
   if (!category) {
@@ -47,6 +50,7 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
         totalPercentage={modal.totalPercentage}
         colors={colors}
         onAddSubcategory={modal.goToAddSubcategory}
+        onEditCategory={() => setShowEditCategoryModal(true)}
       />
 
       {/* Sort Section with Dropdown */}
@@ -58,6 +62,7 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
         onToggleDropdown={() =>
           modal.setShowSortDropdown(!modal.showSortDropdown)
         }
+        onBulkAllocation={modal.goToBulkAllocation}
       />
 
       {/* Subcategory List/Grid */}
@@ -129,6 +134,22 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
           onBack: modal.goToMain,
         };
 
+      case "bulk-allocation":
+        return {
+          ...baseProps,
+          title: "", // No title needed, handled by component
+          showBackButton: false,
+          showCloseButton: false,
+        };
+
+      case "edit-category":
+        return {
+          ...baseProps,
+          title: "Edit Category",
+          showBackButton: true,
+          onBack: modal.goToMain,
+        };
+
       default:
         return baseProps;
     }
@@ -147,8 +168,10 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
           { backgroundColor: colors.background },
         ]}
       >
-        {/* Header */}
-        <CategoryHeader {...getHeaderProps()} />
+        {/* Header - Only show for non-bulk-allocation views */}
+        {modal.currentView !== "bulk-allocation" && (
+          <CategoryHeader {...getHeaderProps()} />
+        )}
 
         {/* Content */}
         {modal.currentView === "main" ? (
@@ -159,10 +182,36 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
           >
             {renderMainView()}
           </ScrollView>
+        ) : modal.currentView === "bulk-allocation" ? (
+          <View style={{ flex: 1 }}>
+            <BulkBudgetAllocation
+              subcategories={modal.subcategories}
+              categoryBudget={category.budget_limit}
+              categoryName={category.name}
+              categoryId={category.id}
+              colors={colors}
+              onSave={modal.bulkUpdateSubcategories}
+              onCancel={modal.goToMain}
+            />
+          </View>
         ) : (
           renderFormView()
         )}
       </View>
+
+      {/* Edit Category Modal */}
+      <AddCategoryModal
+        visible={showEditCategoryModal}
+        onClose={() => setShowEditCategoryModal(false)}
+        onCategoryAdded={(updatedCategory) => {
+          // Handle category update - this would need to refresh the parent data
+          setShowEditCategoryModal(false);
+          // You might want to add a callback to refresh the budget data
+        }}
+        editMode={true}
+        categoryToEdit={category}
+        transactionType={category.category_type as "expense" | "income"}
+      />
     </Modal>
   );
 };

@@ -18,6 +18,7 @@ export interface BudgetSummaryProps {
   totalPercentage: number;
   colors: ThemeColors;
   onAddSubcategory: () => void;
+  onEditCategory?: () => void;
 }
 
 const BudgetSummary: React.FC<BudgetSummaryProps> = ({
@@ -27,6 +28,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   totalPercentage,
   colors,
   onAddSubcategory,
+  onEditCategory,
 }) => {
   const progressColor = getProgressColor(totalSpent, totalBudget, colors);
 
@@ -92,13 +94,30 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={onAddSubcategory}
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={18} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          {onEditCategory && (
+            <TouchableOpacity
+              onPress={onEditCategory}
+              style={[
+                styles.editButton,
+                {
+                  backgroundColor: colors.primary + "20",
+                  borderColor: colors.primary + "40",
+                },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="pencil" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={onAddSubcategory}
+            style={[styles.addButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Metrics with circular progress */}
@@ -195,6 +214,24 @@ const styles = StyleSheet.create({
     color: "#9CA3AF", // Fixed color - softer gray for subtitles
     fontWeight: "600", // Match FinancialSummaryCard title weight
     opacity: 1, // Remove opacity, use fixed color instead
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  editButton: {
+    // Match add button size and theme for consistency
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   addButton: {
     // Match Quick Actions floating button design

@@ -427,4 +427,42 @@ export const budgetCategoryService = {
       throw error;
     }
   },
+
+  async bulkUpdateSubcategoryBudgets(
+    categoryId: string,
+    subcategoryUpdates: Array<{ id: string; budget_limit: number }>,
+    isDemo: boolean = false
+  ): Promise<void> {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+
+      if (!user.user) return;
+
+      const tableMap = getTableMapping(isDemo);
+
+      // Update each subcategory's budget limit
+      for (const update of subcategoryUpdates) {
+        const { error } = await (supabase as any)
+          .from(tableMap.budget_subcategories)
+          .update({
+            budget_limit: update.budget_limit,
+            amount: update.budget_limit, // Keep amount in sync with budget_limit
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", update.id);
+
+        if (error) {
+          console.error("Error updating subcategory budget:", error);
+          throw error;
+        }
+      }
+
+      console.log(
+        `✅ Successfully updated ${subcategoryUpdates.length} subcategory budgets`
+      );
+    } catch (error) {
+      console.error("Error in bulkUpdateSubcategoryBudgets:", error);
+      throw error;
+    }
+  },
 };
