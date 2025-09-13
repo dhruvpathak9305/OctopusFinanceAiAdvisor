@@ -15,7 +15,8 @@ import { useBudgetModal, ModalView } from "./hooks/useBudgetModal";
 import { useThemeColors } from "./hooks/useThemeColors";
 
 // Types
-import { BudgetCategory } from "./types";
+import { BudgetCategory as ModalBudgetCategory } from "./types";
+import { BudgetCategory } from "../../../../types/budget";
 
 // Styles
 import { commonStyles } from "./components/styles";
@@ -23,7 +24,7 @@ import { commonStyles } from "./components/styles";
 export interface BudgetCategoryDetailModalProps {
   visible: boolean;
   onClose: () => void;
-  category: BudgetCategory | null;
+  category: ModalBudgetCategory | null;
 }
 
 const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
@@ -34,6 +35,7 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
   const colors = useThemeColors();
   const modal = useBudgetModal(visible, category);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState("Monthly");
 
   // Don't render if no category
   if (!category) {
@@ -51,6 +53,8 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
         colors={colors}
         onAddSubcategory={modal.goToAddSubcategory}
         onEditCategory={() => setShowEditCategoryModal(true)}
+        onDurationChange={setSelectedDuration}
+        selectedDuration={selectedDuration}
       />
 
       {/* Sort Section with Dropdown */}
@@ -209,7 +213,14 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
           // You might want to add a callback to refresh the budget data
         }}
         editMode={true}
-        categoryToEdit={category}
+        categoryToEdit={
+          {
+            ...category,
+            limit: category.budget_limit,
+            bgColor: category.bg_color,
+            ringColor: category.ring_color,
+          } as BudgetCategory
+        }
         transactionType={category.category_type as "expense" | "income"}
       />
     </Modal>

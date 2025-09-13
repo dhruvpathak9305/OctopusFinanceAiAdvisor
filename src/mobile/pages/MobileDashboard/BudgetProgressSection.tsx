@@ -386,7 +386,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
 
   const renderCategoryIcon = (iconName: string, color: string) => {
     const lucideIconName = mapIconNameToLucide(iconName);
-    return renderIconFromName(lucideIconName, 20, color);
+    return renderIconFromName(lucideIconName, 22, color);
   };
 
   // Fetch real budget categories
@@ -751,9 +751,9 @@ const styles = StyleSheet.create({
     minHeight: 140,
   },
   categoryIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,

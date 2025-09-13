@@ -16,6 +16,8 @@ import { useDemoMode } from "../../../../contexts/DemoModeContext";
 import { budgetCategoryService } from "../../../../services/budgetCategoryService";
 import { BudgetCategory } from "../../../../types/budget";
 import { ColorPickerModal } from "../BudgetCategoryDetailModal/components/modals/ColorPickerModal";
+import { LucideIconPickerModal } from "../BudgetCategoryDetailModal/components/modals/LucideIconPickerModal";
+import { renderIconFromName } from "../../../../utils/subcategoryIcons";
 
 interface AddCategoryModalProps {
   visible: boolean;
@@ -51,6 +53,8 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   const [showStrategyInfo, setShowStrategyInfo] = useState(false);
   const [showBgColorModal, setShowBgColorModal] = useState(false);
   const [showRingColorModal, setShowRingColorModal] = useState(false);
+  const [selectedIcon, setSelectedIcon] = useState("Home");
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   // Populate fields when in edit mode
   useEffect(() => {
@@ -71,6 +75,19 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
       // Use actual values from database if available
       setFrequency(categoryToEdit.frequency || "monthly");
       setStrategy(categoryToEdit.strategy || "zero-based");
+      // Set icon, checking multiple possible field names and converting to proper case
+      const rawIcon = categoryToEdit.icon || categoryToEdit.iconName || "home";
+      const iconValue = mapDbIconToLucideIcon(rawIcon);
+      // Debug logging - remove in production
+      if (__DEV__) {
+        console.log(
+          "Setting icon - Raw DB value:",
+          rawIcon,
+          "Mapped to:",
+          iconValue
+        );
+      }
+      setSelectedIcon(iconValue);
     } else {
       // Reset for add mode
       setName("");
@@ -80,6 +97,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
       setSelectedRingColor("#047857");
       setFrequency("monthly");
       setStrategy("zero-based");
+      setSelectedIcon("Home");
     }
   }, [editMode, categoryToEdit, visible]);
 
@@ -135,6 +153,58 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   const frequencies = ["monthly", "quarterly", "annual", "custom"];
   const strategies = ["zero-based", "ai-powered", "envelope", "rolling"];
 
+  // Map database icon names to Lucide React icon names
+  const mapDbIconToLucideIcon = (dbIconName: string): string => {
+    const iconMap: { [key: string]: string } = {
+      // Database name -> Lucide name
+      home: "Home",
+      heart: "Heart",
+      "piggy-bank": "PiggyBank",
+      wallet: "Wallet",
+      briefcase: "Briefcase",
+      "trending-up": "TrendingUp",
+      building: "Building",
+      gift: "Gift",
+      receipt: "Receipt",
+      "dollar-sign": "DollarSign",
+      circle: "Circle",
+
+      // Handle already proper case names
+      Home: "Home",
+      Heart: "Heart",
+      PiggyBank: "PiggyBank",
+      Wallet: "Wallet",
+      Briefcase: "Briefcase",
+      TrendingUp: "TrendingUp",
+      Building: "Building",
+      Gift: "Gift",
+      Receipt: "Receipt",
+      DollarSign: "DollarSign",
+      Circle: "Circle",
+    };
+
+    return iconMap[dbIconName] || "Home"; // Default to Home if not found
+  };
+
+  // Convert Lucide icon name back to database format
+  const mapLucideIconToDb = (lucideIconName: string): string => {
+    const reverseIconMap: { [key: string]: string } = {
+      Home: "home",
+      Heart: "heart",
+      PiggyBank: "piggy-bank",
+      Wallet: "wallet",
+      Briefcase: "briefcase",
+      TrendingUp: "trending-up",
+      Building: "building",
+      Gift: "gift",
+      Receipt: "receipt",
+      DollarSign: "dollar-sign",
+      Circle: "circle",
+    };
+
+    return reverseIconMap[lucideIconName] || "home"; // Default to home if not found
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert("Error", "Please enter a category name");
@@ -164,6 +234,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
         frequency: frequency, // Include frequency
         strategy: strategy, // Include strategy
         category_type: transactionType, // Include category type
+        icon: mapLucideIconToDb(selectedIcon), // Convert back to database format
         subcategories:
           editMode && categoryToEdit && categoryToEdit.subcategories
             ? categoryToEdit.subcategories
@@ -173,6 +244,16 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
         display_order:
           editMode && categoryToEdit ? categoryToEdit.display_order || 0 : 0,
       };
+
+      // Debug logging for save
+      if (__DEV__) {
+        console.log(
+          "Saving icon:",
+          selectedIcon,
+          "→",
+          mapLucideIconToDb(selectedIcon)
+        );
+      }
 
       try {
         if (editMode && categoryToEdit && categoryToEdit.id) {
@@ -335,39 +416,80 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
             />
           </View>
 
-          {/* Budget Limit */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.text }]}>
-              Budget Limit <Text style={styles.required}>*</Text>
-            </Text>
-            <View
-              style={[
-                styles.amountContainer,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text
-                style={[styles.currencySymbol, { color: colors.textSecondary }]}
-              >
-                $
+          {/* Budget Limit & Category Icon Row */}
+          <View style={styles.rowContainer}>
+            {/* Budget Limit */}
+            <View style={styles.halfFieldContainer}>
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Budget Limit <Text style={styles.required}>*</Text>
               </Text>
-              <TextInput
-                style={[styles.amountInput, { color: colors.text }]}
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-                value={budgetLimit}
-                onChangeText={(text) => {
-                  // Only allow numbers and one decimal point
-                  const numericValue = text.replace(/[^0-9.]/g, "");
-                  const parts = numericValue.split(".");
-                  if (parts.length > 2) {
-                    setBudgetLimit(parts[0] + "." + parts.slice(1).join(""));
-                  } else {
-                    setBudgetLimit(numericValue);
-                  }
-                }}
-                keyboardType="decimal-pad"
-              />
+              <View
+                style={[
+                  styles.amountContainer,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.currencySymbol,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  $
+                </Text>
+                <TextInput
+                  style={[styles.amountInput, { color: colors.text }]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textSecondary}
+                  value={budgetLimit}
+                  onChangeText={(text) => {
+                    // Only allow numbers and one decimal point
+                    const numericValue = text.replace(/[^0-9.]/g, "");
+                    const parts = numericValue.split(".");
+                    if (parts.length > 2) {
+                      setBudgetLimit(parts[0] + "." + parts.slice(1).join(""));
+                    } else {
+                      setBudgetLimit(numericValue);
+                    }
+                  }}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+
+            {/* Category Icon */}
+            <View style={styles.halfFieldContainer}>
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Category Icon
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.iconSelectorButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={() => setShowIconPicker(true)}
+              >
+                <View
+                  style={[
+                    styles.iconPreview,
+                    { backgroundColor: selectedRingColor + "15" },
+                  ]}
+                >
+                  {renderIconFromName(selectedIcon, 20, selectedRingColor)}
+                </View>
+                <Text
+                  style={[styles.iconSelectorText, { color: colors.text }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {selectedIcon}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -376,7 +498,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
             <Text style={[styles.compactFieldLabel, { color: colors.text }]}>
               Colors
             </Text>
-            
+
             <View style={styles.singleColorRow}>
               {/* Background Color Button */}
               <TouchableOpacity
@@ -386,11 +508,19 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                 ]}
                 onPress={() => setShowBgColorModal(true)}
               >
-                <View style={[styles.colorDot, { backgroundColor: selectedColor }]} />
-                <Text style={[styles.colorSelectorText, { color: colors.text }]}>
+                <View
+                  style={[styles.colorDot, { backgroundColor: selectedColor }]}
+                />
+                <Text
+                  style={[styles.colorSelectorText, { color: colors.text }]}
+                >
                   Background
                 </Text>
-                <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={14}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
 
               {/* Ring Color Button */}
@@ -401,11 +531,22 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                 ]}
                 onPress={() => setShowRingColorModal(true)}
               >
-                <View style={[styles.colorDot, { backgroundColor: selectedRingColor }]} />
-                <Text style={[styles.colorSelectorText, { color: colors.text }]}>
+                <View
+                  style={[
+                    styles.colorDot,
+                    { backgroundColor: selectedRingColor },
+                  ]}
+                />
+                <Text
+                  style={[styles.colorSelectorText, { color: colors.text }]}
+                >
                   Ring
                 </Text>
-                <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={14}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
 
               {/* Color Preview */}
@@ -875,6 +1016,15 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
           currentColor={selectedRingColor}
           colors={colors}
         />
+
+        {/* Icon Picker Modal */}
+        <LucideIconPickerModal
+          visible={showIconPicker}
+          onClose={() => setShowIconPicker(false)}
+          onSelectIcon={(iconName) => setSelectedIcon(iconName)}
+          currentIcon={selectedIcon}
+          colors={colors}
+        />
       </View>
     </Modal>
   );
@@ -999,6 +1149,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
+    minHeight: 52,
   },
   currencySymbol: {
     fontSize: 16,
@@ -1079,6 +1230,39 @@ const styles = StyleSheet.create({
   },
   settingsSection: {
     marginBottom: 20,
+  },
+  rowContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+    alignItems: "flex-start", // Align both fields to start from the same top position
+  },
+  halfFieldContainer: {
+    flex: 1,
+  },
+  iconSelectorButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    minHeight: 52,
+    maxHeight: 52, // Prevent growing taller
+  },
+  iconPreview: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconSelectorText: {
+    fontSize: 15,
+    fontWeight: "500",
+    flex: 1,
+    lineHeight: 20, // Fixed line height to prevent wrapping
   },
   labelWithInfo: {
     flexDirection: "row",

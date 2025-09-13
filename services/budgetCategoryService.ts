@@ -79,6 +79,7 @@ export const createCategoryInDB = async (
         budget_limit: category.limit,
         percentage: 0,
         user_id: user.id,
+        icon: category.icon || null,
       })
       .select()
       .single();
@@ -114,6 +115,7 @@ export const updateCategoryInDB = async (
         bg_color: updates.bgColor,
         ring_color: updates.ringColor,
         budget_limit: updates.limit,
+        icon: updates.icon || null,
       })
       .eq("id", categoryId);
 
@@ -255,6 +257,7 @@ export const budgetCategoryService = {
           is_active: category.is_active,
           status: category.status,
           display_order: category.display_order,
+          icon: category.icon || null,
         })
         .eq("id", category.id)
         .eq("user_id", user.user.id);
@@ -292,6 +295,7 @@ export const budgetCategoryService = {
           status: category.status,
           display_order: category.display_order,
           user_id: user.user.id,
+          icon: category.icon || null,
         })
         .select()
         .single();
@@ -344,6 +348,7 @@ export const budgetCategoryService = {
         status: category.status,
         display_order: category.display_order,
         user_id: user.user.id,
+        icon: category.icon || null,
       }));
 
       const { error } = await (supabase as any)
@@ -383,6 +388,7 @@ export const budgetCategoryService = {
         status: category.status,
         display_order: index,
         user_id: user.user.id,
+        icon: category.icon || null,
       }));
 
       const { error } = await (supabase as any)
