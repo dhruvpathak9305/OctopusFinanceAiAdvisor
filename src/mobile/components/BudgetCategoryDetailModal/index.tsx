@@ -25,12 +25,16 @@ export interface BudgetCategoryDetailModalProps {
   visible: boolean;
   onClose: () => void;
   category: ModalBudgetCategory | null;
+  availableCategories?: ModalBudgetCategory[];
+  onCategoryChange?: (direction: "next" | "prev") => void;
 }
 
 const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
   visible,
   onClose,
   category,
+  availableCategories = [],
+  onCategoryChange,
 }) => {
   const colors = useThemeColors();
   const modal = useBudgetModal(visible, category);
@@ -55,6 +59,9 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
         onEditCategory={() => setShowEditCategoryModal(true)}
         onDurationChange={setSelectedDuration}
         selectedDuration={selectedDuration}
+        showNavigation={availableCategories.length > 1}
+        onNavigatePrev={() => onCategoryChange?.("prev")}
+        onNavigateNext={() => onCategoryChange?.("next")}
       />
 
       {/* Sort Section with Dropdown */}

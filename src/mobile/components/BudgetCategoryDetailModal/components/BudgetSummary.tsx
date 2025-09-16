@@ -27,6 +27,9 @@ export interface BudgetSummaryProps {
   onEditCategory?: () => void;
   onDurationChange?: (duration: string) => void;
   selectedDuration?: string;
+  showNavigation?: boolean;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
 }
 
 const BudgetSummary: React.FC<BudgetSummaryProps> = ({
@@ -39,6 +42,9 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   onEditCategory,
   onDurationChange,
   selectedDuration = "Monthly",
+  showNavigation = false,
+  onNavigatePrev,
+  onNavigateNext,
 }) => {
   const progressColor = getProgressColor(totalSpent, totalBudget, colors);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -154,6 +160,42 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
+        {/* Navigation Arrows */}
+        {showNavigation && (
+          <>
+            <TouchableOpacity
+              style={[styles.navigationArrow, styles.navigationArrowLeft]}
+              onPress={onNavigatePrev}
+              activeOpacity={0.7}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            >
+              <View style={styles.arrowContainer}>
+                <Ionicons
+                  name="chevron-back"
+                  size={28}
+                  color="#10B981"
+                  style={{ opacity: 0.6 }}
+                />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.navigationArrow, styles.navigationArrowRight]}
+              onPress={onNavigateNext}
+              activeOpacity={0.7}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            >
+              <View style={styles.arrowContainer}>
+                <Ionicons
+                  name="chevron-forward"
+                  size={28}
+                  color="#10B981"
+                  style={{ opacity: 0.6 }}
+                />
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
         {/* Header with category info and add button */}
         <View style={styles.summaryHeader}>
           <View
@@ -269,6 +311,29 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
+    position: "relative", // For absolute positioned navigation arrows
+  },
+  navigationArrow: {
+    position: "absolute",
+    top: "55%", // Push down a bit
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100, // Higher z-index to ensure it appears above everything
+  },
+  navigationArrowLeft: {
+    left: -8,
+  },
+  navigationArrowRight: {
+    right: -8,
+  },
+  arrowContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
   },
   summaryHeader: {
     flexDirection: "row",

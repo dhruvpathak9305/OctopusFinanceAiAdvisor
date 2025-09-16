@@ -283,6 +283,9 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   const [loading, setLoading] = useState(true);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [selectedCategoryIndex, setSelectedCategoryIndex] =
+    useState<number>(-1);
+  const [availableCategories, setAvailableCategories] = useState<any[]>([]);
   const [realCategories, setRealCategories] = useState<BudgetCategory[]>([]);
   const [budgetProgressData, setBudgetProgressData] = useState<
     BudgetProgressItem[]
@@ -677,60 +680,79 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
     return "circle";
   };
 
-  const handleCategoryPress = (category: any) => {
-    if (isDemo) {
-      // Convert the category to match the expected format for the modal
-      const categoryForModal = {
-        id: category.name.toLowerCase().replace(/ /g, "-"),
-        user_id: "user-1",
-        name: category.name,
-        budget_limit: category.limit,
-        ring_color: category.color,
-        bg_color: category.color,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        display_order: null,
-        description: null,
-        status: "active",
-        start_date: new Date().toISOString(),
-        frequency: "monthly",
-        strategy: "zero-based",
-        is_active: "true",
-        percentage: category.percentage,
-        category_type: typeFilter === "expense" ? "expense" : "income",
-      };
+  const handleCategoryPress = (category: any, index: number) => {
+    const currentCategories = getCurrentCategories();
 
-      setSelectedCategory(categoryForModal);
+    // Convert all current categories to modal format for navigation
+    const categoriesForModal = currentCategories.map((cat: any) => {
+      if (isDemo) {
+        return {
+          id: cat.name.toLowerCase().replace(/ /g, "-"),
+          user_id: "user-1",
+          name: cat.name,
+          budget_limit: cat.limit,
+          ring_color: cat.color,
+          bg_color: cat.color,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          display_order: null,
+          description: null,
+          status: "active",
+          start_date: new Date().toISOString(),
+          frequency: "monthly",
+          strategy: "zero-based",
+          is_active: "true",
+          percentage: cat.percentage,
+          category_type: typeFilter === "expense" ? "expense" : "income",
+        };
+      } else {
+        return {
+          id: cat.id,
+          user_id: user?.id || "current-user",
+          name: cat.name,
+          budget_limit: cat.limit,
+          ring_color: cat.color,
+          bg_color: cat.color,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          display_order: null,
+          description: null,
+          status: cat.status || "not_set",
+          start_date: new Date().toISOString(),
+          frequency: "monthly",
+          strategy: "zero-based",
+          is_active: "true",
+          percentage: cat.percentage,
+          category_type: cat.category_type || "expense",
+          icon: cat.icon,
+          subcategories: [], // Will be fetched by the modal itself
+          spent: cat.amount,
+          remaining: (cat as any).remaining,
+        };
+      }
+    });
+
+    setAvailableCategories(categoriesForModal);
+    setSelectedCategory(categoriesForModal[index]);
+    setSelectedCategoryIndex(index);
+    setShowDetailModal(true);
+  };
+
+  const handleCategoryChange = (direction: "next" | "prev") => {
+    if (availableCategories.length <= 1) return;
+
+    let newIndex = selectedCategoryIndex;
+
+    if (direction === "next") {
+      newIndex = (selectedCategoryIndex + 1) % availableCategories.length;
     } else {
-      // Use budget progress data to create category for modal
-      const categoryForModal = {
-        id: category.id,
-        user_id: user?.id || "current-user",
-        name: category.name,
-        budget_limit: category.limit,
-        ring_color: category.color,
-        bg_color: category.color,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        display_order: null,
-        description: null,
-        status: category.status || "not_set",
-        start_date: new Date().toISOString(),
-        frequency: "monthly",
-        strategy: "zero-based",
-        is_active: "true",
-        percentage: category.percentage,
-        category_type: category.category_type || "expense",
-        icon: category.icon,
-        subcategories: [], // Will be fetched by the modal itself
-        spent: category.amount,
-        remaining: (category as any).remaining,
-      };
-
-      setSelectedCategory(categoryForModal);
+      newIndex =
+        (selectedCategoryIndex - 1 + availableCategories.length) %
+        availableCategories.length;
     }
 
-    setShowDetailModal(true);
+    setSelectedCategory(availableCategories[newIndex]);
+    setSelectedCategoryIndex(newIndex);
   };
 
   if (loading && budgetProgressData.length === 0) {
@@ -815,7 +837,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
               styles.categoryCard,
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
-            onPress={() => handleCategoryPress(category)}
+            onPress={() => handleCategoryPress(category, index)}
           >
             {/* Category Icon */}
             <View
@@ -907,6 +929,8 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
         visible={showDetailModal}
         onClose={() => setShowDetailModal(false)}
         category={selectedCategory}
+        availableCategories={availableCategories}
+        onCategoryChange={handleCategoryChange}
       />
     </View>
   );
