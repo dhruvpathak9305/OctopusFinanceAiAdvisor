@@ -99,14 +99,12 @@ export const fetchAccounts = async (
         data: { session },
       } = await supabase.auth.getSession();
       user = session?.user || null;
-      console.log("fetchAccounts - session user:", user?.email);
 
       if (!user) {
         const {
           data: { user: authUser },
         } = await supabase.auth.getUser();
         user = authUser;
-        console.log("fetchAccounts - getUser result:", user?.email);
       }
     } catch (authError) {
       console.error("fetchAccounts - auth error:", authError);

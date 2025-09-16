@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Image,
+  InteractionManager,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -64,6 +66,116 @@ interface AddTransactionModalProps {
   onTransactionUpdate?: () => void; // Callback to refresh transactions
 }
 
+// Enhanced non-blocking toast notification component
+const ToastNotification = ({
+  message,
+  visible,
+  onHide,
+}: {
+  message: string;
+  visible: boolean;
+  onHide: () => void;
+}) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const theme = useTheme();
+  const colors = theme.colors || {
+    text: "#111827",
+    textSecondary: "#6B7280",
+    border: "#E5E7EB",
+    card: "#FFFFFF",
+    background: "#F9FAFB",
+  };
+
+  useEffect(() => {
+    if (visible) {
+      // Animate in with fade and scale for better visual feedback
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Auto hide after 2.5 seconds (slightly longer for better visibility)
+      const timer = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 0.95,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          onHide();
+        });
+      }, 2500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [visible, fadeAnim, scaleAnim, onHide]);
+
+  if (!visible) return null;
+
+  // Success toast styling
+  const successBackground = "#10B98110"; // Light green background with low opacity
+  const successBorder = "#10B981"; // Green border
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        bottom: 100,
+        left: 20,
+        right: 20,
+        backgroundColor: successBackground,
+        borderRadius: 12,
+        padding: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.5,
+        elevation: 6,
+        opacity: fadeAnim,
+        transform: [{ scale: scaleAnim }],
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1.5,
+        borderColor: successBorder,
+      }}
+    >
+      <Ionicons
+        name="checkmark-circle"
+        size={24}
+        color="#10B981"
+        style={{ marginRight: 12 }}
+      />
+      <Text
+        style={{
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "600",
+          letterSpacing: 0.3,
+        }}
+      >
+        {message}
+      </Text>
+    </Animated.View>
+  );
+};
+
 const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   colors,
   onClose,
@@ -74,6 +186,9 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 }) => {
   const { isDemo } = useDemoMode();
   const [activeTab, setActiveTab] = useState("Manual Entry");
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const [transactionType, setTransactionType] = useState<
     "expense" | "income" | "transfer"
   >("expense");
@@ -354,19 +469,68 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         transactionData
       );
 
-      // Save to database
+      // Save to database with improved flow to prevent UI freezing
       if (isEditMode && editTransaction) {
-        await updateTransaction(editTransaction.id, transactionData, isDemo);
-        onTransactionUpdate?.(); // Call refresh callback
-        Alert.alert("Success", "Transaction updated successfully!", [
-          { text: "OK", onPress: onClose },
-        ]);
+        // First close the modal to prevent UI blocking
+        onClose();
+
+        // Then perform the database operation in the background
+        setTimeout(async () => {
+          try {
+            await updateTransaction(
+              editTransaction.id,
+              transactionData,
+              isDemo
+            );
+
+            // Show a more detailed success toast notification
+            setToastMessage(
+              `Transaction "${transactionData.name}" updated successfully!`
+            );
+            setToastVisible(true);
+
+            // Wait a moment before triggering the refresh to ensure UI responsiveness
+            InteractionManager.runAfterInteractions(() => {
+              // Call the refresh callback in the parent component
+              // This will update the transaction list and close the modal
+              onTransactionUpdate?.();
+            });
+          } catch (err) {
+            console.error("Error updating transaction:", err);
+            Alert.alert(
+              "Error",
+              "Failed to update transaction. Please try again."
+            );
+          }
+        }, 100);
       } else {
-        await addTransaction(transactionData, isDemo);
-        onTransactionUpdate?.(); // Call refresh callback
-        Alert.alert("Success", "Transaction added successfully!", [
-          { text: "OK", onPress: onClose },
-        ]);
+        // First close the modal to prevent UI blocking
+        onClose();
+
+        // Then perform the database operation in the background
+        setTimeout(async () => {
+          try {
+            await addTransaction(transactionData, isDemo);
+
+            // Show a more detailed success toast notification
+            setToastMessage(
+              `Transaction "${transactionData.name}" added successfully!`
+            );
+            setToastVisible(true);
+
+            // Wait a moment before triggering the refresh to ensure UI responsiveness
+            InteractionManager.runAfterInteractions(() => {
+              // Call the refresh callback in the parent component
+              onTransactionUpdate?.();
+            });
+          } catch (err) {
+            console.error("Error adding transaction:", err);
+            Alert.alert(
+              "Error",
+              "Failed to add transaction. Please try again."
+            );
+          }
+        }, 100);
       }
     } catch (error) {
       console.error("Error adding transaction:", error);
@@ -618,15 +782,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       // For transfer, show all active categories
       return true;
     });
-
-    console.log(
-      `Active ${transactionType} categories for dropdown:`,
-      filteredCategories.map((cat) => cat.name)
-    );
-    console.log(
-      `Category types:`,
-      filteredCategories.map((cat) => `${cat.name} (${cat.category_type})`)
-    );
 
     return filteredCategories.map((cat) => cat.name);
   };
@@ -2548,6 +2703,12 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         { backgroundColor: colors.background },
       ]}
     >
+      {/* Toast notification */}
+      <ToastNotification
+        message={toastMessage}
+        visible={toastVisible}
+        onHide={() => setToastVisible(false)}
+      />
       {/* Header */}
       <View
         style={[

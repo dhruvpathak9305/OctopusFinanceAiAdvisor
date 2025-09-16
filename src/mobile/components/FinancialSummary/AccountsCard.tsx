@@ -38,19 +38,7 @@ const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
   const loading = accountsLoading || balancesLoading;
   const error = accountsError || balancesError;
 
-  // Debug logging
-  console.log("🔍 AccountsCard: Current state:", {
-    isDemo,
-    accountsLoading,
-    balancesLoading,
-    totalBalance,
-    bankAccountBalancesCount: bankAccountBalances.length,
-    bankAccountBalances: bankAccountBalances.map((b) => ({
-      name: b.account_name,
-      current_balance: b.current_balance,
-      account_type: b.account_type,
-    })),
-  });
+  // State is ready for rendering
 
   // Calculate monthly change (this would ideally come from historical data)
   const monthlyChange = "+2.8%"; // This could be calculated from historical data

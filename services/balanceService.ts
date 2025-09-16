@@ -41,15 +41,7 @@ export class BalanceService {
     isDemo: boolean = false
   ): Promise<AccountBalance[]> {
     try {
-      console.log(
-        "🔍 BalanceService: fetchAccountBalances called with isDemo:",
-        isDemo,
-        "userId:",
-        userId
-      );
-
       if (isDemo) {
-        console.log("🎭 BalanceService: Returning mock data for demo mode");
         return this.getMockAccountBalances();
       }
 
@@ -57,15 +49,11 @@ export class BalanceService {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      console.log("👤 BalanceService: Current user:", user?.email);
-
       // Use simplified query with denormalized fields - no JOIN needed!
       const { data, error } = await (supabase as any)
         .from("balance_real")
         .select("*")
         .order("last_updated", { ascending: false });
-
-      console.log("🗄️ BalanceService: Raw database response:", { data, error });
 
       if (error) {
         console.error("Error fetching account balances:", error);
@@ -88,20 +76,12 @@ export class BalanceService {
           account_number: balance.account_number, // From denormalized field
           currency: balance.currency || "INR", // From denormalized field
         };
-        console.log(
-          "🔄 BalanceService: Transformed balance (denormalized):",
-          transformed
-        );
         return transformed;
       });
 
       const totalCurrentBalance = transformedData.reduce(
         (sum: number, b: AccountBalance) => sum + b.current_balance,
         0
-      );
-      console.log(
-        "💰 BalanceService: Total current balance from all accounts:",
-        totalCurrentBalance
       );
 
       return transformedData;

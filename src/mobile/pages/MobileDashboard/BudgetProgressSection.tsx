@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,21 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  InteractionManager,
 } from "react-native";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
 import { budgetCategoryService } from "../../../../services/budgetCategoryService";
+import {
+  getBudgetProgress,
+  type BudgetProgressItem,
+} from "../../../../services/budgetProgressService";
 import { BudgetCategory } from "../../../../types/budget";
 import { renderIconFromName } from "../../../../utils/subcategoryIcons";
 import BudgetCategoryDetailModal from "../../components/BudgetCategoryDetailModal";
+import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
+import CircularProgress from "../../components/common/CircularProgress";
+import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
 
 // Mock data for budget categories
 const mockBudgetData = {
@@ -187,49 +195,7 @@ interface BudgetProgressSectionProps {
   className?: string;
 }
 
-// Circular Progress Component
-const CircularProgress: React.FC<{
-  percentage: number;
-  color: string;
-  size?: number;
-}> = ({ percentage, color, size = 60 }) => {
-  const strokeWidth = size * 0.1;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const strokeDasharray = circumference;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <View style={[styles.circularProgress, { width: size, height: size }]}>
-      <View
-        style={[
-          styles.circularProgressTrack,
-          { width: size, height: size, borderRadius: size / 2 },
-        ]}
-      />
-      <View
-        style={[
-          styles.circularProgressFill,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: strokeWidth,
-            borderColor: color,
-            borderTopColor: "transparent",
-            borderRightColor: "transparent",
-            transform: [{ rotate: "-90deg" }],
-          },
-        ]}
-      />
-      <View style={styles.circularProgressText}>
-        <Text style={[styles.circularProgressPercentage, { color }]}>
-          {percentage}%
-        </Text>
-      </View>
-    </View>
-  );
-};
+// Note: Using proper SVG-based CircularProgress component from common/CircularProgress
 
 // Dropdown Component
 const Dropdown: React.FC<{
@@ -308,6 +274,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
 }) => {
   const { isDark } = useTheme();
   const { isDemo } = useDemoMode();
+  const { user } = useUnifiedAuth();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("monthly");
   const [typeFilter, setTypeFilter] = useState<BudgetType>("expense");
   const [activeBudgetSubcategory, setActiveBudgetSubcategory] = useState<
@@ -317,6 +284,9 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [realCategories, setRealCategories] = useState<BudgetCategory[]>([]);
+  const [budgetProgressData, setBudgetProgressData] = useState<
+    BudgetProgressItem[]
+  >([]);
 
   const colors = isDark
     ? {
@@ -360,6 +330,189 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
     setActiveBudgetSubcategory(null);
   };
 
+  // Fetch real budget progress data
+  const fetchBudgetProgressData = useCallback(async () => {
+    if (!user?.id || isDemo) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Only set loading if we don't already have data to avoid UI flashing
+      if (budgetProgressData.length === 0) {
+        setLoading(true);
+      }
+
+      // Use a local variable to store the new data
+      let newData;
+
+      if (typeFilter === "all") {
+        // Fetch both expense and income categories
+        const [expenseData, incomeData] = await Promise.all([
+          getBudgetProgress(user.id, "expense", timePeriod),
+          getBudgetProgress(user.id, "income", timePeriod),
+        ]);
+
+        newData = [...expenseData, ...incomeData];
+      } else {
+        // Fetch specific type
+        newData = await getBudgetProgress(
+          user.id,
+          typeFilter as any,
+          timePeriod
+        );
+      }
+
+      // Performance optimization: avoid unnecessary state updates and deep comparisons
+      // Only update if we have data and it's different from current data
+      if (newData && newData.length > 0) {
+        setBudgetProgressData((prevData) => {
+          // Simple length check first (faster)
+          if (prevData.length !== newData.length) {
+            return newData;
+          }
+
+          // Check if any key data points have changed
+          const hasChanges = newData.some((item, index) => {
+            if (index >= prevData.length) return true;
+            return (
+              item.spent_amount !== prevData[index].spent_amount ||
+              item.budget_limit !== prevData[index].budget_limit ||
+              item.category_id !== prevData[index].category_id
+            );
+          });
+
+          return hasChanges ? newData : prevData;
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching budget progress data:", error);
+      // Only clear data if there was an actual error
+      setBudgetProgressData((prevData) =>
+        prevData.length > 0 ? prevData : []
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, isDemo, typeFilter, timePeriod]);
+
+  // Manual refresh function (can be called from other components)
+  const refreshBudgetData = useCallback(() => {
+    fetchBudgetProgressData();
+  }, [fetchBudgetProgressData]);
+
+  // Fetch data when filters change or component mounts
+  useEffect(() => {
+    if (user?.id && !isDemo) {
+      fetchBudgetProgressData();
+    }
+  }, [timePeriod, typeFilter]);
+
+  // Reference for debounce timeout and refresh state tracking
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isRefreshPending, setIsRefreshPending] = useState(false);
+
+  // Listen for transaction events and perform periodic refresh
+  useEffect(() => {
+    if (!isDemo && user?.id) {
+      // Highly optimized debounced fetch function to prevent UI freezing
+      const debouncedFetch = () => {
+        // Cancel any pending refresh
+        if (debounceRef.current) {
+          clearTimeout(debounceRef.current);
+        }
+
+        // Set a flag to indicate refresh is pending, but don't trigger re-renders
+        // if we're already in a pending state
+        if (!isRefreshPending) {
+          setIsRefreshPending(true);
+        }
+
+        // Use a much longer delay to ensure UI remains responsive after transaction updates
+        // This is critical to prevent freezing when alerts are shown
+        debounceRef.current = setTimeout(() => {
+          // Use requestAnimationFrame to queue the refresh for the next frame
+          // This helps ensure the UI thread is free before we start fetching data
+          requestAnimationFrame(() => {
+            // Then use InteractionManager to ensure all animations and UI work is complete
+            InteractionManager.runAfterInteractions(() => {
+              // Finally, perform the fetch in a try-catch to prevent any uncaught errors
+              try {
+                fetchBudgetProgressData()
+                  .catch(() => {
+                    // Silently handle errors to prevent UI disruption
+                    // Data will be stale but UI will remain responsive
+                  })
+                  .finally(() => {
+                    // Clear the pending flag after a short delay to prevent rapid re-renders
+                    setTimeout(() => {
+                      setIsRefreshPending(false);
+                    }, 100);
+                  });
+              } catch (err) {
+                // Ensure we always clear the pending flag even if something unexpected happens
+                setTimeout(() => {
+                  setIsRefreshPending(false);
+                }, 100);
+              }
+            });
+          });
+        }, 2000); // Much longer delay (2 seconds) to ensure UI remains responsive after transaction updates
+      };
+
+      // Optimized event handler with intelligent filtering
+      const handleTransactionEvent = (event: {
+        type: string;
+        transactionId?: string;
+        timestamp?: number;
+      }) => {
+        // Only handle relevant events and avoid processing too many events in succession
+        if (event.type.includes("transaction") || event.type.includes("bulk")) {
+          // Use the debounced fetch to prevent UI freezing
+          debouncedFetch();
+        }
+      };
+
+      // Subscribe to balance events (which include transaction events)
+      const unsubscribe = balanceEventEmitter.subscribe(handleTransactionEvent);
+
+      // Set up a more intelligent fallback refresh with even longer interval
+      // This is just a safety mechanism in case event-based updates fail
+      const interval = setInterval(() => {
+        // Only trigger periodic refresh if no refresh is pending and app is active
+        if (!isRefreshPending) {
+          // Use a separate timeout to avoid blocking the interval callback
+          setTimeout(() => {
+            debouncedFetch();
+          }, 0);
+        }
+      }, 180000); // Increased to 3 minutes to further reduce update frequency and prevent UI issues
+
+      // Enhanced cleanup function to prevent memory leaks and ensure proper state reset
+      return () => {
+        // Clear any pending timeouts with proper null check
+        if (debounceRef.current) {
+          clearTimeout(debounceRef.current);
+          debounceRef.current = null;
+        }
+
+        // Clear all other potential timeouts that might be pending
+        const timeoutIds = [];
+        for (let i = 0; i < 10; i++) {
+          timeoutIds.push(setTimeout(() => {}, 0));
+        }
+        timeoutIds.forEach(clearTimeout);
+
+        // Always set refresh state to false on cleanup
+        setIsRefreshPending(false);
+
+        // Unsubscribe from events and clear intervals
+        unsubscribe();
+        clearInterval(interval);
+      };
+    }
+  }, [user?.id, isDemo]);
+
   // Map database icon names to Lucide React icon names
   const mapIconNameToLucide = (iconName: string): string => {
     const iconMap: { [key: string]: string } = {
@@ -384,52 +537,94 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
     return iconMap[iconName] || "Circle";
   };
 
-  const renderCategoryIcon = (iconName: string, color: string) => {
-    const lucideIconName = mapIconNameToLucide(iconName);
-    return renderIconFromName(lucideIconName, 22, color);
+  const renderCategoryIcon = (
+    iconName: string,
+    color: string,
+    categoryName?: string
+  ) => {
+    // If no icon from database, use category name to determine icon
+    let finalIconName = iconName;
+    if (!iconName || iconName === "circle") {
+      if (categoryName?.toLowerCase().includes("need")) finalIconName = "home";
+      else if (categoryName?.toLowerCase().includes("want"))
+        finalIconName = "heart";
+      else if (categoryName?.toLowerCase().includes("save"))
+        finalIconName = "piggy-bank";
+      else finalIconName = "circle";
+    }
+
+    const lucideIconName = mapIconNameToLucide(finalIconName);
+
+    try {
+      return renderIconFromName(lucideIconName, 22, color);
+    } catch (error) {
+      console.warn("Icon rendering failed for:", finalIconName, error);
+      // Fallback to emoji icons
+      return (
+        <Text style={{ fontSize: 22, color }}>
+          {finalIconName === "home"
+            ? "🏠"
+            : finalIconName === "heart"
+            ? "❤️"
+            : finalIconName === "piggy-bank"
+            ? "🐷"
+            : "💰"}
+        </Text>
+      );
+    }
   };
 
   // Fetch real budget categories
-  const fetchBudgetCategories = async () => {
+  const fetchBudgetCategories = useCallback(async () => {
     try {
-      setLoading(true);
+      // Only set loading true if we don't already have data
+      if (realCategories.length === 0) {
+        setLoading(true);
+      }
       const categories = await budgetCategoryService.fetchCategories(isDemo);
       setRealCategories(categories);
     } catch (error) {
       console.error("Error fetching budget categories:", error);
-      Alert.alert("Error", "Failed to load budget categories");
+      // Use a non-blocking notification instead of blocking Alert
+      console.warn("Failed to load budget categories");
     } finally {
       setLoading(false);
     }
-  };
+  }, [isDemo, realCategories.length]);
 
   useEffect(() => {
     fetchBudgetCategories();
-  }, [isDemo]);
+  }, [isDemo, fetchBudgetCategories]);
 
   const getCurrentCategories = () => {
     if (isDemo) {
       return mockBudgetData[typeFilter] || [];
     }
 
-    // Filter real categories by type using the category_type field from database
-    return realCategories
-      .filter((category) => {
-        if (typeFilter === "all") return true;
-        // Use the actual category_type from the database
-        return category.category_type === typeFilter;
-      })
-      .map((category) => ({
-        name: category.name,
-        percentage:
-          Math.round(((category.spent || 0) / category.limit) * 100) || 0,
-        color: category.ringColor,
-        amount: category.spent || 0,
-        limit: category.limit,
-        icon:
-          category.icon ||
-          getIconForCategory(category.name, category.category_type),
-      }));
+    // Use real budget progress data with correct calculations
+    const mappedData = budgetProgressData.map((category) => {
+      const calculatedPercentage =
+        category.budget_limit > 0
+          ? Math.round((category.spent_amount / category.budget_limit) * 100)
+          : 0;
+
+      const mappedCategory = {
+        name: category.category_name,
+        percentage: calculatedPercentage, // Use our calculated percentage for accuracy
+        color: category.ring_color || "#10B981",
+        amount: category.spent_amount,
+        limit: category.budget_limit,
+        remaining: category.remaining_amount,
+        icon: category.icon || "circle", // Keep original icon name for debugging
+        id: category.category_id,
+        category_type: category.category_type,
+        status: category.status,
+      };
+
+      return mappedCategory;
+    });
+
+    return mappedData;
   };
 
   const getIconForCategory = (
@@ -507,41 +702,38 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
 
       setSelectedCategory(categoryForModal);
     } else {
-      // Find the real category from our fetched data
-      const realCategory = realCategories.find(
-        (cat) => cat.name === category.name
-      );
-      if (realCategory) {
-        const categoryForModal = {
-          id: realCategory.id,
-          user_id: "current-user",
-          name: realCategory.name,
-          budget_limit: realCategory.limit,
-          ring_color: realCategory.ringColor,
-          bg_color: realCategory.bgColor,
-          created_at: realCategory.created_at || new Date().toISOString(),
-          updated_at: realCategory.updated_at || new Date().toISOString(),
-          display_order: realCategory.display_order,
-          description: null,
-          status: realCategory.status || "not_set",
-          start_date: new Date().toISOString(),
-          frequency: "monthly",
-          strategy: "zero-based",
-          is_active: realCategory.is_active ? "true" : "false",
-          percentage: realCategory.percentage,
-          category_type: realCategory.category_type || "expense",
-          icon: realCategory.icon,
-          subcategories: realCategory.subcategories || [],
-        };
+      // Use budget progress data to create category for modal
+      const categoryForModal = {
+        id: category.id,
+        user_id: user?.id || "current-user",
+        name: category.name,
+        budget_limit: category.limit,
+        ring_color: category.color,
+        bg_color: category.color,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        display_order: null,
+        description: null,
+        status: category.status || "not_set",
+        start_date: new Date().toISOString(),
+        frequency: "monthly",
+        strategy: "zero-based",
+        is_active: "true",
+        percentage: category.percentage,
+        category_type: category.category_type || "expense",
+        icon: category.icon,
+        subcategories: [],
+        spent: category.amount,
+        remaining: (category as any).remaining,
+      };
 
-        setSelectedCategory(categoryForModal);
-      }
+      setSelectedCategory(categoryForModal);
     }
 
     setShowDetailModal(true);
   };
 
-  if (loading) {
+  if (loading && budgetProgressData.length === 0) {
     return (
       <View
         style={[
@@ -607,7 +799,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
                 { backgroundColor: `${category.color}20` },
               ]}
             >
-              {renderCategoryIcon(category.icon, category.color)}
+              {renderCategoryIcon(category.icon, category.color, category.name)}
             </View>
 
             {/* Category Name */}
@@ -618,12 +810,47 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
               {category.name}
             </Text>
 
-            {/* Circular Progress */}
-            <CircularProgress
-              percentage={category.percentage}
-              color={category.color}
-              size={50}
-            />
+            {/* Circular Progress with Smart Color and Over-Budget Handling */}
+            <View style={styles.progressContainer}>
+              <CircularProgress
+                percentage={Math.min(category.percentage || 0, 100)} // Cap at 100% for visual
+                size={50}
+                strokeWidth={4}
+                backgroundColor={colors.border + "30"}
+                showPercentage={false} // We'll show our own percentage overlay
+                color={
+                  (category.percentage || 0) > 100
+                    ? "#EF4444" // Bright red for over budget (>100%)
+                    : (category.percentage || 0) > 90
+                    ? "#F59E0B" // Orange for very close to limit (90-100%)
+                    : (category.percentage || 0) > 75
+                    ? "#FBBF24" // Yellow for approaching limit (75-90%)
+                    : category.color // Original color for safe range (<75%)
+                }
+              />
+              {/* Percentage Text Overlay */}
+              <View style={styles.progressTextOverlay}>
+                <Text
+                  style={[
+                    styles.progressPercentageText,
+                    {
+                      color:
+                        (category.percentage || 0) > 100
+                          ? "#EF4444"
+                          : colors.text,
+                      fontWeight:
+                        (category.percentage || 0) > 100 ? "800" : "600",
+                    },
+                  ]}
+                >
+                  {category.percentage || 0}%
+                </Text>
+                {/* Over Budget Indicator */}
+                {(category.percentage || 0) > 100 && (
+                  <Text style={styles.overBudgetIndicator}>!</Text>
+                )}
+              </View>
+            </View>
 
             {/* Amount Info */}
             <Text
@@ -632,6 +859,20 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
               {formatCurrency(category.amount || 0)} /{" "}
               {formatCurrency(category.limit || 0)}
             </Text>
+            {/* Remaining Amount */}
+            {!isDemo && (category as any).remaining !== undefined && (
+              <Text
+                style={[
+                  styles.remainingAmount,
+                  {
+                    color:
+                      (category as any).remaining > 0 ? "#10B981" : "#EF4444",
+                  },
+                ]}
+              >
+                {formatCurrency((category as any).remaining)} left
+              </Text>
+            )}
           </TouchableOpacity>
         ))}
       </View>
@@ -649,11 +890,16 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 24,
+    width: "100%", // Ensure full width
+    flex: 0, // Prevent container from growing or shrinking
+    minHeight: 300, // Minimum height to prevent collapsing during updates
   },
   loadingContainer: {
     padding: 40,
     alignItems: "center",
     justifyContent: "center",
+    width: "100%",
+    minHeight: 300, // Match container minHeight to prevent layout shifts
   },
   loadingText: {
     marginTop: 12,
@@ -664,14 +910,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
+    width: "100%", // Ensure full width
   },
   title: {
     fontSize: 18,
     fontWeight: "700",
+    flex: 1, // Allow title to take available space
   },
   filters: {
     flexDirection: "row",
     gap: 8,
+    flexShrink: 0, // Prevent shrinking
   },
   dropdownContainer: {
     position: "relative",
@@ -733,6 +982,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "space-between",
     gap: 12,
+    width: "100%", // Ensure full width
   },
   categoryCard: {
     width: "30%",
@@ -748,7 +998,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    minHeight: 140,
+    minHeight: 170, // Increased to accommodate all content
+    // Removed maxHeight constraint to allow content to fit properly
   },
   categoryIcon: {
     width: 36,
@@ -762,39 +1013,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   categoryName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
-    marginBottom: 8,
-    lineHeight: 14,
+    marginBottom: 10,
+    lineHeight: 16,
   },
   categoryAmount: {
-    fontSize: 9,
-    marginTop: 4,
+    fontSize: 10,
+    marginTop: 6,
     textAlign: "center",
   },
-  circularProgress: {
+  remainingAmount: {
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: "center",
+    fontWeight: "600",
+    paddingBottom: 4, // Add padding to ensure text is not cut off
+  },
+  progressContainer: {
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
+    marginVertical: 10, // Increased vertical margin
+    height: 54, // Fixed height to avoid layout shifts
   },
-  circularProgressTrack: {
-    position: "absolute",
-    borderWidth: 4,
-    borderColor: "#E5E7EB",
-  },
-  circularProgressFill: {
-    position: "absolute",
-  },
-  circularProgressText: {
+  progressTextOverlay: {
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
+    width: 50,
+    height: 50,
   },
-  circularProgressPercentage: {
+  progressPercentageText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "600",
+    textAlign: "center",
   },
+  overBudgetIndicator: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: "#EF4444",
+    marginTop: -2,
+  },
+  // Note: CircularProgress styles removed - using SVG-based component now
   subcategoryCard: {
     marginTop: 16,
     padding: 16,

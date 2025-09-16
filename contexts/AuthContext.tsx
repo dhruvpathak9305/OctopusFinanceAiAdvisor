@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
+// Note: Navigation removed to avoid react-router-dom dependency in React Native
 import { supabase } from "../lib/supabase/client";
 import { useToast } from "../common/hooks/use-toast";
 
@@ -10,7 +10,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<void>;
-  signIn: (email: string, password: string, rememberMe: boolean) => Promise<void>;
+  signIn: (
+    email: string,
+    password: string,
+    rememberMe: boolean
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   isAuthenticated: boolean;
@@ -18,67 +22,59 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const navigate = useNavigate();
+  // Navigation removed for React Native compatibility
   const { toast } = useToast();
 
   useEffect(() => {
     // Set up the auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        console.log('Auth state change:', event, currentSession?.user?.email);
-        
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        setIsAuthenticated(!!currentSession?.user);
-        
-        if (event === 'SIGNED_IN' && currentSession?.user) {
-          // Clear any existing session marker
-          sessionStorage.removeItem('octopusSession');
-          
-          // Redirect to dashboard on successful login
-          setTimeout(() => {
-            navigate('/dashboard');
-            toast({
-              title: "Welcome back!",
-              description: "You have successfully logged in.",
-            });
-            // Mark that we're in an active session
-            sessionStorage.setItem('octopusSession', 'true');
-          }, 100);
-        } else if (event === 'SIGNED_OUT') {
-          // Clear session marker when signed out
-          sessionStorage.removeItem('octopusSession');
-          
-          // Redirect to home page
-          setTimeout(() => {
-            navigate('/');
-            toast({
-              title: "Logged out",
-              description: "You have been successfully logged out.",
-            });
-          }, 100);
-        }
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log("Auth state change:", event, currentSession?.user?.email);
 
-    // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      console.log('Initial session check:', currentSession?.user?.email);
-      
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setIsAuthenticated(!!currentSession?.user);
-      
+
+      if (event === "SIGNED_IN" && currentSession?.user) {
+        // Show success message
+        setTimeout(() => {
+          toast({
+            title: "Welcome back!",
+            description: "You have successfully logged in.",
+          });
+        }, 100);
+      } else if (event === "SIGNED_OUT") {
+        // Show logout message
+        setTimeout(() => {
+          toast({
+            title: "Logged out",
+            description: "You have been successfully logged out.",
+          });
+        }, 100);
+      }
+    });
+
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log("Initial session check:", currentSession?.user?.email);
+
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setIsAuthenticated(!!currentSession?.user);
+
       // Set session marker if we restored a session
       if (currentSession) {
-        sessionStorage.setItem('octopusSession', 'true');
+        sessionStorage.setItem("octopusSession", "true");
       }
-      
+
       setLoading(false);
     });
 
@@ -93,13 +89,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) throw error;
-      
+
       toast({
         title: "Check your email",
         description: "We've sent you a confirmation link.",
       });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "An error occurred during sign up.";
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "An error occurred during sign up.";
       toast({
         title: "Sign up failed",
         description: msg,
@@ -109,28 +108,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signIn = async (email: string, password: string, rememberMe: boolean) => {
+  const signIn = async (
+    email: string,
+    password: string,
+    rememberMe: boolean
+  ) => {
     try {
-      console.log('Attempting sign in for:', email);
-      
+      console.log("Attempting sign in for:", email);
+
       // Clear any existing session marker before new login attempt
-      sessionStorage.removeItem('octopusSession');
-      
+      sessionStorage.removeItem("octopusSession");
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        console.log('Sign in error:', error.message);
+        console.log("Sign in error:", error.message);
         throw error;
       }
-      
-      console.log('Sign in successful for:', email);
+
+      console.log("Sign in successful for:", email);
       // The onAuthStateChange will handle the redirect and session marking
     } catch (error: unknown) {
-      console.log('Sign in caught error:', error);
-      const msg = error instanceof Error ? error.message : "Invalid email or password.";
+      console.log("Sign in caught error:", error);
+      const msg =
+        error instanceof Error ? error.message : "Invalid email or password.";
       toast({
         title: "Login failed",
         description: msg,
@@ -142,16 +146,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      console.log('Attempting sign out');
+      console.log("Attempting sign out");
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      
-      console.log('Sign out successful');
+
+      console.log("Sign out successful");
       // Clear session marker on explicit sign out
-      sessionStorage.removeItem('octopusSession');
+      sessionStorage.removeItem("octopusSession");
     } catch (error: unknown) {
-      console.log('Sign out error:', error);
-      const msg = error instanceof Error ? error.message : "An error occurred during sign out.";
+      console.log("Sign out error:", error);
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "An error occurred during sign out.";
       toast({
         title: "Sign out failed",
         description: msg,
@@ -166,15 +173,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Password reset email sent",
         description: "Check your email for the password reset link.",
       });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "An error occurred while sending the reset email.";
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "An error occurred while sending the reset email.";
       toast({
         title: "Password reset failed",
         description: msg,

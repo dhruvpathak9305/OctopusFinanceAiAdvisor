@@ -64,26 +64,18 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
     try {
       setLoading(true);
       setError(null);
-      console.log(
-        "🔄 BalanceContext: Fetching balances from balance_real table, isDemo:",
-        isDemo
-      );
       const fetchedBalances = await BalanceService.fetchAccountBalances(
         undefined,
         isDemo
       );
-      console.log("📊 BalanceContext: Raw fetched balances:", fetchedBalances);
-      console.log(
-        "💰 BalanceContext: Total balance calculated:",
-        fetchedBalances
-          .filter(
-            (b) =>
-              b.account_type !== "Credit Card" &&
-              b.account_type !== "Credit" &&
-              b.account_type !== "Loan"
-          )
-          .reduce((sum, balance) => sum + balance.current_balance, 0)
-      );
+      const totalBalance = fetchedBalances
+        .filter(
+          (b) =>
+            b.account_type !== "Credit Card" &&
+            b.account_type !== "Credit" &&
+            b.account_type !== "Loan"
+        )
+        .reduce((sum, balance) => sum + balance.current_balance, 0);
       setBalances(fetchedBalances);
     } catch (err) {
       console.error("Error fetching account balances:", err);
@@ -141,19 +133,12 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
 
     if (isWebEnvironment) {
       window.addEventListener("balanceUpdateNeeded", handleBalanceUpdateNeeded);
-      console.log(
-        "🎧 BalanceContext: Custom event listener added for balance updates (Web)"
-      );
     } else {
       // For React Native, use our custom event emitter
-      console.log(
-        "📱 BalanceContext: Setting up React Native compatible event listener"
-      );
     }
 
     // Always set up React Native compatible event listener as additional fallback
     const unsubscribeEmitter = subscribeToBalanceUpdates((event) => {
-      console.log("📱 BalanceContext: React Native event received:", event);
       setTimeout(() => {
         fetchBalances();
       }, 300);
@@ -168,21 +153,16 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
           "balanceUpdateNeeded",
           handleBalanceUpdateNeeded
         );
-        console.log("🧹 BalanceContext: Custom event listener removed");
       }
 
       // Always clean up React Native event emitter
       unsubscribeEmitter();
-      console.log("🧹 BalanceContext: React Native event emitter cleaned up");
     };
   }, [fetchBalances]);
 
   // Set up real-time subscription for balance updates (only in production mode)
   useEffect(() => {
     if (isDemo || process.env.EXPO_PUBLIC_DISABLE_REALTIME === "true") {
-      console.log(
-        "🎭 BalanceContext: Skipping real-time subscriptions (demo mode or disabled)"
-      );
       return; // Skip real-time subscriptions in demo mode or if disabled
     }
 
@@ -292,9 +272,6 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
   // Also listen to transaction changes as a fallback
   useEffect(() => {
     if (isDemo || process.env.EXPO_PUBLIC_DISABLE_REALTIME === "true") {
-      console.log(
-        "🎭 BalanceContext: Skipping transaction subscription (demo mode or disabled)"
-      );
       return; // Skip in demo mode or if disabled
     }
 

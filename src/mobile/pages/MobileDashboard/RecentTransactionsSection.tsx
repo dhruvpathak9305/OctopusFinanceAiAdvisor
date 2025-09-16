@@ -86,10 +86,6 @@ const transformSupabaseTransaction = (
     transactionType = supabaseTransaction.amount < 0 ? "expense" : "income";
   }
 
-  console.log(
-    `🔄 Transform transaction ${supabaseTransaction.id}: originalAmount=${supabaseTransaction.amount}, type=${transactionType}, supabaseType=${supabaseTransaction.type}`
-  );
-
   return {
     id: supabaseTransaction.id,
     description: supabaseTransaction.name || "Transaction",
@@ -365,9 +361,6 @@ const TransactionGroup: React.FC<{
                     transaction.icon
                   );
                   if (useFallback) {
-                    console.log(
-                      `🎯 Styling fallback for transaction ${transaction.id}: type="${transaction.type}", amount="${transaction.amount}"`
-                    );
                     const config = getFallbackIconConfig(transaction.type);
                     return {
                       borderWidth: 2,
@@ -401,9 +394,6 @@ const TransactionGroup: React.FC<{
                   );
 
                   if (subcategoryIcon) {
-                    console.log(
-                      `🎯 Using database-driven subcategory icon for "${transaction.subcategory}" with icon "${transaction.icon}"`
-                    );
                     return subcategoryIcon;
                   }
                 }
@@ -415,9 +405,6 @@ const TransactionGroup: React.FC<{
                   transaction.icon
                 );
                 if (useFallback) {
-                  console.log(
-                    `🎯 Using fallback for transaction ${transaction.id}: type="${transaction.type}", amount="${transaction.amount}"`
-                  );
                   const config = getFallbackIconConfig(transaction.type);
                   return config.icon;
                 }
@@ -861,7 +848,12 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
         <QuickAddButton
           editTransaction={editingTransaction}
           isEditMode={true}
-          onTransactionUpdate={handleTransactionUpdate}
+          onTransactionUpdate={() => {
+            // First refresh the data
+            handleTransactionUpdate();
+            // Close the modal immediately to prevent it from reopening
+            handleCloseEditModal();
+          }}
         />
       )}
     </View>
