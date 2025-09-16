@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
@@ -516,6 +517,10 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<
+    number | string | null
+  >(null);
 
   const colors = isDark
     ? {
@@ -710,6 +715,14 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     [isDemo]
   );
 
+  const showDeleteConfirmation = useCallback(
+    (transactionId: number | string) => {
+      setTransactionToDelete(transactionId);
+      setIsDeleteModalVisible(true);
+    },
+    []
+  );
+
   const handleDeleteTransaction = useCallback(
     async (transactionId: number | string) => {
       try {
@@ -724,6 +737,19 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     },
     [isDemo, fetchTransactionsData]
   );
+
+  const confirmDeleteTransaction = useCallback(async () => {
+    if (transactionToDelete) {
+      await handleDeleteTransaction(transactionToDelete);
+      setIsDeleteModalVisible(false);
+      setTransactionToDelete(null);
+    }
+  }, [transactionToDelete, handleDeleteTransaction]);
+
+  const cancelDeleteTransaction = useCallback(() => {
+    setIsDeleteModalVisible(false);
+    setTransactionToDelete(null);
+  }, []);
 
   const handleViewAll = () => {
     // Navigate to Transactions page
@@ -835,7 +861,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
                   date={date}
                   dayData={dayData}
                   onEditTransaction={handleEditTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
+                  onDeleteTransaction={showDeleteConfirmation}
                 />
               ))}
             </ScrollView>
@@ -856,6 +882,69 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelDeleteTransaction}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.deleteModalContainer,
+              { backgroundColor: colors.card },
+            ]}
+          >
+            <View style={styles.deleteModalHeader}>
+              <Text style={[styles.deleteModalTitle, { color: colors.text }]}>
+                Delete Transaction
+              </Text>
+            </View>
+
+            <View style={styles.deleteModalContent}>
+              <Text
+                style={[
+                  styles.deleteModalMessage,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Are you sure you want to delete this transaction? This action
+                cannot be undone.
+              </Text>
+            </View>
+
+            <View style={styles.deleteModalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.deleteModalButton,
+                  styles.cancelButton,
+                  { borderColor: colors.border },
+                ]}
+                onPress={cancelDeleteTransaction}
+              >
+                <Text
+                  style={[styles.deleteModalButtonText, { color: colors.text }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.confirmButton]}
+                onPress={confirmDeleteTransaction}
+              >
+                <Text
+                  style={[styles.deleteModalButtonText, { color: "#FFFFFF" }]}
+                >
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1122,6 +1211,69 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     fontSize: 14,
+  },
+  // Delete Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteModalContainer: {
+    width: "85%",
+    maxWidth: 400,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  deleteModalHeader: {
+    padding: 20,
+    paddingBottom: 10,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  deleteModalContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  deleteModalActions: {
+    flexDirection: "row",
+    padding: 20,
+    paddingTop: 10,
+    gap: 12,
+  },
+  deleteModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+  },
+  confirmButton: {
+    backgroundColor: "#EF4444",
+  },
+  deleteModalButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 
