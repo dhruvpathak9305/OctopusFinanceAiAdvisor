@@ -889,7 +889,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    marginBottom: 0,
     width: "100%", // Ensure full width
     flex: 0, // Prevent container from growing or shrinking
     minHeight: 300, // Minimum height to prevent collapsing during updates

@@ -862,7 +862,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    marginBottom: 40,
   },
   loadingContainer: {
     padding: 40,
