@@ -556,7 +556,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
     const lucideIconName = mapIconNameToLucide(finalIconName);
 
     try {
-      return renderIconFromName(lucideIconName, 22, color);
+      return renderIconFromName(lucideIconName, 18, color);
     } catch (error) {
       console.warn("Icon rendering failed for:", finalIconName, error);
       // Fallback to emoji icons
@@ -734,11 +734,17 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   };
 
   if (loading && budgetProgressData.length === 0) {
+    // Use a default height for loading state (assuming 2 rows for most cases)
+    const defaultLoadingHeight = 80 + 2 * 172; // base + 2 rows
+
     return (
       <View
         style={[
           styles.loadingContainer,
-          { backgroundColor: colors.background },
+          {
+            backgroundColor: colors.background,
+            minHeight: defaultLoadingHeight,
+          },
         ]}
       >
         <ActivityIndicator size="large" color="#10B981" />
@@ -751,8 +757,27 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
 
   const currentCategories = getCurrentCategories();
 
+  // Calculate dynamic container height based on number of cards
+  const calculateContainerHeight = () => {
+    const numberOfCards = currentCategories.length;
+    const cardsPerRow = 3;
+    const numberOfRows = Math.ceil(numberOfCards / cardsPerRow);
+
+    // Base height includes header (60px) + margins
+    const baseHeight = 80;
+    // Each row takes approximately 160px (card height) + 12px gap
+    const rowHeight = 172;
+
+    return baseHeight + numberOfRows * rowHeight;
+  };
+
+  const dynamicContainerStyle = {
+    ...styles.container,
+    minHeight: calculateContainerHeight(),
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={dynamicContainerStyle}>
       {/* Header with Filters */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
@@ -814,8 +839,8 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
             <View style={styles.progressContainer}>
               <CircularProgress
                 percentage={Math.min(category.percentage || 0, 100)} // Cap at 100% for visual
-                size={50}
-                strokeWidth={4}
+                size={65}
+                strokeWidth={5}
                 backgroundColor={colors.border + "30"}
                 showPercentage={false} // We'll show our own percentage overlay
                 color={
@@ -889,17 +914,17 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 0,
+    marginBottom: 24, // Add spacing between Budget Progress and Recent Transactions
     width: "100%", // Ensure full width
     flex: 0, // Prevent container from growing or shrinking
-    minHeight: 300, // Minimum height to prevent collapsing during updates
+    // minHeight is now calculated dynamically
   },
   loadingContainer: {
     padding: 40,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    minHeight: 300, // Match container minHeight to prevent layout shifts
+    // minHeight is now set dynamically inline
   },
   loadingText: {
     marginTop: 12,
@@ -986,7 +1011,7 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     width: "30%",
-    padding: 12,
+    padding: 10,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: "center",
@@ -998,16 +1023,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    minHeight: 170, // Increased to accommodate all content
+    minHeight: 160, // Reduced height to make cards shorter
     // Removed maxHeight constraint to allow content to fit properly
   },
   categoryIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   categoryIconText: {
     fontSize: 16,
@@ -1016,7 +1041,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 6,
     lineHeight: 16,
   },
   categoryAmount: {
@@ -1035,18 +1060,18 @@ const styles = StyleSheet.create({
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 10, // Increased vertical margin
-    height: 54, // Fixed height to avoid layout shifts
+    marginVertical: 8, // Reduced vertical margin
+    height: 64, // Fixed height to avoid layout shifts (reduced for shorter cards)
   },
   progressTextOverlay: {
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 60,
   },
   progressPercentageText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
     textAlign: "center",
   },
