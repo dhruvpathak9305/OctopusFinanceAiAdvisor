@@ -32,6 +32,7 @@ import { Account } from "../../../../contexts/AccountsContext";
 import {
   addTransaction,
   updateTransaction,
+  deleteTransaction,
 } from "../../../../services/transactionsService";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
 // Import modals
@@ -63,6 +64,7 @@ interface AddTransactionModalProps {
   onBack: () => void;
   editTransaction?: any; // Transaction to edit (if in edit mode)
   isEditMode?: boolean;
+  isCopyMode?: boolean; // New prop to indicate copy mode
   onTransactionUpdate?: () => void; // Callback to refresh transactions
 }
 
@@ -78,14 +80,22 @@ const ToastNotification = ({
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const theme = useTheme();
-  const colors = theme.colors || {
-    text: "#111827",
-    textSecondary: "#6B7280",
-    border: "#E5E7EB",
-    card: "#FFFFFF",
-    background: "#F9FAFB",
-  };
+  const { isDark } = useTheme();
+  const colors = isDark
+    ? {
+        text: "#FFFFFF",
+        textSecondary: "#9CA3AF",
+        border: "#374151",
+        card: "#1F2937",
+        background: "#111827",
+      }
+    : {
+        text: "#111827",
+        textSecondary: "#6B7280",
+        border: "#E5E7EB",
+        card: "#FFFFFF",
+        background: "#F9FAFB",
+      };
 
   useEffect(() => {
     if (visible) {
@@ -182,6 +192,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onBack,
   editTransaction,
   isEditMode = false,
+  isCopyMode = false,
   onTransactionUpdate,
 }) => {
   const { isDemo } = useDemoMode();
@@ -243,6 +254,9 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [showAddCreditCardModal, setShowAddCreditCardModal] = useState(false);
   const [selectedCategoryForSubcategory, setSelectedCategoryForSubcategory] =
     useState<BudgetCategory | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyTransactionData, setCopyTransactionData] = useState<any>(null);
 
   const tabs = ["Manual Entry", "Paste SMS", "Upload Image"];
 
@@ -327,9 +341,14 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     refreshData();
   }, [isDemo]);
 
-  // Effect to populate form fields when in edit mode
+  // Effect to populate form fields when in edit mode or copy mode
   useEffect(() => {
-    if (isEditMode && editTransaction) {
+    console.log("🔥 FORM DEBUG - useEffect triggered:", {
+      isEditMode,
+      isCopyMode,
+      editTransaction: !!editTransaction,
+    });
+    if ((isEditMode || isCopyMode) && editTransaction) {
       setDescription(editTransaction.name || editTransaction.description || "");
       setAmount(editTransaction.amount?.toString() || "");
       setTransactionType(editTransaction.type || "expense");
@@ -354,40 +373,53 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       if (transactionType === "income") {
         // For income, use destination account (where money goes)
         const accountName = editTransaction.destination_account_name || "";
-        const accountType = editTransaction.destination_account_type || "";
+        const accountInstitution =
+          editTransaction.destination_account_type || "";
         if (accountName) {
-          // Format as "Account Name (Type)" - using type since we don't have institution field
-          setAccount(
-            accountType ? `${accountName} (${accountType})` : accountName
+          // Format as "Account Name (Institution)" to match dropdown format
+          const formattedAccount = accountInstitution
+            ? `${accountName} (${accountInstitution})`
+            : accountName;
+          console.log(
+            "🔥 ACCOUNT DEBUG - Setting income account:",
+            formattedAccount
           );
+          setAccount(formattedAccount);
         }
       } else if (transactionType === "expense") {
         // For expense, use source account (where money comes from)
         const accountName = editTransaction.source_account_name || "";
-        const accountType = editTransaction.source_account_type || "";
+        const accountInstitution = editTransaction.source_account_type || "";
         if (accountName) {
-          setAccount(
-            accountType ? `${accountName} (${accountType})` : accountName
+          const formattedAccount = accountInstitution
+            ? `${accountName} (${accountInstitution})`
+            : accountName;
+          console.log(
+            "🔥 ACCOUNT DEBUG - Setting expense account:",
+            formattedAccount
           );
+          setAccount(formattedAccount);
         }
       } else if (transactionType === "transfer") {
         // For transfer, use both source and destination accounts
         const fromAccountName = editTransaction.source_account_name || "";
-        const fromAccountType = editTransaction.source_account_type || "";
+        const fromAccountInstitution =
+          editTransaction.source_account_type || "";
         const toAccountName = editTransaction.destination_account_name || "";
-        const toAccountType = editTransaction.destination_account_type || "";
+        const toAccountInstitution =
+          editTransaction.destination_account_type || "";
 
         if (fromAccountName) {
           setFromAccount(
-            fromAccountType
-              ? `${fromAccountName} (${fromAccountType})`
+            fromAccountInstitution
+              ? `${fromAccountName} (${fromAccountInstitution})`
               : fromAccountName
           );
         }
         if (toAccountName) {
           setToAccount(
-            toAccountType
-              ? `${toAccountName} (${toAccountType})`
+            toAccountInstitution
+              ? `${toAccountName} (${toAccountInstitution})`
               : toAccountName
           );
         }
@@ -401,7 +433,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setEndDate(new Date(editTransaction.recurrence_end_date));
       }
     }
-  }, [isEditMode, editTransaction]);
+  }, [isEditMode, isCopyMode, editTransaction]);
 
   // Note: Categories and subcategories now come from database via useEffect
 
@@ -536,6 +568,77 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       console.error("Error adding transaction:", error);
       Alert.alert("Error", "Failed to add transaction. Please try again.");
     }
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!isEditMode || !editTransaction) return;
+
+    try {
+      setShowDeleteConfirmation(false);
+
+      // Close modal first
+      onClose();
+
+      // Delete transaction
+      setTimeout(async () => {
+        try {
+          await deleteTransaction(editTransaction.id, isDemo);
+
+          setToastMessage(`Transaction "${description}" deleted successfully!`);
+          setToastVisible(true);
+
+          InteractionManager.runAfterInteractions(() => {
+            onTransactionUpdate?.();
+          });
+        } catch (err) {
+          console.error("Error deleting transaction:", err);
+          Alert.alert(
+            "Error",
+            "Failed to delete transaction. Please try again."
+          );
+        }
+      }, 100);
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      Alert.alert("Error", "Failed to delete transaction. Please try again.");
+    }
+  };
+
+  const handleCopyTransaction = () => {
+    if (!editTransaction) {
+      Alert.alert("Error", "No transaction data available to copy");
+      return;
+    }
+
+    console.log("🔥 COPY DEBUG - Original editTransaction:", editTransaction);
+
+    // Use the original editTransaction data directly, just modify the description
+    const copyData = {
+      ...editTransaction,
+      id: null, // New transaction, no ID
+      name: `Copy - ${
+        editTransaction.name || editTransaction.description || ""
+      }`,
+      description: `Copy - ${
+        editTransaction.name || editTransaction.description || ""
+      }`,
+      // Keep all other fields exactly as they were in the original transaction
+    };
+
+    console.log("🔥 COPY DEBUG - Final copy data:", copyData);
+    setCopyTransactionData(copyData);
+    setShowCopyModal(true);
+  };
+
+  const handleCloseCopyModal = () => {
+    setShowCopyModal(false);
+    setCopyTransactionData(null);
+  };
+
+  const handleCopyTransactionUpdate = () => {
+    // Close copy modal and refresh parent
+    handleCloseCopyModal();
+    onTransactionUpdate?.();
   };
 
   const handleAnalyzeSMS = async () => {
@@ -759,8 +862,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", {
-      month: "long",
       day: "numeric",
+      month: "short",
       year: "numeric",
     });
   };
@@ -915,209 +1018,209 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   />
                 </View>
               </View>
-            </View>
 
-            {/* Full width date picker */}
-            <View style={styles.fieldContainer}>
-              <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                Date <Text style={styles.required}>*</Text>
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.dateButtonFull,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => setShowDatePicker(true)}
+              {/* Date field in the same row as Amount */}
+              <View
+                style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}
               >
-                <Ionicons
-                  name="calendar"
-                  size={16}
-                  color={colors.textSecondary}
-                />
-                <Text style={[styles.dateText, { color: colors.text }]}>
-                  {formatDate(selectedDate)}
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                  Date <Text style={styles.required}>*</Text>
                 </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.dateButton,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Ionicons
+                    name="calendar"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={[styles.dateText, { color: colors.text }]}>
+                    {formatDate(selectedDate)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Category and Subcategory Row (for expense/income) */}
+            {/* Category (full width for expense/income) */}
             {transactionType !== "transfer" && (
-              <View style={styles.rowContainer}>
-                <View
-                  style={[styles.fieldContainer, { flex: 1, marginRight: 10 }]}
-                >
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                    Category <Text style={styles.required}>*</Text>
-                  </Text>
-                  <View style={styles.selectContainer}>
-                    <TouchableOpacity
+              <View style={styles.fieldContainer}>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                  Category <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.selectContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.selectButton,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (loading) return;
+                      const categories = getCurrentCategories();
+                      console.log("Available categories:", categories);
+                      setShowCategoryPicker(true);
+                    }}
+                  >
+                    <Text
                       style={[
-                        styles.selectButton,
+                        styles.selectText,
                         {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
+                          color: category ? colors.text : colors.textSecondary,
                         },
                       ]}
-                      onPress={() => {
-                        if (loading) return;
-                        const categories = getCurrentCategories();
-                        console.log("Available categories:", categories);
-                        setShowCategoryPicker(true);
-                      }}
+                      numberOfLines={1}
                     >
+                      {category ||
+                        (loading
+                          ? "Loading..."
+                          : getCurrentCategories().length > 0
+                          ? "Select category"
+                          : "No categories available")}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setShowAddCategoryModal(true)}
+                  >
+                    <Ionicons
+                      name="add"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Subcategory (full width for expense/income) */}
+            {transactionType !== "transfer" && (
+              <View style={styles.fieldContainer}>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                  Subcategory
+                </Text>
+                <View style={styles.selectContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.selectButton,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (loading || !category) return;
+                      const subcategories = getCurrentSubcategories();
+                      console.log("Available subcategories:", subcategories);
+                      setShowSubcategoryPicker(true);
+                    }}
+                  >
+                    <View style={styles.selectTextContainer}>
+                      {subcategory &&
+                        (() => {
+                          const {
+                            getSubcategoryIconFromDB,
+                            getSubcategoryIconName,
+                          } = require("../../../../utils/subcategoryIcons");
+
+                          // Try to get icon from database first, fallback to name-based lookup
+                          const subcategoryData = budgetSubcategories.find(
+                            (sub) => sub.name === subcategory
+                          );
+                          const dbIconName = subcategoryData?.icon;
+                          const iconElement = getSubcategoryIconFromDB(
+                            dbIconName,
+                            subcategory,
+                            16,
+                            "#10B981"
+                          );
+
+                          if (iconElement) {
+                            return (
+                              <View style={styles.subcategoryIconContainer}>
+                                {iconElement}
+                              </View>
+                            );
+                          }
+                          return null;
+                        })()}
                       <Text
                         style={[
                           styles.selectText,
                           {
-                            color: category
+                            color: subcategory
                               ? colors.text
                               : colors.textSecondary,
                           },
                         ]}
                         numberOfLines={1}
                       >
-                        {category ||
+                        {subcategory ||
                           (loading
                             ? "Loading..."
-                            : getCurrentCategories().length > 0
-                            ? "Select category"
-                            : "No categories available")}
+                            : !category
+                            ? "Select category first"
+                            : getCurrentSubcategories().length > 0
+                            ? "Select subcategory"
+                            : "No subcategories available")}
                       </Text>
-                      <Ionicons
-                        name="chevron-down"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.addButton,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      onPress={() => setShowAddCategoryModal(true)}
-                    >
-                      <Ionicons
-                        name="add"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View
-                  style={[styles.fieldContainer, { flex: 1, marginLeft: 10 }]}
-                >
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                    Subcategory
-                  </Text>
-                  <View style={styles.selectContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.selectButton,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        if (loading || !category) return;
-                        const subcategories = getCurrentSubcategories();
-                        console.log("Available subcategories:", subcategories);
-                        setShowSubcategoryPicker(true);
-                      }}
-                    >
-                      <View style={styles.selectTextContainer}>
-                        {subcategory &&
-                          (() => {
-                            const {
-                              getSubcategoryIconFromDB,
-                              getSubcategoryIconName,
-                            } = require("../../../../utils/subcategoryIcons");
-
-                            // Try to get icon from database first, fallback to name-based lookup
-                            const subcategoryData = budgetSubcategories.find(
-                              (sub) => sub.name === subcategory
-                            );
-                            const dbIconName = subcategoryData?.icon;
-                            const iconElement = getSubcategoryIconFromDB(
-                              dbIconName,
-                              subcategory,
-                              16,
-                              "#10B981"
-                            );
-
-                            if (iconElement) {
-                              return (
-                                <View style={styles.subcategoryIconContainer}>
-                                  {iconElement}
-                                </View>
-                              );
-                            }
-                            return null;
-                          })()}
-                        <Text
-                          style={[
-                            styles.selectText,
-                            {
-                              color: subcategory
-                                ? colors.text
-                                : colors.textSecondary,
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {subcategory ||
-                            (loading
-                              ? "Loading..."
-                              : !category
-                              ? "Select category first"
-                              : getCurrentSubcategories().length > 0
-                              ? "Select subcategory"
-                              : "No subcategories available")}
-                        </Text>
-                      </View>
-                      <Ionicons
-                        name="chevron-down"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.addButton,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        if (!category) {
-                          Alert.alert(
-                            "Select Category First",
-                            "Please select a category before adding a subcategory"
-                          );
-                          return;
-                        }
-                        const selectedCat = budgetCategories.find(
-                          (cat) => cat.name === category
+                    </View>
+                    <Ionicons
+                      name="chevron-down"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (!category) {
+                        Alert.alert(
+                          "Select Category First",
+                          "Please select a category before adding a subcategory"
                         );
-                        if (selectedCat) {
-                          setSelectedCategoryForSubcategory(selectedCat);
-                          setShowAddSubcategoryModal(true);
-                        }
-                      }}
-                    >
-                      <Ionicons
-                        name="add"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
+                        return;
+                      }
+                      const selectedCat = budgetCategories.find(
+                        (cat) => cat.name === category
+                      );
+                      if (selectedCat) {
+                        setSelectedCategoryForSubcategory(selectedCat);
+                        setShowAddSubcategoryModal(true);
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name="add"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -1551,34 +1654,66 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             )}
 
             {/* Action Buttons */}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.cancelButton,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={onClose}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.addTransactionButton,
-                  {
-                    backgroundColor:
-                      transactionTypes.find((t) => t.id === transactionType)
-                        ?.color || colors.primary,
-                  },
-                ]}
-                onPress={handleAddTransaction}
-              >
-                <Text style={styles.addTransactionButtonText}>
-                  {isEditMode ? "Update Transaction" : "Add Transaction"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {isEditMode ? (
+              // Edit mode: Show Update, Copy, Delete buttons (Copy in middle)
+              <View style={styles.editButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.updateButton, { backgroundColor: "#10B981" }]}
+                  onPress={handleAddTransaction}
+                >
+                  <Text style={styles.updateButtonText}>Update</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.copyButton, { backgroundColor: "#3B82F6" }]}
+                  onPress={handleCopyTransaction}
+                >
+                  <Text style={styles.copyButtonText}>Copy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.deleteButton, { backgroundColor: "#EF4444" }]}
+                  onPress={() => setShowDeleteConfirmation(true)}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // Add mode: Show Cancel and Add buttons
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.cancelButton,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={onClose}
+                >
+                  <Text
+                    style={[styles.cancelButtonText, { color: colors.text }]}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.addTransactionButton,
+                    {
+                      backgroundColor:
+                        transactionTypes.find((t) => t.id === transactionType)
+                          ?.color || colors.primary,
+                    },
+                  ]}
+                  onPress={handleAddTransaction}
+                >
+                  <Text style={styles.addTransactionButtonText}>
+                    Add Transaction
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Date Picker Modal */}
             {showDatePicker && Platform.OS === "ios" && (
@@ -2386,6 +2521,113 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               onClose={() => setShowAddAccountModal(false)}
               onAccountAdded={handleAccountAdded}
             />
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirmation && (
+              <Modal
+                visible={showDeleteConfirmation}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowDeleteConfirmation(false)}
+              >
+                <View style={styles.deleteModalOverlay}>
+                  <View
+                    style={[
+                      styles.deleteModalContainer,
+                      { backgroundColor: colors.card },
+                    ]}
+                  >
+                    <View style={styles.deleteModalHeader}>
+                      <Text
+                        style={[
+                          styles.deleteModalTitle,
+                          { color: colors.text },
+                        ]}
+                      >
+                        Delete Transaction
+                      </Text>
+                    </View>
+
+                    <View style={styles.deleteModalContent}>
+                      <Text
+                        style={[
+                          styles.deleteModalMessage,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Are you sure you want to delete this transaction? This
+                        action cannot be undone.
+                      </Text>
+                      <Text
+                        style={[
+                          styles.deleteModalTransaction,
+                          { color: colors.text },
+                        ]}
+                      >
+                        "{description}"
+                      </Text>
+                    </View>
+
+                    <View style={styles.deleteModalActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.deleteModalButton,
+                          styles.cancelDeleteButton,
+                          { borderColor: colors.border },
+                        ]}
+                        onPress={() => setShowDeleteConfirmation(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.deleteModalButtonText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.deleteModalButton,
+                          styles.confirmDeleteButton,
+                        ]}
+                        onPress={handleDeleteTransaction}
+                      >
+                        <Text
+                          style={[
+                            styles.deleteModalButtonText,
+                            { color: "#FFFFFF" },
+                          ]}
+                        >
+                          Delete
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </Modal>
+            )}
+
+            {/* Copy Transaction Modal */}
+            {showCopyModal && copyTransactionData && (
+              <Modal
+                visible={showCopyModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={handleCloseCopyModal}
+              >
+                <AddTransactionModal
+                  colors={colors}
+                  onClose={handleCloseCopyModal}
+                  onBack={handleCloseCopyModal}
+                  editTransaction={copyTransactionData}
+                  isEditMode={false}
+                  isCopyMode={true}
+                  onTransactionUpdate={handleCopyTransactionUpdate}
+                />
+              </Modal>
+            )}
           </ScrollView>
         );
 
@@ -2720,7 +2962,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
         <Text style={[styles.transactionModalTitle, { color: colors.text }]}>
-          {isEditMode ? "Edit Transaction" : "Add New Transaction"}
+          {isEditMode
+            ? "Edit Transaction"
+            : isCopyMode
+            ? "Copy Transaction"
+            : "Add New Transaction"}
         </Text>
         <TouchableOpacity onPress={onClose}>
           <Ionicons name="close" size={24} color={colors.textSecondary} />
@@ -3489,6 +3735,115 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "white",
+  },
+  // Edit Mode Button Styles
+  editButtonContainer: {
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 32,
+  },
+  updateButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  updateButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "white",
+  },
+  deleteButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "white",
+  },
+  copyButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  copyButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "white",
+  },
+  // Delete Modal Styles
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteModalContainer: {
+    width: "85%",
+    maxWidth: 400,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  deleteModalHeader: {
+    padding: 20,
+    paddingBottom: 10,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  deleteModalContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  deleteModalTransaction: {
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  deleteModalActions: {
+    flexDirection: "row",
+    padding: 20,
+    paddingTop: 10,
+    gap: 12,
+  },
+  deleteModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelDeleteButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+  },
+  confirmDeleteButton: {
+    backgroundColor: "#EF4444",
+  },
+  deleteModalButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   smsContainer: {
     flex: 1,
