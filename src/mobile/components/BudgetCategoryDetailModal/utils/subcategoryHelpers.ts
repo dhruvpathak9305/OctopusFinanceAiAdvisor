@@ -913,7 +913,7 @@ export const getMockSubcategories = (): BudgetSubcategory[] => [
     amount: 1500.0,
     current_spend: 1500.0,
     color: "#10B981",
-    icon: "🏠",
+    icon: "home",
   },
   {
     id: "2",
@@ -922,7 +922,7 @@ export const getMockSubcategories = (): BudgetSubcategory[] => [
     amount: 200.0,
     current_spend: 145.75,
     color: "#3B82F6",
-    icon: "⚡",
+    icon: "flash",
   },
   {
     id: "3",
@@ -931,7 +931,7 @@ export const getMockSubcategories = (): BudgetSubcategory[] => [
     amount: 400.0,
     current_spend: 130.5,
     color: "#F59E0B",
-    icon: "🛒",
+    icon: "basket",
   },
   {
     id: "4",
@@ -940,7 +940,7 @@ export const getMockSubcategories = (): BudgetSubcategory[] => [
     amount: 150.0,
     current_spend: 89.25,
     color: "#8B5CF6",
-    icon: "🚗",
+    icon: "car",
   },
   {
     id: "5",
@@ -949,7 +949,7 @@ export const getMockSubcategories = (): BudgetSubcategory[] => [
     amount: 300.0,
     current_spend: 0,
     color: "#EC4899",
-    icon: "🛡️",
+    icon: "umbrella",
   },
   {
     id: "6",
@@ -958,6 +958,6 @@ export const getMockSubcategories = (): BudgetSubcategory[] => [
     amount: 200.0,
     current_spend: 45.0,
     color: "#06B6D4",
-    icon: "🏥",
+    icon: "medical",
   },
 ];

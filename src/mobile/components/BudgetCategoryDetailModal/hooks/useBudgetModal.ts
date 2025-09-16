@@ -16,6 +16,8 @@ import {
   getMockSubcategories,
   generateSubcategoryId,
 } from "../utils/subcategoryHelpers";
+import { fetchBudgetSubcategories } from "../../../../../services/budgetService";
+import { useDemoMode } from "../../../../../contexts/DemoModeContext";
 
 export type ModalView =
   | "main"
@@ -72,49 +74,96 @@ export const useBudgetModal = (
   visible: boolean,
   category: BudgetCategory | null
 ): BudgetModalState & BudgetModalActions => {
+  const { isDemo } = useDemoMode();
+
   // View state
   const [currentView, setCurrentView] = useState<ModalView>("main");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
-  // Data state - use real subcategories from the category if available, otherwise use mock data
+  // Data state - use real subcategories from the category if available, otherwise fetch from database
   const [subcategories, setSubcategories] = useState<BudgetSubcategory[]>([]);
 
   // Initialize subcategories when category changes
   useEffect(() => {
-    const categoryWithSubs = category as BudgetCategory & {
-      subcategories?: any[];
+    const fetchSubcategoriesForCategory = async () => {
+      if (!category) {
+        setSubcategories([]);
+        return;
+      }
+
+      const categoryWithSubs = category as BudgetCategory & {
+        subcategories?: any[];
+      };
+
+      if (
+        categoryWithSubs?.subcategories &&
+        categoryWithSubs.subcategories.length > 0
+      ) {
+        // Map the category's subcategories to the expected format
+        const mappedSubcategories: BudgetSubcategory[] =
+          categoryWithSubs.subcategories.map((sub: any) => ({
+            id: sub.id,
+            name: sub.name,
+            amount: parseFloat(sub.budget_limit) || 0,
+            budgetLimit: parseFloat(sub.budget_limit) || 0,
+            color: sub.color || "#10B981",
+            icon: sub.icon || "flash", // Use proper Lucide icon instead of circle
+            spent: parseFloat(sub.current_spend) || 0,
+            current_spend: parseFloat(sub.current_spend) || 0,
+            remaining: Math.max(
+              0,
+              (parseFloat(sub.budget_limit) || 0) -
+                (parseFloat(sub.current_spend) || 0)
+            ),
+            category_id: categoryWithSubs.id || "",
+            is_active: sub.is_active !== false,
+          }));
+        setSubcategories(mappedSubcategories);
+      } else {
+        // Fetch real subcategories from database
+        try {
+          if (isDemo) {
+            // Use mock data for demo mode
+            setSubcategories(getMockSubcategories());
+          } else {
+            // Fetch real subcategories from database
+            const realSubcategories = await fetchBudgetSubcategories(isDemo);
+
+            // Filter subcategories for this category and map to expected format
+            const categorySubcategories = realSubcategories
+              .filter((sub: any) => sub.category_id === category.id)
+              .map((sub: any) => ({
+                id: sub.id,
+                name: sub.name,
+                amount: parseFloat(sub.budget_limit) || 0,
+                budgetLimit: parseFloat(sub.budget_limit) || 0,
+                color: sub.color || "#10B981",
+                icon: sub.icon || "flash", // Use proper Lucide icon
+                spent: parseFloat(sub.current_spend) || 0,
+                current_spend: parseFloat(sub.current_spend) || 0,
+                remaining: Math.max(
+                  0,
+                  (parseFloat(sub.budget_limit) || 0) -
+                    (parseFloat(sub.current_spend) || 0)
+                ),
+                category_id: sub.category_id,
+                is_active: sub.is_active !== false,
+              }));
+
+            setSubcategories(categorySubcategories);
+          }
+        } catch (error) {
+          console.error("Error fetching subcategories:", error);
+          // Fallback to mock data on error
+          setSubcategories(getMockSubcategories());
+        }
+      }
     };
-    if (
-      categoryWithSubs?.subcategories &&
-      categoryWithSubs.subcategories.length > 0
-    ) {
-      // Map the category's subcategories to the expected format
-      const mappedSubcategories: BudgetSubcategory[] =
-        categoryWithSubs.subcategories.map((sub: any) => ({
-          id: sub.id,
-          name: sub.name,
-          amount: parseFloat(sub.budget_limit) || 0, // This should be the budget limit, not current spend
-          budgetLimit: parseFloat(sub.budget_limit) || 0,
-          color: sub.color || "#10B981",
-          icon: sub.icon || "circle",
-          spent: parseFloat(sub.current_spend) || 0,
-          current_spend: parseFloat(sub.current_spend) || 0,
-          remaining: Math.max(
-            0,
-            (parseFloat(sub.budget_limit) || 0) -
-              (parseFloat(sub.current_spend) || 0)
-          ),
-          category_id: categoryWithSubs.id || "",
-          is_active: sub.is_active !== false,
-        }));
-      setSubcategories(mappedSubcategories);
-    } else {
-      // Fallback to mock data if no real subcategories available
-      setSubcategories(getMockSubcategories());
-    }
-  }, [category]);
+
+    fetchSubcategoriesForCategory();
+  }, [category, isDemo]);
   const [selectedSubcategory, setSelectedSubcategory] =
     useState<BudgetSubcategory | null>(null);
 

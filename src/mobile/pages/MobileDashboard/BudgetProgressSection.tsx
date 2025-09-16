@@ -722,7 +722,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
         percentage: category.percentage,
         category_type: category.category_type || "expense",
         icon: category.icon,
-        subcategories: [],
+        subcategories: [], // Will be fetched by the modal itself
         spent: category.amount,
         remaining: (category as any).remaining,
       };
