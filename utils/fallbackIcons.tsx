@@ -141,7 +141,27 @@ export const shouldUseFallbackIcon = (
   subcategory?: string | null,
   icon?: string | null
 ): boolean => {
-  // Use fallback if no meaningful icon is provided and no valid category info
-  const hasNoMeaningfulIcon = !icon || icon === "receipt" || icon === "📄";
-  return hasNoMeaningfulIcon && !hasValidCategoryInfo(category, subcategory);
+  // If an icon is explicitly provided from the database, use it
+  if (icon && icon.trim() !== "" && icon !== "null") {
+    // Check if it's a Lucide icon name (starts with capital letter or is a known icon name)
+    // This handles both properly capitalized icon names and lowercase ones
+    const isPotentialIconName =
+      // Standard capitalized format (e.g., "Utensils")
+      (icon.charAt(0) === icon.charAt(0).toUpperCase() &&
+        icon.length > 1 &&
+        /^[A-Z][a-zA-Z0-9]*$/.test(icon)) ||
+      // Lowercase format that might be a valid icon name (e.g., "utensils")
+      (/^[a-z][a-zA-Z0-9]*$/.test(icon) && icon.length > 1);
+
+    // Check if it's an emoji
+    const isEmoji = icon.length <= 2 || /\p{Emoji}/u.test(icon);
+
+    // If it's either a potential icon name or emoji, don't use fallback
+    if (isPotentialIconName || isEmoji) {
+      return false;
+    }
+  }
+
+  // Otherwise fall back to the default transaction type icons
+  return true;
 };

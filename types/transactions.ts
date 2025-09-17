@@ -8,7 +8,14 @@ export type Transaction = {
   amount: number;
   date: string;
   created_at?: string;
-  type: 'income' | 'expense' | 'transfer' | 'loan' | 'loan_repayment' | 'debt' | 'debt_collection';
+  type:
+    | "income"
+    | "expense"
+    | "transfer"
+    | "loan"
+    | "loan_repayment"
+    | "debt"
+    | "debt_collection";
   category_id: string | null;
   subcategory_id: string | null;
   icon: string | null;
@@ -30,6 +37,12 @@ export type Transaction = {
   loan_term_months?: number | null;
   metadata?: Record<string, any> | null;
   is_credit_card?: boolean;
+  // Additional fields for category/subcategory display
+  subcategory_icon?: string | null;
+  subcategory_color?: string | null;
+  category_icon?: string | null;
+  category_ring_color?: string | null;
+  category_bg_color?: string | null;
 };
 
 /**
@@ -50,9 +63,9 @@ export interface TransactionFormData {
   account: string;
   destinationAccount?: string; // Only for transfers
   isRecurring: boolean;
-  recurrence_pattern?: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  recurrence_pattern?: "weekly" | "monthly" | "quarterly" | "yearly";
   isAutopay?: boolean;
-  autopaySource?: 'account' | 'credit_card';
+  autopaySource?: "account" | "credit_card";
   billDueDate?: Date;
   recurrenceEndDate?: Date | null;
   autopayAccountId?: string;
@@ -111,13 +124,13 @@ export interface Subcategory {
  * Props for transaction form components
  */
 export interface TransactionDialogProps {
-  mode: 'add' | 'edit';
+  mode: "add" | "edit";
   open: boolean;
   transactionData?: Transaction;
   onClose: () => void;
   onSubmit: (formData: TransactionFormData) => Promise<void>;
-  defaultActiveTab?: 'manual' | 'sms' | 'image';
+  defaultActiveTab?: "manual" | "sms" | "image";
   categories?: Category[];
   subcategories?: Subcategory[];
   categoriesLoading?: boolean;
-} 
+}

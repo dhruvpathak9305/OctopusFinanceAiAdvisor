@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import TransactionItem from "../../components/TransactionItem";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
@@ -350,27 +351,7 @@ const getTransactionIcon = (
   return iconMap[type] || "📄";
 };
 
-// Get appropriate border color for transaction type
-const getTransactionBorderColor = (
-  type: string,
-  category?: string | null,
-  subcategory?: string | null,
-  customIcon?: string | null
-): string => {
-  // Import fallback icon utilities
-  const {
-    getFallbackBorderColor,
-    shouldUseFallbackIcon,
-  } = require("../../../../utils/fallbackIcons");
-
-  // Use fallback border colors when category/subcategory info is missing
-  if (shouldUseFallbackIcon(category, subcategory, customIcon)) {
-    return getFallbackBorderColor(type);
-  }
-
-  // Default border colors for categorized transactions
-  return "#E5E7EB"; // Light gray for categorized transactions
-};
+// Note: We're using consistent border colors for all transactions to match Recent Transactions section
 
 // Group transactions by date
 const groupTransactionsByDate = (
@@ -797,6 +778,11 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   }> = ({ value, options, onValueChange, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
 
+    // Modal backdrop for handling clicks outside
+    const closeDropdown = () => {
+      setIsOpen(false);
+    };
+
     return (
       <View style={styles.dropdownContainer}>
         <TouchableOpacity
@@ -818,37 +804,46 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         </TouchableOpacity>
 
         {isOpen && (
-          <View
-            style={[
-              styles.dropdownMenu,
-              {
-                backgroundColor: colors.filterBackground,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            {options.map((option, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dropdownItem,
-                  value === option && { backgroundColor: "#F59E0B20" },
-                ]}
-                onPress={() => {
-                  onValueChange(option);
-                  setIsOpen(false);
-                  console.log("Selected sort option:", option);
-                }}
-              >
-                <Text style={[styles.dropdownItemText, { color: colors.text }]}>
-                  {option}
-                </Text>
-                {value === option && (
-                  <Text style={styles.dropdownCheckmark}>✓</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+          <>
+            <TouchableOpacity
+              style={styles.dropdownBackdrop}
+              activeOpacity={0}
+              onPress={closeDropdown}
+            />
+            <View
+              style={[
+                styles.dropdownMenu,
+                {
+                  backgroundColor: colors.filterBackground,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              {options.map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dropdownItem,
+                    value === option && { backgroundColor: "#F59E0B20" },
+                  ]}
+                  onPress={() => {
+                    onValueChange(option);
+                    setIsOpen(false);
+                    console.log("Selected sort option:", option);
+                  }}
+                >
+                  <Text
+                    style={[styles.dropdownItemText, { color: colors.text }]}
+                  >
+                    {option}
+                  </Text>
+                  {value === option && (
+                    <Text style={styles.dropdownCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
         )}
       </View>
     );
@@ -1118,7 +1113,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
-      month: "long",
+      month: "short", // Changed from "long" to "short" for abbreviated month name
       day: "numeric",
       year: "numeric",
     });
@@ -1399,33 +1394,19 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
               {dayGroup.transactions.map((transaction) => {
                 const isSelected = selectedTransactions.has(transaction.id);
                 return (
-                  <TouchableOpacity
+                  <View
                     key={transaction.id}
-                    style={[
-                      styles.transactionItem,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: getTransactionBorderColor(
-                          transaction.type,
-                          transaction.tags?.[0], // category from tags
-                          transaction.tags?.[1], // subcategory from tags
-                          transaction.icon
-                        ),
-                      },
-                      isConfirmationMode &&
-                        isSelected &&
-                        styles.transactionItemSelected,
-                    ]}
-                    onPress={() => {
-                      if (isConfirmationMode) {
-                        toggleTransactionSelection(transaction.id);
-                      }
-                    }}
-                    activeOpacity={isConfirmationMode ? 0.7 : 1}
+                    style={
+                      isConfirmationMode ? styles.checkboxWrapper : undefined
+                    }
                   >
-                    <View style={styles.transactionLeft}>
-                      {isConfirmationMode && (
-                        <View style={styles.checkboxContainer}>
+                    {isConfirmationMode && (
+                      <View style={styles.checkboxContainer}>
+                        <TouchableOpacity
+                          onPress={() =>
+                            toggleTransactionSelection(transaction.id)
+                          }
+                        >
                           <View
                             style={[
                               styles.checkbox,
@@ -1436,166 +1417,75 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
                               <Text style={styles.checkmark}>✓</Text>
                             )}
                           </View>
-                        </View>
-                      )}
-                      <View
-                        style={[
-                          styles.transactionIcon,
-                          {
-                            backgroundColor: `${getTransactionColor(
-                              transaction.type
-                            )}20`,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.transactionIconText,
-                            { color: getTransactionColor(transaction.type) },
-                          ]}
-                        >
-                          {transaction.icon}
-                        </Text>
+                        </TouchableOpacity>
                       </View>
-                      <View style={styles.transactionInfo}>
-                        <Text
-                          style={[
-                            styles.transactionTitle,
-                            { color: colors.text },
-                          ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {transaction.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.transactionSource,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {transaction.source}
-                        </Text>
-                        <View style={styles.transactionTags}>
-                          {transaction.tags.map((tag, index) => {
-                            const tagColors = getTagColor(tag);
-                            return (
-                              <View
-                                key={index}
-                                style={[
-                                  styles.tag,
-                                  { backgroundColor: tagColors.background },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.tagText,
-                                    { color: tagColors.text },
-                                  ]}
-                                >
-                                  {tag}
-                                </Text>
-                              </View>
-                            );
-                          })}
-                        </View>
-                        <Text
-                          style={[
-                            styles.transactionDescription,
-                            { color: colors.textSecondary },
-                          ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {transaction.description}
-                        </Text>
-                      </View>
-                    </View>
+                    )}
 
-                    <View style={styles.transactionRight}>
-                      <Text
-                        style={[
-                          styles.transactionAmount,
-                          { color: getTransactionColor(transaction.type) },
-                        ]}
-                      >
-                        {transaction.amount > 0 ? "+" : ""}
-                        {formatCurrency(transaction.amount)}
-                      </Text>
-                      <View style={styles.transactionActions}>
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => handleEditTransaction(transaction)}
-                        >
-                          <Text
-                            style={[styles.actionIcon, { color: "#F59E0B" }]}
-                          >
-                            ✏️
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => {
-                            if (isConfirmationMode) {
-                              Alert.alert(
-                                "Remove Transaction",
-                                "Remove this transaction from the upload list?",
-                                [
-                                  { text: "Cancel", style: "cancel" },
-                                  {
-                                    text: "Remove",
-                                    style: "destructive",
-                                    onPress: () => {
-                                      // Remove from parsed transactions list
-                                      const updatedTransactions =
-                                        transactions.filter(
-                                          (t) => t.id !== transaction.id
-                                        );
-                                      setTransactions(updatedTransactions);
-                                      setGroupedTransactions(
-                                        groupTransactionsByDate(
-                                          updatedTransactions
-                                        )
-                                      );
-                                      // Remove from selected if it was selected
-                                      const newSelection = new Set(
-                                        selectedTransactions
-                                      );
-                                      newSelection.delete(transaction.id);
-                                      setSelectedTransactions(newSelection);
-                                    },
-                                  },
-                                ]
-                              );
-                            } else {
-                              Alert.alert(
-                                "Delete Transaction",
-                                "Are you sure you want to delete this transaction?",
-                                [
-                                  { text: "Cancel", style: "cancel" },
-                                  {
-                                    text: "Delete",
-                                    style: "destructive",
-                                    onPress: () =>
-                                      handleDeleteTransaction(transaction.id),
-                                  },
-                                ]
-                              );
-                            }
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.actionIcon,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            🗑️
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                    <TransactionItem
+                      transaction={transaction}
+                      onPress={() => {
+                        if (isConfirmationMode) {
+                          toggleTransactionSelection(transaction.id);
+                        } else {
+                          handleEditTransaction(transaction);
+                        }
+                      }}
+                      onEdit={() => handleEditTransaction(transaction)}
+                      onDelete={() => {
+                        if (isConfirmationMode) {
+                          Alert.alert(
+                            "Remove Transaction",
+                            "Remove this transaction from the upload list?",
+                            [
+                              { text: "Cancel", style: "cancel" },
+                              {
+                                text: "Remove",
+                                style: "destructive",
+                                onPress: () => {
+                                  // Remove from parsed transactions list
+                                  const updatedTransactions =
+                                    transactions.filter(
+                                      (t) => t.id !== transaction.id
+                                    );
+                                  setTransactions(updatedTransactions);
+                                  setGroupedTransactions(
+                                    groupTransactionsByDate(updatedTransactions)
+                                  );
+                                  // Remove from selected if it was selected
+                                  const newSelection = new Set(
+                                    selectedTransactions
+                                  );
+                                  newSelection.delete(transaction.id);
+                                  setSelectedTransactions(newSelection);
+                                },
+                              },
+                            ]
+                          );
+                        } else {
+                          Alert.alert(
+                            "Delete Transaction",
+                            "Are you sure you want to delete this transaction?",
+                            [
+                              { text: "Cancel", style: "cancel" },
+                              {
+                                text: "Delete",
+                                style: "destructive",
+                                onPress: () =>
+                                  handleDeleteTransaction(transaction.id),
+                              },
+                            ]
+                          );
+                        }
+                      }}
+                      isSelected={isSelected}
+                      colors={colors}
+                      style={
+                        isConfirmationMode && isSelected
+                          ? styles.transactionItemSelected
+                          : undefined
+                      }
+                    />
+                  </View>
                 );
               })}
             </View>
@@ -1787,6 +1677,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginLeft: 4,
   },
+  dropdownBackdrop: {
+    position: "absolute",
+    top: -1000,
+    left: -1000,
+    right: -1000,
+    bottom: -1000,
+    width: 5000,
+    height: 5000,
+    zIndex: 999,
+  },
   dropdownMenu: {
     position: "absolute",
     top: "100%",
@@ -1803,6 +1703,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+    zIndex: 1000,
   },
   dropdownItem: {
     flexDirection: "row",
@@ -1859,7 +1760,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "600",
   },
   dateSummary: {
@@ -1980,6 +1881,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#1F2937", // Darker background for better contrast
     borderColor: "#007AFF",
     borderWidth: 2,
+  },
+  checkboxWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
   },
   confirmationButtons: {
     flexDirection: "row",

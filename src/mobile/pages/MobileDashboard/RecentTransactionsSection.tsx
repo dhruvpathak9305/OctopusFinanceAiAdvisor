@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
 } from "react-native";
+import TransactionItem from "../../components/TransactionItem";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
@@ -40,6 +41,13 @@ interface Transaction {
   icon: string | null;
   date: string;
   tags?: string[];
+  // Additional fields from Supabase
+  subcategory_icon?: string | null;
+  category_icon?: string | null;
+  // Color fields from database
+  category_ring_color?: string | null;
+  category_bg_color?: string | null;
+  subcategory_color?: string | null;
 }
 
 // Define grouped transactions type
@@ -87,6 +95,18 @@ const transformSupabaseTransaction = (
     transactionType = supabaseTransaction.amount < 0 ? "expense" : "income";
   }
 
+  // Get subcategory icon if available (we need to check for it in the response)
+  const subcategoryIcon =
+    (supabaseTransaction as any).subcategory_icon ||
+    (supabaseTransaction as any).budget_subcategories?.icon ||
+    null;
+
+  // Get category icon if available
+  const categoryIcon =
+    (supabaseTransaction as any).category_icon ||
+    (supabaseTransaction as any).budget_categories?.icon ||
+    null;
+
   return {
     id: supabaseTransaction.id,
     description: supabaseTransaction.name || "Transaction",
@@ -97,8 +117,19 @@ const transformSupabaseTransaction = (
     category: supabaseTransaction.category_name || "uncategorized",
     subcategory: supabaseTransaction.subcategory_name || undefined,
     note: supabaseTransaction.description || undefined,
-    icon: supabaseTransaction.icon || null,
+    // Use subcategory icon, then category icon, then transaction icon
+    icon: subcategoryIcon || categoryIcon || supabaseTransaction.icon || null,
     date: supabaseTransaction.date,
+    // Pass database colors for proper styling
+    category_ring_color:
+      (supabaseTransaction as any).category_ring_color ||
+      (supabaseTransaction as any).budget_categories?.ring_color,
+    category_bg_color:
+      (supabaseTransaction as any).category_bg_color ||
+      (supabaseTransaction as any).budget_categories?.bg_color,
+    subcategory_color:
+      (supabaseTransaction as any).subcategory_color ||
+      (supabaseTransaction as any).budget_subcategories?.color,
     tags: [
       supabaseTransaction.category_name,
       supabaseTransaction.subcategory_name,
@@ -254,7 +285,7 @@ const TransactionGroup: React.FC<{
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
-      month: "long",
+      month: "short", // Changed from "long" to "short" for abbreviated month name
       day: "numeric",
       year: "numeric",
     });
@@ -325,181 +356,14 @@ const TransactionGroup: React.FC<{
 
       {/* Transactions */}
       {dayData.transactions.map((transaction) => (
-        <TouchableOpacity
+        <TransactionItem
           key={transaction.id}
-          style={[
-            styles.transactionItem,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          transaction={transaction}
           onPress={() => onEditTransaction(transaction.id)}
-          onLongPress={() => {
-            Alert.alert(
-              "Delete Transaction",
-              "Are you sure you want to delete this transaction?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: () => onDeleteTransaction(transaction.id),
-                },
-              ]
-            );
-          }}
-        >
-          <View style={styles.transactionLeft}>
-            <View
-              style={[
-                styles.transactionIcon,
-                (() => {
-                  const {
-                    shouldUseFallbackIcon,
-                    getFallbackIconConfig,
-                  } = require("../../../../utils/fallbackIcons");
-                  const useFallback = shouldUseFallbackIcon(
-                    transaction.category,
-                    transaction.subcategory,
-                    transaction.icon
-                  );
-                  if (useFallback) {
-                    const config = getFallbackIconConfig(transaction.type);
-                    return {
-                      borderWidth: 2,
-                      borderColor: config.borderColor,
-                      backgroundColor: config.backgroundColor,
-                    };
-                  }
-                  return {};
-                })(),
-              ]}
-            >
-              {(() => {
-                const {
-                  shouldUseFallbackIcon,
-                  getFallbackIconConfig,
-                } = require("../../../../utils/fallbackIcons");
-                const {
-                  getSubcategoryIconFromDB,
-                  renderIconFromName,
-                } = require("../../../../utils/subcategoryIcons");
-
-                // Priority 1: Use database-driven subcategory icon if available
-                if (transaction.subcategory) {
-                  // For RecentTransactionsSection, we need to get subcategory data from the transaction
-                  // The transaction.icon might contain the database icon name for the subcategory
-                  const subcategoryIcon = getSubcategoryIconFromDB(
-                    transaction.icon, // This should be the Lucide icon name from database
-                    transaction.subcategory,
-                    20,
-                    "#10B981"
-                  );
-
-                  if (subcategoryIcon) {
-                    return subcategoryIcon;
-                  }
-                }
-
-                // Priority 2: Use fallback icons for transactions without proper categorization
-                const useFallback = shouldUseFallbackIcon(
-                  transaction.category,
-                  transaction.subcategory,
-                  transaction.icon
-                );
-                if (useFallback) {
-                  const config = getFallbackIconConfig(transaction.type);
-                  return config.icon;
-                }
-
-                // Priority 3: Use transaction icon as fallback
-                return (
-                  <Text style={styles.transactionIconText}>
-                    {transaction.icon || "📄"}
-                  </Text>
-                );
-              })()}
-            </View>
-            <View style={styles.transactionInfo}>
-              <Text
-                style={[styles.transactionDescription, { color: colors.text }]}
-                numberOfLines={1}
-              >
-                {transaction.description}
-              </Text>
-              <Text
-                style={[
-                  styles.transactionAccount,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {transaction.account}
-              </Text>
-              {transaction.note && (
-                <Text
-                  style={[
-                    styles.transactionNote,
-                    { color: colors.textSecondary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {transaction.note}
-                </Text>
-              )}
-              {transaction.tags && transaction.tags.length > 0 && (
-                <View style={styles.transactionTags}>
-                  {transaction.tags.slice(0, 2).map((tag, index) => (
-                    <View
-                      key={index}
-                      style={[styles.tag, { backgroundColor: "#10B98120" }]}
-                    >
-                      <Text style={[styles.tagText, { color: "#10B981" }]}>
-                        {tag}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.transactionRight}>
-            <Text
-              style={[
-                styles.transactionAmount,
-                { color: getTransactionColor(transaction.type) },
-              ]}
-            >
-              {transaction.type === "income" ? "+" : "-"}
-              {transaction.amount}
-            </Text>
-            <View style={styles.transactionActions}>
-              {transaction.isRecurring && (
-                <View style={styles.recurringIndicator}>
-                  <Text style={styles.recurringText}>🔄</Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => onEditTransaction(transaction.id)}
-              >
-                <Text
-                  style={[styles.actionIcon, { color: colors.textSecondary }]}
-                >
-                  ✏️
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => onDeleteTransaction(transaction.id)}
-              >
-                <Text
-                  style={[styles.actionIcon, { color: colors.textSecondary }]}
-                >
-                  🗑️
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
+          onEdit={() => onEditTransaction(transaction.id)}
+          onDelete={() => onDeleteTransaction(transaction.id)}
+          colors={colors}
+        />
       ))}
     </View>
   );
@@ -1121,7 +985,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   dateSummary: {

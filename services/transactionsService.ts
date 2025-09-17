@@ -124,13 +124,13 @@ const buildTransactionSelectQuery = (tableMap: TableMap): string => {
     {
       table: "budget_categories",
       foreignKey: "category_id",
-      columns: "name",
+      columns: "name, ring_color, bg_color, icon",
       alias: "budget_categories",
     },
     {
       table: "budget_subcategories",
       foreignKey: "subcategory_id",
-      columns: "name",
+      columns: "name, icon, color",
       alias: "budget_subcategories",
     },
   ];
@@ -239,6 +239,13 @@ export const transformTransactionResponse = (rawData: any): Transaction => {
       rawData.budget_categories?.name || rawData.category_name || null,
     subcategory_name:
       rawData.budget_subcategories?.name || rawData.subcategory_name || null,
+    // Extract subcategory icon and color if available
+    subcategory_icon: rawData.budget_subcategories?.icon || null,
+    subcategory_color: rawData.budget_subcategories?.color || null,
+    // Extract category icons and colors if available
+    category_icon: rawData.budget_categories?.icon || null,
+    category_ring_color: rawData.budget_categories?.ring_color || null,
+    category_bg_color: rawData.budget_categories?.bg_color || null,
     // Remove nested objects to keep structure clean
     budget_categories: undefined,
     budget_subcategories: undefined,
