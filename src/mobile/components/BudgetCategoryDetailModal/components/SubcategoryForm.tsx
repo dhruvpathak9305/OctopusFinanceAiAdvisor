@@ -16,6 +16,7 @@ import { useSubcategoryForm } from "../hooks/useSubcategoryForm";
 import { AVAILABLE_COLORS } from "../utils/subcategoryHelpers";
 import { ALL_IONICONS } from "../utils/allIonicons";
 import { renderIconFromName } from "../../../../../utils/subcategoryIcons";
+import { generateSubcategoryColor } from "../../../../../utils/colors/SubcategoryColorGenerator";
 import { LucideIconPickerModal } from "./modals/LucideIconPickerModal";
 import { ColorPickerModal } from "./modals/ColorPickerModal";
 
@@ -40,6 +41,7 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
   const form = useSubcategoryForm();
   const [showIconModal, setShowIconModal] = useState(false);
   const [showColorModal, setShowColorModal] = useState(false);
+  const [userSelectedColor, setUserSelectedColor] = useState(false);
 
   // Calculate budget remaining and validation
   const calculateBudgetInfo = () => {
@@ -103,10 +105,27 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
   useEffect(() => {
     if (subcategory) {
       form.loadFromSubcategory(subcategory);
+      setUserSelectedColor(true); // Assume color was previously selected in edit mode
     } else {
       form.resetForm();
+      setUserSelectedColor(false); // Reset user color selection when form is reset
     }
   }, [subcategory]);
+
+  // Generate a random color when the form first loads (not on name change)
+  useEffect(() => {
+    // Only generate color if we're not in edit mode and user hasn't manually selected a color
+    if (!isEditMode && !userSelectedColor && category?.ring_color) {
+      // Generate a random color based on parent category color
+      // Use a random seed instead of the subcategory name
+      const randomSeed = Math.floor(Math.random() * 1000).toString();
+      const generatedColor = generateSubcategoryColor(
+        category.ring_color,
+        randomSeed
+      );
+      form.updateColor(generatedColor);
+    }
+  }, [category?.ring_color, isEditMode, userSelectedColor]);
 
   const handleSave = () => {
     // Validate budget before saving
@@ -626,6 +645,8 @@ export const SubcategoryForm: React.FC<SubCategoryFormProps> = ({
         onClose={() => setShowColorModal(false)}
         onSelectColor={(colorHex) => {
           form.updateColor(colorHex);
+          // Mark that user manually selected a color
+          setUserSelectedColor(true);
         }}
         currentColor={form.color}
         colors={colors}
