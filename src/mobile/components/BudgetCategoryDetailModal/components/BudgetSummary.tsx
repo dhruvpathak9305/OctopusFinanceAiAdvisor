@@ -30,6 +30,8 @@ export interface BudgetSummaryProps {
   showNavigation?: boolean;
   onNavigatePrev?: () => void;
   onNavigateNext?: () => void;
+  currentIndex?: number;
+  totalCategories?: number;
 }
 
 const BudgetSummary: React.FC<BudgetSummaryProps> = ({
@@ -45,6 +47,8 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   showNavigation = false,
   onNavigatePrev,
   onNavigateNext,
+  currentIndex = 0,
+  totalCategories = 1,
 }) => {
   const progressColor = getProgressColor(totalSpent, totalBudget, colors);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -293,6 +297,27 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
             </Text>
           </View>
         </View>
+
+        {/* Pagination Dots */}
+        {showNavigation && totalCategories > 1 && (
+          <View style={styles.paginationContainer}>
+            {Array.from({ length: totalCategories }).map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.paginationDot,
+                  index === currentIndex && styles.paginationDotActive,
+                  {
+                    backgroundColor:
+                      index === currentIndex
+                        ? colors.primary
+                        : colors.textSecondary + "50",
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        )}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -521,6 +546,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#10B981",
     fontWeight: "bold",
+  },
+  paginationContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 4,
+    height: 8,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   // Removed status-related styles as per requirements
 });

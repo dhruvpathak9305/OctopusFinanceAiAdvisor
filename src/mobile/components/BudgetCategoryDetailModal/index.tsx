@@ -62,6 +62,10 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
         showNavigation={availableCategories.length > 1}
         onNavigatePrev={() => onCategoryChange?.("prev")}
         onNavigateNext={() => onCategoryChange?.("next")}
+        currentIndex={availableCategories.findIndex(
+          (cat) => cat.id === category.id
+        )}
+        totalCategories={availableCategories.length}
       />
 
       {/* Sort Section with Dropdown */}
