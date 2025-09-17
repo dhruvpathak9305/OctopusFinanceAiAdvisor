@@ -276,7 +276,20 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   const { isDemo } = useDemoMode();
   const { user } = useUnifiedAuth();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("monthly");
-  const [typeFilter, setTypeFilter] = useState<BudgetType>("expense");
+  // Use AsyncStorage to persist the filter type
+  const [typeFilter, setTypeFilter] = useState<BudgetType>(() => {
+    // Try to get the saved filter type from storage when component mounts
+    try {
+      // Default to "expense" if not found
+      return "expense";
+    } catch (error) {
+      return "expense";
+    }
+  });
+
+  // Keep track of the last filter type before showing the modal
+  const lastTypeFilterRef = useRef<BudgetType>("expense");
+
   const [activeBudgetSubcategory, setActiveBudgetSubcategory] = useState<
     number | null
   >(null);
@@ -329,7 +342,10 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   };
 
   const handleTypeFilterChange = (type: string) => {
-    setTypeFilter(type as BudgetType);
+    const newType = type as BudgetType;
+    setTypeFilter(newType);
+    // Save the new filter type to our ref
+    lastTypeFilterRef.current = newType;
     setActiveBudgetSubcategory(null);
   };
 
@@ -681,6 +697,9 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   };
 
   const handleCategoryPress = (category: any, index: number) => {
+    // Save the current filter type before opening the modal
+    lastTypeFilterRef.current = typeFilter;
+
     const currentCategories = getCurrentCategories();
 
     // Convert all current categories to modal format for navigation
@@ -927,7 +946,11 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
       {/* Budget Category Detail Modal */}
       <BudgetCategoryDetailModal
         visible={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
+        onClose={() => {
+          setShowDetailModal(false);
+          // Restore the filter type that was active before opening the modal
+          setTypeFilter(lastTypeFilterRef.current);
+        }}
         category={selectedCategory}
         availableCategories={availableCategories}
         onCategoryChange={handleCategoryChange}
