@@ -19,7 +19,7 @@ import {
   fetchTransactionById,
 } from "../../../../services/transactionsService";
 import { Transaction as SupabaseTransaction } from "../../../../types/transactions";
-import DateSelector from "../../components/DateSelector";
+import DateSelectorWithNavigation from "../../components/DateSelectorWithNavigation";
 import SearchModal from "../../components/SearchModal";
 import QuickAddButton from "../../components/QuickAddButton";
 import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
@@ -49,8 +49,12 @@ interface Transaction {
   description: string;
   amount: number;
   type: "income" | "expense" | "transfer";
-  icon: string;
+  icon: string | null;
   date: string;
+  // Database color fields
+  category_ring_color?: string | null;
+  category_bg_color?: string | null;
+  subcategory_color?: string | null;
 }
 
 // Define grouped transactions type
@@ -270,6 +274,31 @@ const transformSupabaseTransaction = (
   supabaseTransaction: SupabaseTransaction
 ): Transaction => {
   try {
+    // Get subcategory icon if available (check for it in the response)
+    const subcategoryIcon =
+      (supabaseTransaction as any).subcategory_icon ||
+      (supabaseTransaction as any).budget_subcategories?.icon ||
+      null;
+
+    // Get category icon if available
+    const categoryIcon =
+      (supabaseTransaction as any).category_icon ||
+      (supabaseTransaction as any).budget_categories?.icon ||
+      null;
+
+    // Extract category and subcategory colors for proper styling
+    const categoryRingColor =
+      (supabaseTransaction as any).category_ring_color ||
+      (supabaseTransaction as any).budget_categories?.ring_color;
+
+    const categoryBgColor =
+      (supabaseTransaction as any).category_bg_color ||
+      (supabaseTransaction as any).budget_categories?.bg_color;
+
+    const subcategoryColor =
+      (supabaseTransaction as any).subcategory_color ||
+      (supabaseTransaction as any).budget_subcategories?.color;
+
     return {
       id: supabaseTransaction.id || "",
       title: supabaseTransaction.name || "Transaction",
@@ -287,12 +316,12 @@ const transformSupabaseTransaction = (
       type:
         (supabaseTransaction.type as "income" | "expense" | "transfer") ||
         "expense",
-      icon: getTransactionIcon(
-        supabaseTransaction.type,
-        supabaseTransaction.icon,
-        supabaseTransaction.category_name,
-        supabaseTransaction.subcategory_name
-      ),
+      // Use subcategory icon, then category icon, then transaction icon
+      icon: subcategoryIcon || categoryIcon || supabaseTransaction.icon || null,
+      // Pass database colors for proper styling
+      category_ring_color: categoryRingColor,
+      category_bg_color: categoryBgColor,
+      subcategory_color: subcategoryColor,
       date: supabaseTransaction.date || new Date().toISOString().split("T")[0],
     };
   } catch (error) {
@@ -1269,10 +1298,11 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
           </View>
         ) : (
           <View style={styles.filtersRow}>
-            <DateSelector
+            <DateSelectorWithNavigation
               value={selectedFilter}
               onValueChange={handleFilterChange}
               placeholder="Select month"
+              showNavigationButtons={true}
             />
             <Dropdown
               value={selectedSort}
