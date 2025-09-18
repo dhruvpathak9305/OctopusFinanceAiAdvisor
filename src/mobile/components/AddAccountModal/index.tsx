@@ -36,7 +36,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
 
   const [name, setName] = useState("");
   const [type, setType] = useState("savings");
-  const [balance, setBalance] = useState("");
+  const [balance, setBalance] = useState("0");
   const [institution, setInstitution] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [logoUri, setLogoUri] = useState<string | null>(null);
@@ -264,7 +264,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
     // Reset all form fields
     setName("");
     setType("savings");
-    setBalance("");
+    setBalance("0");
     setInstitution("");
     setAccountNumber("");
     setLogoUri(null);
@@ -1117,7 +1117,7 @@ const styles = StyleSheet.create({
     paddingTop: 44,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     flex: 1,
     textAlign: "center",
@@ -1128,12 +1128,12 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   fieldContainer: {
-    marginBottom: 14,
+    marginBottom: 20,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   labelWithAction: {
     flexDirection: "row",
@@ -1153,11 +1153,11 @@ const styles = StyleSheet.create({
   logoUploadButton: {
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 80,
+    minHeight: 100,
   },
   logoUploadContent: {
     alignItems: "center",
@@ -1215,28 +1215,28 @@ const styles = StyleSheet.create({
   textInput: {
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    minHeight: 38,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    minHeight: 50,
   },
   amountContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 38,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 50,
   },
   currencySymbol: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "500",
-    marginRight: 6,
+    marginRight: 8,
   },
   amountInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
     padding: 0,
   },
   rowContainer: {
@@ -1249,20 +1249,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 38,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 50,
   },
   selectContent: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    marginRight: 6,
+    marginRight: 8,
   },
   selectText: {
-    fontSize: 14,
+    fontSize: 16,
     flex: 1,
-    marginLeft: 6,
+    marginLeft: 8,
   },
   // Picker Modal Styles
   pickerOverlay: {
@@ -1311,6 +1311,7 @@ const styles = StyleSheet.create({
   pickerItemText: {
     fontSize: 16,
     flex: 1,
+    marginLeft: 12,
   },
   pickerCancel: {
     fontSize: 16,
@@ -1321,19 +1322,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   sectionContainer: {
-    padding: 12,
+    padding: 16,
     borderRadius: 10,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
-    marginBottom: 3,
+    marginBottom: 4,
   },
   sectionSubtitle: {
-    fontSize: 11,
-    marginBottom: 12,
+    fontSize: 13,
+    marginBottom: 16,
   },
   buttonContainer: {
     flexDirection: "row",
@@ -1345,23 +1346,23 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderRadius: 10,
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: "center",
-    minHeight: 44,
+    minHeight: 54,
   },
   cancelButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
   },
   saveButton: {
     flex: 2,
     borderRadius: 10,
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: "center",
-    minHeight: 44,
+    minHeight: 54,
   },
   saveButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     color: "white",
   },

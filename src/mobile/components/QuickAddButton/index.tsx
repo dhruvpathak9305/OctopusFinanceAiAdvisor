@@ -211,6 +211,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showSubcategoryPicker, setShowSubcategoryPicker] = useState(false);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [showFromAccountPicker, setShowFromAccountPicker] = useState(false);
+  const [showToAccountPicker, setShowToAccountPicker] = useState(false);
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showAutopayAccountPicker, setShowAutopayAccountPicker] =
@@ -1243,6 +1245,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                           borderColor: colors.border,
                         },
                       ]}
+                      onPress={() => {
+                        if (loading) return;
+                        setShowFromAccountPicker(true);
+                      }}
                     >
                       <Text
                         style={[
@@ -1271,6 +1277,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                           borderColor: colors.border,
                         },
                       ]}
+                      onPress={() => setShowAddAccountModal(true)}
                     >
                       <Ionicons
                         name="add"
@@ -1296,6 +1303,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                           borderColor: colors.border,
                         },
                       ]}
+                      onPress={() => {
+                        if (loading) return;
+                        setShowToAccountPicker(true);
+                      }}
                     >
                       <Text
                         style={[
@@ -1324,6 +1335,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                           borderColor: colors.border,
                         },
                       ]}
+                      onPress={() => setShowAddAccountModal(true)}
                     >
                       <Ionicons
                         name="add"
@@ -2379,6 +2391,196 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               />
             )}
 
+            {/* From Account Picker Modal */}
+            {showFromAccountPicker && (
+              <Modal
+                visible={showFromAccountPicker}
+                transparent
+                animationType="slide"
+              >
+                <TouchableWithoutFeedback
+                  onPress={() => setShowFromAccountPicker(false)}
+                >
+                  <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {}}>
+                      <View
+                        style={[
+                          styles.pickerContainer,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.pickerHeader,
+                            {
+                              backgroundColor: colors.card,
+                              borderBottomColor: colors.border,
+                            },
+                          ]}
+                        >
+                          <TouchableOpacity
+                            onPress={() => setShowFromAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                          <Text
+                            style={[styles.pickerTitle, { color: colors.text }]}
+                          >
+                            Select Account
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setShowFromAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Done
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerContent}>
+                          {getAccountOptions().map((accountName, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                setFromAccount(accountName);
+                                setShowFromAccountPicker(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerItemText,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                {accountName}
+                              </Text>
+                              {fromAccount === accountName && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
+
+            {/* To Account Picker Modal */}
+            {showToAccountPicker && (
+              <Modal
+                visible={showToAccountPicker}
+                transparent
+                animationType="slide"
+              >
+                <TouchableWithoutFeedback
+                  onPress={() => setShowToAccountPicker(false)}
+                >
+                  <View style={styles.pickerOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {}}>
+                      <View
+                        style={[
+                          styles.pickerContainer,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.pickerHeader,
+                            {
+                              backgroundColor: colors.card,
+                              borderBottomColor: colors.border,
+                            },
+                          ]}
+                        >
+                          <TouchableOpacity
+                            onPress={() => setShowToAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                          <Text
+                            style={[styles.pickerTitle, { color: colors.text }]}
+                          >
+                            Select Account
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setShowToAccountPicker(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerButton,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Done
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerContent}>
+                          {getAccountOptions().map((accountName, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                setToAccount(accountName);
+                                setShowToAccountPicker(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerItemText,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                {accountName}
+                              </Text>
+                              {toAccount === accountName && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
+
             {/* Autopay Account Picker Modal */}
             {showAutopayAccountPicker && (
               <Modal
@@ -2513,13 +2715,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               visible={showAddCreditCardModal}
               onClose={() => setShowAddCreditCardModal(false)}
               onCreditCardAdded={handleCreditCardAdded}
-            />
-
-            {/* Add Account Modal */}
-            <AddAccountModal
-              visible={showAddAccountModal}
-              onClose={() => setShowAddAccountModal(false)}
-              onAccountAdded={handleAccountAdded}
             />
 
             {/* Delete Confirmation Modal */}
