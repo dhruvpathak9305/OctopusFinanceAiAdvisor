@@ -37,6 +37,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   colors,
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
 
   const toggleModal = () => {
     setIsModalVisible(!isModalVisible);
@@ -82,7 +84,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           <View
             style={[
               styles.modalContainer,
-              { backgroundColor: colors.background },
+              { 
+                backgroundColor: isDark ? '#1a1f2c' : colors.background,
+                borderTopColor: isDark ? '#ffffff20' : colors.border,
+                borderTopWidth: 1,
+              },
             ]}
             onStartShouldSetResponder={() => true}
             onTouchEnd={(e) => e.stopPropagation()}
@@ -94,10 +100,20 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                 Select AI Model
               </Text>
               <TouchableOpacity 
-                style={[styles.doneButton, { backgroundColor: colors.primary + '20' }]} 
+                style={[
+                  styles.doneButton, 
+                  { 
+                    backgroundColor: isDark ? '#ffffff30' : colors.primary + '20',
+                    borderWidth: isDark ? 1 : 0,
+                    borderColor: isDark ? '#ffffff50' : 'transparent',
+                  }
+                ]} 
                 onPress={toggleModal}
               >
-                <Text style={[styles.doneButtonText, { color: colors.primary }]}>
+                <Text style={[
+                  styles.doneButtonText, 
+                  { color: isDark ? '#ffffff' : colors.primary }
+                ]}>
                   Done
                 </Text>
               </TouchableOpacity>

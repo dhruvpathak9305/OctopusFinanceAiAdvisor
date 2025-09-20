@@ -136,34 +136,37 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
         <View
           style={[styles.container, { backgroundColor: colors.background }]}
         >
-          {/* Enhanced Chat Header */}
+          {/* Beautiful Chat Header with Gradient Effect */}
           <View
             style={[
-              styles.enhancedHeader,
+              styles.beautifulHeader,
               {
-                backgroundColor: colors.card,
-                borderBottomColor: colors.border,
+                backgroundColor: isDark ? '#1a1f2c' : '#f0f7ff',
               },
             ]}
           >
+            {/* Decorative gradient line at top */}
+            <View style={styles.gradientLine} />
+            
             <View style={styles.headerContent}>
-              {/* New Chat button with animation */}
+              {/* New Chat button with pulse animation */}
               <TouchableOpacity
                 style={[
-                  styles.iconButton,
+                  styles.beautifulIconButton,
                   { 
-                    backgroundColor: colors.primary + '20',
-                    borderColor: colors.primary + '40',
+                    backgroundColor: isDark ? '#2d3748' : '#e6f0ff',
                   },
                 ]}
                 onPress={handleReset}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
               >
-                <Ionicons
-                  name="refresh-outline"
-                  size={22}
-                  color={colors.primary}
-                />
+                <View style={[styles.iconBackground, { backgroundColor: colors.primary + '15' }]}>
+                  <Ionicons
+                    name="refresh-outline"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
               </TouchableOpacity>
 
               {/* Model selector with enhanced styling */}
@@ -179,22 +182,26 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
               {/* Options button with improved styling */}
               <TouchableOpacity
                 style={[
-                  styles.iconButton,
-                  { 
-                    backgroundColor: colors.primary + '20',
-                    borderColor: colors.primary + '40',
+                  styles.beautifulIconButton,
+                  {
+                    backgroundColor: isDark ? '#2d3748' : '#e6f0ff',
                   },
                 ]}
                 onPress={() => setShowOptions(!showOptions)}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
               >
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={22}
-                  color={colors.primary}
-                />
+                <View style={[styles.iconBackground, { backgroundColor: colors.primary + '15' }]}>
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
               </TouchableOpacity>
             </View>
+            
+            {/* Subtle shadow effect */}
+            <View style={styles.headerShadow} />
           </View>
 
             {/* Options menu - redesigned with modern styling */}
@@ -289,7 +296,63 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
   },
-  // Enhanced header styles
+  // Beautiful header styles with modern design
+  beautifulHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    position: 'relative',
+    overflow: 'hidden',
+    zIndex: 10,
+  },
+  gradientLine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: '#10b981', // Primary green color
+    opacity: 0.7,
+  },
+  headerShadow: {
+    position: 'absolute',
+    bottom: -3,
+    left: 0,
+    right: 0,
+    height: 6,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderRadius: 50,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  modelSelectorContainerInHeader: {
+    flex: 1,
+    marginHorizontal: 10,
+    maxHeight: 46,
+  },
+  beautifulIconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  iconBackground: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Keep old styles for reference
   enhancedHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -299,15 +362,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  modelSelectorContainerInHeader: {
-    flex: 1,
-    marginHorizontal: 10,
   },
   iconButton: {
     width: 40,

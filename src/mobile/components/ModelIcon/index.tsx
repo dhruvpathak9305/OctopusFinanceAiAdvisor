@@ -19,18 +19,28 @@ const ModelIcon: React.FC<ModelIconProps> = ({ model, size = 24 }) => {
   if (model.id === "grok-4") {
     // Use theme-specific Grok logos based on the current theme
     return (
-      <Image
-        source={
-          isDark
-            ? require("../../../../assets/grok-logo-dark.webp")
-            : require("../../../../assets/grok-logo-light.webp")
+      <View style={[
+        styles.logoContainer,
+        // Add a contrasting background in light mode for better visibility
+        !isDark && { 
+          backgroundColor: '#222', 
+          borderRadius: size / 2,
+          padding: 2
         }
-        style={[
-          styles.image,
-          { width: size, height: size, borderRadius: size / 2 },
-        ]}
-        resizeMode="contain"
-      />
+      ]}>
+        <Image
+          source={
+            isDark
+              ? require("../../../../assets/grok-logo-dark.webp")
+              : require("../../../../assets/grok-logo-light.webp")
+          }
+          style={[
+            styles.image,
+            { width: isDark ? size : size - 4, height: isDark ? size : size - 4, borderRadius: size / 2 },
+          ]}
+          resizeMode="contain"
+        />
+      </View>
     );
   }
   // DeepSeek model with theme-specific logos
@@ -75,6 +85,10 @@ const ModelIcon: React.FC<ModelIconProps> = ({ model, size = 24 }) => {
 const styles = StyleSheet.create({
   image: {
     borderRadius: 12,
+  },
+  logoContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emojiText: {
     textAlign: "center",
