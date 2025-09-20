@@ -107,3 +107,50 @@ export const generateSubcategoryColor = (
 
   return generateColorShade(parentColor, variationSeed, intensity);
 };
+
+/**
+ * Generate a lighter background color for icons based on a foreground color
+ * Creates a lighter shade with some transparency for better visual appearance
+ *
+ * @param color - The color to create a background for (hex format)
+ * @param opacity - The opacity level for the background (0-100)
+ * @returns A lighter background color with transparency
+ */
+export const generateLighterBackground = (
+  color: string,
+  opacity: number = 15
+): string => {
+  if (!color || !color.startsWith("#") || color.length !== 7) {
+    return "#6B728020"; // Default gray with transparency
+  }
+
+  try {
+    // Extract RGB components
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+
+    // Create a lighter version - add 40 to each component and cap at 255
+    const lighterR = Math.min(255, r + 40);
+    const lighterG = Math.min(255, g + 40);
+    const lighterB = Math.min(255, b + 40);
+
+    // Convert back to hex
+    const toHex = (c: number): string => {
+      const hex = c.toString(16);
+      return hex.length === 1 ? "0" + hex : hex;
+    };
+
+    // Add opacity as a hex value (0-100 converted to hex)
+    const opacityHex = Math.round((opacity / 100) * 255)
+      .toString(16)
+      .padStart(2, "0");
+
+    return `#${toHex(lighterR)}${toHex(lighterG)}${toHex(
+      lighterB
+    )}${opacityHex}`;
+  } catch (error) {
+    console.error("Error generating lighter background:", error);
+    return "#6B728020"; // Default gray with transparency on error
+  }
+};

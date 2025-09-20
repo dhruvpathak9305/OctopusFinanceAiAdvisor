@@ -5,6 +5,7 @@ import {
   getFallbackIconConfig,
 } from "../../../../utils/fallbackIcons";
 import { renderIconFromName } from "../../../../utils/subcategoryIcons";
+import { generateLighterBackground } from "../../../../utils/colors/SubcategoryColorGenerator";
 
 interface TransactionItemProps {
   /**
@@ -247,11 +248,18 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
                   borderWidth: 2,
                   borderColor: getFallbackIconConfig(transaction.type)
                     .borderColor,
-                  backgroundColor: getFallbackIconConfig(transaction.type)
-                    .backgroundColor,
+                  backgroundColor: generateLighterBackground(
+                    getFallbackIconConfig(transaction.type).borderColor,
+                    20
+                  ),
                 }
               : {
-                  backgroundColor: `${getTransactionColor(transaction.type)}20`,
+                  backgroundColor: generateLighterBackground(
+                    transaction.subcategory_color ||
+                      transaction.category_ring_color ||
+                      getTransactionColor(transaction.type),
+                    20
+                  ),
                 },
           ]}
         >

@@ -29,19 +29,31 @@ export interface FallbackIconConfig {
  * Get fallback icon configuration based on transaction type
  * Used when categories and subcategories are not present during CSV parsing
  */
+import { generateLighterBackground } from "./colors/SubcategoryColorGenerator";
+
 export const getFallbackIconConfig = (
   transactionType: "income" | "expense" | "transfer" | "credit" | "debit"
 ): FallbackIconConfig => {
   // Normalize transaction type
   const normalizedType = normalizeTransactionType(transactionType);
 
+  // Define base colors for each transaction type
+  const baseColors = {
+    income: "#10B981", // Green for income
+    expense: "#EF4444", // Red for expense
+    transfer: "#3B82F6", // Blue for transfer
+  };
+
+  // Get the base color for this transaction type
+  const baseColor = baseColors[normalizedType] || baseColors.expense;
+
   switch (normalizedType) {
     case "income":
       return {
         icon: <ArrowUpRight size={22} color="#FFFFFF" strokeWidth={2.5} />, // White arrow up-right with thicker stroke
         emoji: "💰", // Money bag emoji for income
-        borderColor: "#10B981", // Green border
-        backgroundColor: "#10B981", // Green background for icon
+        borderColor: baseColor, // Green border
+        backgroundColor: baseColor, // Green background for icon
         textColor: "#065F46", // Dark green text
       };
 
@@ -49,8 +61,8 @@ export const getFallbackIconConfig = (
       return {
         icon: <ArrowDownLeft size={22} color="#FFFFFF" strokeWidth={2.5} />, // White arrow down-left with thicker stroke
         emoji: "💸", // Money with wings emoji for expenses
-        borderColor: "#EF4444", // Red border
-        backgroundColor: "#EF4444", // Red background for icon
+        borderColor: baseColor, // Red border
+        backgroundColor: baseColor, // Red background for icon
         textColor: "#991B1B", // Dark red text
       };
 
@@ -58,8 +70,8 @@ export const getFallbackIconConfig = (
       return {
         icon: <Repeat size={22} color="#FFFFFF" strokeWidth={2.5} />, // White repeat/transfer icon with thicker stroke
         emoji: "🔄", // Refresh symbol for transfers
-        borderColor: "#3B82F6", // Blue border
-        backgroundColor: "#3B82F6", // Blue background for icon
+        borderColor: baseColor, // Blue border
+        backgroundColor: baseColor, // Blue background for icon
         textColor: "#1E40AF", // Dark blue text
       };
 
@@ -68,8 +80,8 @@ export const getFallbackIconConfig = (
       return {
         icon: <ArrowDownLeft size={22} color="#FFFFFF" strokeWidth={2.5} />,
         emoji: "💸",
-        borderColor: "#EF4444",
-        backgroundColor: "#EF4444",
+        borderColor: baseColors.expense,
+        backgroundColor: baseColors.expense,
         textColor: "#991B1B",
       };
   }
