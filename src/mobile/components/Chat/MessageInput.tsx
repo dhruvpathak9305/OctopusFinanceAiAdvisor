@@ -200,14 +200,19 @@ const MessageInput: React.FC<MessageInputProps> = ({
         {/* Image picker button - only show if model supports images */}
         {supportsImages && !selectedImage && (
           <TouchableOpacity
-            style={styles.imageButton}
+            style={[styles.imageButton, { backgroundColor: colors.card }]}
             onPress={pickImage}
             disabled={isLoading || disabled}
           >
             <Ionicons
-              name="image-outline"
+              name="image"
               size={22}
-              color={disabled ? colors.textSecondary : colors.primary}
+              color={disabled ? colors.textSecondary : "#FFFFFF"}
+              style={{
+                backgroundColor: disabled ? colors.textSecondary : colors.primary,
+                borderRadius: 4,
+                padding: 2
+              }}
             />
           </TouchableOpacity>
         )}
@@ -223,6 +228,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
           numberOfLines={1}
           maxLength={1000}
           editable={!disabled}
+          blurOnSubmit={false}
+          onSubmitEditing={handleSendMessage}
         />
 
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>

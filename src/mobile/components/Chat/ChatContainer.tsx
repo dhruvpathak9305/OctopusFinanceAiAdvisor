@@ -170,7 +170,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name={apiConnectionTested ? "checkmark-circle" : "radio"}
+                  name={apiConnectionTested ? "wifi" : "wifi-outline"}
                   size={22}
                   color={apiConnectionTested ? "#10B981" : colors.textSecondary}
                 />
@@ -252,7 +252,9 @@ const styles = StyleSheet.create({
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    paddingHorizontal: 0, // Remove horizontal padding to use full width
+    paddingHorizontal: 4, // Match tab container padding from MobileDashboard
+    marginHorizontal: 0, // Offset the padding from parent container
+    width: "100%", // Ensure full width
   },
   // App-themed header styles that match the rest of the application
   appThemedHeader: {

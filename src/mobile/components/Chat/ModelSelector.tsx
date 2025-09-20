@@ -195,7 +195,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 21,
     borderWidth: 1,
-    minHeight: 42,
+    height: 46, // Match the height of the header buttons
+    minHeight: 46,
   },
   modelIconContainer: {
     marginRight: 8,
