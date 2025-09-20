@@ -251,11 +251,13 @@ const MessageList: React.FC<MessageListProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: "100%", // Ensure it takes full height of parent
   },
   contentContainer: {
-    padding: 16,
+    paddingHorizontal: 8, // Reduced horizontal padding for more chat space
+    paddingVertical: 16,
     paddingBottom: 24,
-    width: '100%', // Ensure content takes full width
+    width: "100%", // Ensure content takes full width
   },
   // WhatsApp style message layout
   messageRow: {
@@ -287,7 +289,7 @@ const styles = StyleSheet.create({
   },
   // Bubble styling
   messageBubble: {
-    maxWidth: "70%",
+    maxWidth: "82%", // Increased from 70% to 82% for better horizontal space usage
     padding: 12,
     paddingVertical: 8,
     borderRadius: 16,
@@ -295,12 +297,12 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     borderTopRightRadius: 2, // Creates the "tail" effect
-    marginLeft: 8,
+    marginLeft: 4, // Reduced margin for more space
   },
   assistantBubble: {
     borderTopLeftRadius: 2, // Creates the "tail" effect
     borderWidth: 1,
-    marginRight: 8,
+    marginRight: 4, // Reduced margin for more space
   },
   // Text styling within bubbles
   assistantName: {
@@ -375,7 +377,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 12, // Reduced padding for better horizontal space usage
+    paddingVertical: 20,
   },
   emptyIcon: {
     fontSize: 48,

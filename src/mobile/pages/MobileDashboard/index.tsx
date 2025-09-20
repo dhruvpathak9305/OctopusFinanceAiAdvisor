@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  Dimensions,
 } from "react-native";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useFinancialData } from "../../hooks/useFinancialData";
@@ -88,6 +89,26 @@ export default function MobileDashboard() {
   const [isExpandedView, setIsExpandedView] = useState(true);
   const financialData = useFinancialData();
 
+  // Ref for scroll control
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Calculate responsive chat height based on screen size
+  const screenHeight = Dimensions.get("window").height;
+  const chatHeight = Math.max(400, screenHeight * 0.6); // At least 400px or 60% of screen height
+
+  // Handle tab change and scroll to chat when advisor is selected
+  useEffect(() => {
+    if (activeTab === "advisor") {
+      // Small delay to ensure the tab content is rendered
+      setTimeout(() => {
+        if (scrollViewRef.current) {
+          // Scroll to the end where the chat interface is located
+          scrollViewRef.current.scrollToEnd({ animated: true });
+        }
+      }, 150);
+    }
+  }, [activeTab]);
+
   const colors = isDark
     ? {
         background: "#0B1426",
@@ -95,6 +116,9 @@ export default function MobileDashboard() {
         text: "#FFFFFF",
         textSecondary: "#9CA3AF",
         border: "#374151",
+        primary: "#10B981",
+        surface: "#1F2937",
+        error: "#EF4444",
         tabBackground: "#374151",
         activeTab: "#10B981",
       }
@@ -104,6 +128,9 @@ export default function MobileDashboard() {
         text: "#111827",
         textSecondary: "#6B7280",
         border: "#E5E7EB",
+        primary: "#10B981",
+        surface: "#F9FAFB",
+        error: "#EF4444",
         tabBackground: "#F3F4F6",
         activeTab: "#10B981",
       };
@@ -170,7 +197,12 @@ export default function MobileDashboard() {
         );
       case "advisor":
         return (
-          <View style={styles.chatContainer}>
+          <View
+            style={[
+              styles.chatTabContent,
+              { height: chatHeight, maxHeight: chatHeight },
+            ]}
+          >
             <ChatContainer colors={colors} isDark={isDark} />
           </View>
         );
@@ -184,8 +216,10 @@ export default function MobileDashboard() {
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={true} // Always allow scrolling for navigation
       >
         {/* Header */}
         <Header
@@ -281,6 +315,9 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     paddingHorizontal: 20,
+  },
+  chatTabContent: {
+    paddingHorizontal: 4, // Minimal padding for chat to maximize horizontal space
   },
   tabContentPlaceholder: {
     alignItems: "center",

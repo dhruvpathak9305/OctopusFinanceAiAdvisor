@@ -209,9 +209,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
               size={22}
               color={disabled ? colors.textSecondary : "#FFFFFF"}
               style={{
-                backgroundColor: disabled ? colors.textSecondary : colors.primary,
+                backgroundColor: disabled
+                  ? colors.textSecondary
+                  : colors.primary,
                 borderRadius: 4,
-                padding: 2
+                padding: 2,
               }}
             />
           </TouchableOpacity>
@@ -264,7 +266,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
+    paddingHorizontal: 8, // Reduced horizontal padding for more chat space
+    paddingVertical: 12,
     paddingBottom: Platform.OS === "ios" ? 24 : 12,
     borderTopWidth: 1,
   },

@@ -175,7 +175,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
                   color={apiConnectionTested ? "#10B981" : colors.textSecondary}
                 />
               </TouchableOpacity>
-              
+
               {/* New chat button */}
               <TouchableOpacity
                 style={[
@@ -188,11 +188,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
                 onPress={handleReset}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name="refresh"
-                  size={22}
-                  color={colors.text}
-                />
+                <Ionicons name="refresh" size={22} color={colors.text} />
               </TouchableOpacity>
             </View>
           </View>
@@ -252,13 +248,14 @@ const styles = StyleSheet.create({
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    paddingHorizontal: 4, // Match tab container padding from MobileDashboard
-    marginHorizontal: 0, // Offset the padding from parent container
+    paddingHorizontal: 0, // Remove all horizontal padding for maximum width
+    marginHorizontal: 0, // Remove margins to use full available space
     width: "100%", // Ensure full width
+    height: "100%", // Use full height of parent container
   },
   // App-themed header styles that match the rest of the application
   appThemedHeader: {
-    paddingHorizontal: 16, // Add padding to the header
+    paddingHorizontal: 8, // Reduced padding for more horizontal space
     paddingVertical: 12,
     marginBottom: 6,
   },
@@ -266,7 +263,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 0, // Remove padding since the header has padding now
+    paddingHorizontal: 4, // Minimal padding for better space utilization
   },
   modelSelectorContainerInHeader: {
     flex: 1,
