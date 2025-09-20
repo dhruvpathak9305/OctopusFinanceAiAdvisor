@@ -268,17 +268,20 @@ const styles = StyleSheet.create({
     flex: 1,
     display: "flex",
     flexDirection: "column",
+    paddingHorizontal: 16, // Add consistent horizontal padding
   },
   // App-themed header styles that match the rest of the application
   appThemedHeader: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0, // Remove padding since container has padding now
     paddingVertical: 12,
     marginBottom: 6,
+    marginHorizontal: -16, // Extend the header to the edges
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 16, // Add back padding for the content
   },
   modelSelectorContainerInHeader: {
     flex: 1,
@@ -338,7 +341,7 @@ const styles = StyleSheet.create({
   optionsMenu: {
     position: "absolute",
     top: 66,
-    right: 16,
+    right: 0, // Align with the container's right edge
     minWidth: 160,
     borderRadius: 12,
     zIndex: 1000,

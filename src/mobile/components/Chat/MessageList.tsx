@@ -134,67 +134,95 @@ const MessageList: React.FC<MessageListProps> = ({
           <View
             key={message.id}
             style={[
-              styles.messageContainer,
-              message.role === "user"
-                ? [styles.userMessage, { backgroundColor: colors.primary }]
-                : [
-                    styles.assistantMessage,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ],
+              styles.messageRow,
+              message.role === "user" ? styles.userMessageRow : styles.assistantMessageRow,
             ]}
           >
+            {/* Assistant Avatar (only for assistant messages) */}
             {message.role === "assistant" && (
-              <View style={styles.assistantHeader}>
-                <View style={styles.assistantAvatar}>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatar}>
                   <ModelIcon model={selectedModel} size={24} />
                 </View>
-                <Text style={[styles.assistantName, { color: colors.text }]}>
-                  {selectedModel.name}
-                </Text>
               </View>
             )}
-
-            <Text
+            
+            {/* Message Bubble */}
+            <View 
               style={[
-                styles.messageText,
-                message.role === "user"
-                  ? styles.userMessageText
-                  : [styles.assistantMessageText, { color: colors.text }],
+                styles.messageBubble,
+                message.role === "user" 
+                  ? [styles.userBubble, { backgroundColor: '#10B981' }] // Green for user
+                  : [styles.assistantBubble, { backgroundColor: colors.card, borderColor: colors.border }],
               ]}
             >
-              {message.content}
-            </Text>
-
-            <Text
-              style={[
-                styles.timestamp,
-                message.role === "user"
-                  ? styles.userTimestamp
-                  : [
-                      styles.assistantTimestamp,
-                      { color: colors.textSecondary },
-                    ],
-              ]}
-            >
-              {formatTime(message.timestamp)}
-            </Text>
+              {/* Assistant name (only shown for assistant messages) */}
+              {message.role === "assistant" && (
+                <Text style={[styles.assistantName, { color: colors.primary }]}>
+                  {selectedModel.name}
+                </Text>
+              )}
+              
+              {/* Message content */}
+              <Text
+                style={[
+                  styles.messageText,
+                  message.role === "user"
+                    ? styles.userMessageText
+                    : [styles.assistantMessageText, { color: colors.text }],
+                ]}
+              >
+                {typeof message.content === 'string' ? message.content : 'Unsupported message format'}
+              </Text>
+              
+              {/* Timestamp */}
+              <Text
+                style={[
+                  styles.timestamp,
+                  message.role === "user"
+                    ? styles.userTimestamp
+                    : [styles.assistantTimestamp, { color: colors.textSecondary }],
+                ]}
+              >
+                {formatTime(message.timestamp)}
+              </Text>
+            </View>
+            
+            {/* Empty space on user messages to balance avatar */}
+            {message.role === "user" && <View style={styles.avatarContainer} />}
           </View>
         ))}
 
         {isLoading && (
-          <View
-            style={[
-              styles.loadingContainer,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Thinking...
-            </Text>
+          <View style={styles.messageRow}>
+            {/* Assistant avatar for loading state */}
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatar}>
+                <ModelIcon model={selectedModel} size={24} />
+              </View>
+            </View>
+            
+            {/* Loading bubble */}
+            <View
+              style={[
+                styles.messageBubble,
+                styles.assistantBubble,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textSecondary, marginLeft: 8 }]}>
+                  Thinking...
+                </Text>
+              </View>
+            </View>
+            
+            {/* Empty space for balance */}
+            <View style={styles.avatarContainer} />
           </View>
         )}
       </Animated.View>
@@ -210,6 +238,80 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
   },
+  // WhatsApp style message layout
+  messageRow: {
+    flexDirection: 'row',
+    marginVertical: 2,
+    paddingVertical: 2,
+    width: '100%',
+  },
+  userMessageRow: {
+    justifyContent: 'flex-end',
+  },
+  assistantMessageRow: {
+    justifyContent: 'flex-start',
+  },
+  // Avatar styling
+  avatarContainer: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  // Bubble styling
+  messageBubble: {
+    maxWidth: "70%",
+    padding: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginVertical: 1,
+  },
+  userBubble: {
+    borderTopRightRadius: 2, // Creates the "tail" effect
+    marginLeft: 8,
+  },
+  assistantBubble: {
+    borderTopLeftRadius: 2, // Creates the "tail" effect
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  // Text styling within bubbles
+  assistantName: {
+    fontWeight: "600",
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  userMessageText: {
+    color: "#FFFFFF",
+  },
+  assistantMessageText: {
+    fontWeight: "400",
+  },
+  timestamp: {
+    fontSize: 10,
+    marginTop: 4,
+    alignSelf: "flex-end",
+    paddingLeft: 8,
+  },
+  userTimestamp: {
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  assistantTimestamp: {
+    opacity: 0.7,
+  },
+  // Keep original styles for backward compatibility
   messageContainer: {
     borderRadius: 12,
     padding: 12,
@@ -237,31 +339,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  assistantName: {
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  messageText: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  userMessageText: {
-    color: "#FFFFFF",
-  },
-  assistantMessageText: {
-    fontWeight: "400",
-  },
-  timestamp: {
-    fontSize: 10,
-    marginTop: 6,
-    alignSelf: "flex-end",
-  },
-  userTimestamp: {
-    color: "rgba(255, 255, 255, 0.7)",
-  },
-  assistantTimestamp: {
-    opacity: 0.7,
   },
   loadingContainer: {
     flexDirection: "row",
