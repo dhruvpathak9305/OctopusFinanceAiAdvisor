@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
+  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -41,6 +42,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
 }) => {
   const [message, setMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageBase64, setSelectedImageBase64] = useState<string | null>(
+    null
+  );
   const inputRef = useRef<TextInput>(null);
 
   // Animation values
@@ -66,20 +70,23 @@ const MessageInput: React.FC<MessageInputProps> = ({
     }).start();
   };
 
-  // Expand input height when message is multiline
+  // Expand input height when message is multiline or image is selected
   useEffect(() => {
     const baseHeight = 56;
-    const additionalHeight =
+    const textAdditionalHeight =
       message.split("\n").length > 1
         ? Math.min((message.split("\n").length - 1) * 20, 80)
         : 0;
 
+    // Add height for image preview if image is selected
+    const imageAdditionalHeight = selectedImage ? 140 : 0; // 120px image + 20px padding
+
     Animated.timing(containerHeight, {
-      toValue: baseHeight + additionalHeight,
+      toValue: baseHeight + textAdditionalHeight + imageAdditionalHeight,
       duration: 200,
       useNativeDriver: false,
     }).start();
-  }, [message, containerHeight]);
+  }, [message, selectedImage, containerHeight]);
 
   // Pick an image from the device's gallery
   const pickImage = async () => {
@@ -100,14 +107,36 @@ const MessageInput: React.FC<MessageInputProps> = ({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.8,
-        base64: true,
+        quality: 0.5, // Reduced quality to ensure smaller file size
+        aspect: [4, 3],
+        base64: true, // We need base64 for the API
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        // Store the image URI for display and sending
+
+        // Validate image
+        if (!asset.base64) {
+          Alert.alert("Error", "Failed to process image. Please try again.");
+          return;
+        }
+
+        // Check image size (base64 string length should be reasonable)
+        const imageSizeKB = (asset.base64.length * 3) / 4 / 1024; // Approximate size in KB
+        if (imageSizeKB > 2000) {
+          // 2MB limit
+          Alert.alert(
+            "Image Too Large",
+            "Please select a smaller image (under 2MB) or reduce the quality."
+          );
+          return;
+        }
+
+        // Store both the URI for display and base64 for sending
         setSelectedImage(asset.uri);
+        setSelectedImageBase64(asset.base64);
+
+        console.log(`Image selected: ${imageSizeKB.toFixed(0)}KB`);
       }
     } catch (error) {
       console.error("Error picking image:", error);
@@ -118,6 +147,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // Remove the selected image
   const removeImage = () => {
     setSelectedImage(null);
+    setSelectedImageBase64(null);
   };
 
   // Handle send message
@@ -126,27 +156,73 @@ const MessageInput: React.FC<MessageInputProps> = ({
       return;
     }
 
-    if (selectedImage && supportsImages) {
-      // Send message with image for models that support images
-      const messageContent: ChatMessageContent[] = [];
+    if (selectedImage) {
+      if (supportsImages) {
+        // Send message with image for models that support images
+        const messageContent: ChatMessageContent[] = [];
 
-      // Add text content if there's a message
-      if (message.trim()) {
-        messageContent.push({
-          type: "text",
-          text: message.trim(),
-        });
+        // Add text content if there's a message
+        if (message.trim()) {
+          messageContent.push({
+            type: "text",
+            text: message.trim(),
+          });
+        }
+
+        // Add image content with base64 format
+        if (selectedImageBase64) {
+          // Ensure the base64 string is clean (no newlines or spaces)
+          const cleanBase64 = selectedImageBase64.replace(/\s/g, "");
+          const imageUrl = `data:image/jpeg;base64,${cleanBase64}`;
+
+          // Log for debugging
+          console.log(`Sending image message:`);
+          console.log(
+            `- Image size: ${((cleanBase64.length * 3) / 4 / 1024).toFixed(
+              0
+            )}KB`
+          );
+          console.log(`- Base64 prefix: ${cleanBase64.substring(0, 50)}...`);
+          console.log(`- Data URL length: ${imageUrl.length}`);
+
+          messageContent.push({
+            type: "image_url",
+            image_url: {
+              url: imageUrl,
+            },
+          });
+        }
+
+        console.log(
+          `Message content structure:`,
+          JSON.stringify(messageContent, null, 2)
+        );
+        onSendMessage(messageContent);
+      } else {
+        // Model doesn't support images, show alert and send text only
+        Alert.alert(
+          "Image Not Supported",
+          "The selected AI model doesn't support image analysis. Only your text message will be sent.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Send Text Only",
+              onPress: () => {
+                if (message.trim()) {
+                  onSendMessage(message.trim());
+                  setMessage("");
+                }
+                setSelectedImage(null);
+                setSelectedImageBase64(null);
+              },
+            },
+          ]
+        );
+        return;
       }
-
-      // Add image content
-      messageContent.push({
-        type: "image_url",
-        image_url: {
-          url: selectedImage,
-        },
-      });
-
-      onSendMessage(messageContent);
     } else {
       // Send text-only message
       onSendMessage(message.trim());
@@ -155,6 +231,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     // Clear the input and selected image
     setMessage("");
     setSelectedImage(null);
+    setSelectedImageBase64(null);
 
     // Dismiss keyboard on send for iOS
     if (Platform.OS === "ios") {
@@ -178,16 +255,35 @@ const MessageInput: React.FC<MessageInputProps> = ({
         <View
           style={[
             styles.imagePreviewContainer,
-            { backgroundColor: colors.card },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
           ]}
         >
           <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
           <TouchableOpacity
-            style={styles.removeImageButton}
+            style={[
+              styles.removeImageButton,
+              { backgroundColor: "#EF4444" }, // Red color for remove button
+            ]}
             onPress={removeImage}
+            activeOpacity={0.8}
           >
-            <Ionicons name="close-circle" size={24} color={colors.primary} />
+            <Ionicons name="close" size={16} color="white" />
           </TouchableOpacity>
+          {/* Image info overlay */}
+          <View
+            style={[
+              styles.imageInfoOverlay,
+              { backgroundColor: "rgba(0, 0, 0, 0.7)" },
+            ]}
+          >
+            <Ionicons name="image" size={16} color="white" />
+            <Text style={styles.imageInfoText}>
+              Tap send to share this image
+            </Text>
+          </View>
         </View>
       )}
 
@@ -239,10 +335,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
             style={[
               styles.sendButton,
               { backgroundColor: colors.primary },
-              ((message.trim() === "" && !selectedImage) ||
-                isLoading ||
-                disabled) &&
-                styles.sendButtonDisabled,
+              // Enable send button if there's either text OR an image
+              (message.trim() === "" && !selectedImage) || isLoading || disabled
+                ? styles.sendButtonDisabled
+                : null,
             ]}
             onPress={handleSendMessage}
             disabled={
@@ -270,6 +366,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingBottom: Platform.OS === "ios" ? 24 : 12,
     borderTopWidth: 1,
+    minHeight: 56, // Ensure minimum height
+    maxHeight: 300, // Prevent container from getting too large
   },
   inputContainer: {
     flexDirection: "row",
@@ -307,19 +405,56 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 12,
     position: "relative",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   imagePreview: {
     width: "100%",
-    height: 150,
+    height: 120, // Reduced height for better mobile UX
     borderRadius: 8,
     resizeMode: "cover",
   },
   removeImageButton: {
     position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    borderRadius: 12,
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  imageInfoOverlay: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  imageInfoText: {
+    color: "white",
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: "500",
   },
 });
 

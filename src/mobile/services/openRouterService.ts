@@ -81,7 +81,7 @@ export class OpenRouterService {
     }
     return OpenRouterService.instance;
   }
-  
+
   /**
    * Set the API key for specific model requests
    */
@@ -102,20 +102,73 @@ export class OpenRouterService {
    * Prepare messages for OpenRouter API
    * Handles both string content and structured content with images
    */
-  private prepareMessages(messages: ChatMessage[]): any[] {
-    return messages.map((msg) => {
-      // For Claude models, we need to format differently
+  private prepareMessages(messages: ChatMessage[], modelId: string): any[] {
+    return messages.map((msg, index) => {
       if (typeof msg.content === "string") {
         // Simple text format - just use the string directly
+        console.log(
+          `Message ${index}: Text content (${msg.content.length} chars)`
+        );
         return {
           role: msg.role,
           content: msg.content,
         };
       } else {
         // For structured content with images
+        console.log(
+          `Message ${index}: Structured content with ${msg.content.length} parts`
+        );
+
+        // Log each content part for debugging
+        msg.content.forEach((part, partIndex) => {
+          if (part.type === "text") {
+            console.log(
+              `  Part ${partIndex}: Text (${part.text?.length || 0} chars)`
+            );
+          } else if (part.type === "image_url") {
+            const url = part.image_url?.url || "";
+            const isBase64 = url.startsWith("data:");
+            const sizeKB = isBase64
+              ? ((url.length * 3) / 4 / 1024).toFixed(0)
+              : "unknown";
+            console.log(
+              `  Part ${partIndex}: Image (${
+                isBase64 ? "base64" : "URL"
+              }, ~${sizeKB}KB)`
+            );
+          }
+        });
+
+        // For structured content, we need to be very careful with format
+        // Different models expect different structures
+        console.log(`Preparing structured content for model: ${modelId}`);
+
+        // Try the standard OpenAI/GPT-4 Vision format which should work with most models
+        const standardContent = msg.content.map((part) => {
+          if (part.type === "text") {
+            return {
+              type: "text",
+              text: part.text || "",
+            };
+          } else if (part.type === "image_url") {
+            return {
+              type: "image_url",
+              image_url: {
+                url: part.image_url?.url || "",
+              },
+            };
+          }
+          return part;
+        });
+
+        console.log(
+          `Formatted content for ${modelId}:`,
+          JSON.stringify(standardContent, null, 2)
+        );
+
         return {
           role: msg.role,
-          content: msg.content,
+          content: standardContent,
         };
       }
     });
@@ -132,7 +185,7 @@ export class OpenRouterService {
     // Use the provided API key or fall back to the default one
     const authKey = apiKey || this.apiKey;
     try {
-      const preparedMessages = this.prepareMessages(messages);
+      const preparedMessages = this.prepareMessages(messages, modelId);
 
       // Get fallback models to try if primary model fails
       const modelsToTry = [modelId, ...this.getFallbackModels(modelId)];
@@ -173,6 +226,17 @@ export class OpenRouterService {
               response.status,
               errorText
             );
+
+            // Try to parse error details
+            try {
+              const errorData = JSON.parse(errorText);
+              console.error("Detailed error:", errorData);
+              if (errorData.error && errorData.error.message) {
+                console.error("Error message:", errorData.error.message);
+              }
+            } catch (parseError) {
+              console.error("Could not parse error response:", parseError);
+            }
 
             if (response.status === 401) {
               // Authentication errors are fatal, no need to try other models
@@ -260,7 +324,11 @@ export class OpenRouterService {
     try {
       // For now, we'll just get the full response and simulate streaming
       // This will automatically try fallback models if the primary one fails
-      const fullResponse = await this.generateResponse(messages, modelId, apiKey);
+      const fullResponse = await this.generateResponse(
+        messages,
+        modelId,
+        apiKey
+      );
 
       // Split by spaces to simulate word-by-word streaming
       const chunks = fullResponse.split(" ");

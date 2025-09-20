@@ -130,8 +130,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
     <ErrorBoundary isDark={isDark}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 20}
       >
         <View
           style={[styles.container, { backgroundColor: colors.background }]}
