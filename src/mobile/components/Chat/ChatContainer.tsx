@@ -102,6 +102,29 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
     clearMessages();
     setShowOptions(false);
   };
+  
+  // Test API connection
+  const handleTestConnection = async () => {
+    setShowOptions(false);
+    try {
+      const openRouterService = OpenRouterService.getInstance();
+      const isConnected = await openRouterService.testConnection(selectedModel.apiKey);
+      
+      Alert.alert(
+        isConnected ? "Connection Successful" : "Connection Failed",
+        isConnected 
+          ? "Successfully connected to the AI service." 
+          : "Could not connect to the AI service. Please check your API key and internet connection.",
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      Alert.alert(
+        "Connection Error",
+        "An error occurred while testing the connection.",
+        [{ text: "OK" }]
+      );
+    }
+  };
 
   return (
     <ErrorBoundary isDark={isDark}>
@@ -113,62 +136,78 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
         <View
           style={[styles.container, { backgroundColor: colors.background }]}
         >
-          {/* Model selector with New Chat button */}
+          {/* Enhanced Chat Header */}
           <View
             style={[
-              styles.selectorRow,
+              styles.enhancedHeader,
               {
                 backgroundColor: colors.card,
                 borderBottomColor: colors.border,
               },
             ]}
           >
-            {/* New Chat button */}
-            <TouchableOpacity
-              style={[
-                styles.newChatButton,
-                { backgroundColor: colors.surface },
-              ]}
-              onPress={handleReset}
-            >
-              <Ionicons
-                name="chatbubble-outline"
-                size={20}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              {/* New Chat button with animation */}
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  { 
+                    backgroundColor: colors.primary + '20',
+                    borderColor: colors.primary + '40',
+                  },
+                ]}
+                onPress={handleReset}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={22}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
 
-            {/* Model selector takes up the rest of the space */}
-            <View style={styles.modelSelectorContainerInHeader}>
-              <ModelSelector
-                models={getAvailableModels()}
-                selectedModel={selectedModel}
-                onSelectModel={changeModel}
-                colors={colors}
-              />
+              {/* Model selector with enhanced styling */}
+              <View style={styles.modelSelectorContainerInHeader}>
+                <ModelSelector
+                  models={getAvailableModels()}
+                  selectedModel={selectedModel}
+                  onSelectModel={changeModel}
+                  colors={colors}
+                />
+              </View>
+
+              {/* Options button with improved styling */}
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  { 
+                    backgroundColor: colors.primary + '20',
+                    borderColor: colors.primary + '40',
+                  },
+                ]}
+                onPress={() => setShowOptions(!showOptions)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={22}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
             </View>
+          </View>
 
-            {/* Options button */}
-            <TouchableOpacity
-              style={[
-                styles.optionsButton,
-                { backgroundColor: colors.surface },
-              ]}
-              onPress={() => setShowOptions(!showOptions)}
-            >
-              <Ionicons
-                name="ellipsis-horizontal"
-                size={20}
-                color={colors.text}
-              />
-            </TouchableOpacity>
-
-            {/* Options menu */}
+            {/* Options menu - redesigned with modern styling */}
             {showOptions && (
               <View
                 style={[
                   styles.optionsMenu,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  { 
+                    backgroundColor: colors.card, 
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                  },
                 ]}
               >
                 <TouchableOpacity
@@ -178,14 +217,23 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
                   ]}
                   onPress={handleReset}
                 >
-                  <Ionicons name="refresh" size={16} color={colors.text} />
+                  <Ionicons name="refresh" size={18} color={colors.primary} />
                   <Text style={[styles.optionText, { color: colors.text }]}>
                     New Chat
                   </Text>
                 </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={handleTestConnection}
+                >
+                  <Ionicons name="cloud-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.optionText, { color: colors.text }]}>
+                    Test Connection
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
-          </View>
 
           {/* Display error message if any */}
           {error && (
@@ -241,6 +289,35 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
   },
+  // Enhanced header styles
+  enhancedHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modelSelectorContainerInHeader: {
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  // Legacy styles kept for reference
   selectorRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -248,10 +325,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-  },
-  modelSelectorContainerInHeader: {
-    flex: 1,
-    marginHorizontal: 8,
   },
   newChatButton: {
     width: 36,

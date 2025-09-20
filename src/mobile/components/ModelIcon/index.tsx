@@ -39,8 +39,8 @@ const ModelIcon: React.FC<ModelIconProps> = ({ model, size = 24 }) => {
       <Image
         source={
           isDark
-            ? require("../../../../assets/deepseek-logo-dark.svg")
-            : require("../../../../assets/deepseek-logo-light.svg")
+            ? require("../../../../assets/deepseek-logo-dark.webp")
+            : require("../../../../assets/deepseek-logo-light.webp")
         }
         style={[
           styles.image,
