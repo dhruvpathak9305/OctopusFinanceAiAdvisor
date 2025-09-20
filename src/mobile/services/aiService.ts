@@ -135,7 +135,7 @@ export class AIService {
             "Model identifier not specified for OpenRouter model"
           );
         }
-        
+
         // Set the API key for this model in the service instance
         if (model.apiKey) {
           openRouterService.setApiKey(model.apiKey);

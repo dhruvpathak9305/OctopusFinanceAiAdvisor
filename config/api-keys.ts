@@ -9,7 +9,7 @@ export const API_KEYS = {
   // OpenRouter API Keys for accessing various LLM models
   OPENROUTER_API_KEY_GROK:
     "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",
-    
+
   OPENROUTER_API_KEY_DEEPSEEK:
     "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",
 
@@ -35,7 +35,7 @@ export const MODEL_CONFIGS = {
     provider: "openrouter",
     model: "x-ai/grok-4-fast:free", // xAI model available on free tier
     description: "Powerful AI model from xAI",
-    logoPath: "assets/grok-logo.webp", // Path to the logo image
+    // We handle theme-specific logos in the ModelIcon component
     apiKey: API_KEYS.OPENROUTER_API_KEY_GROK,
     supportsImages: true,
   },
@@ -45,8 +45,8 @@ export const MODEL_CONFIGS = {
     provider: "openrouter",
     model: "deepseek/deepseek-chat-v3.1:free", // DeepSeek model on free tier
     description: "Advanced language model by DeepSeek",
-    logoPath: "assets/deepseek-logo.png", // Placeholder for DeepSeek logo
+    // We handle theme-specific logos in the ModelIcon component
     apiKey: API_KEYS.OPENROUTER_API_KEY_DEEPSEEK,
     supportsImages: false,
-  }
+  },
 };
