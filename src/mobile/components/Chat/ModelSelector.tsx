@@ -46,31 +46,29 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Enhanced model selector with modern styling */}
+      {/* App-themed model selector */}
       <TouchableOpacity
         style={[
-          styles.enhancedSelector,
+          styles.appThemedSelector,
           { 
             backgroundColor: colors.card,
-            borderColor: colors.primary + '30',
+            borderColor: colors.border,
           },
         ]}
         onPress={toggleModal}
         activeOpacity={0.7}
       >
         <View style={styles.modelIconContainer}>
-          <ModelIcon model={selectedModel} size={26} />
+          <ModelIcon model={selectedModel} size={24} />
         </View>
-        <Text style={[styles.enhancedModelName, { color: colors.text }]}>
+        <Text style={[styles.appModelName, { color: colors.text }]}>
           {selectedModel.name}
         </Text>
-        <View style={styles.chevronContainer}>
-          <Ionicons 
-            name="chevron-down" 
-            size={18} 
-            color={colors.primary} 
-          />
-        </View>
+        <Ionicons 
+          name="chevron-down" 
+          size={18} 
+          color={colors.text} 
+        />
       </TouchableOpacity>
 
       {/* Model selection modal */}
@@ -190,7 +188,28 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 8,
   },
-  // Enhanced selector styles
+  // App-themed selector styles
+  appThemedSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 21,
+    borderWidth: 1,
+    minHeight: 42,
+  },
+  modelIconContainer: {
+    marginRight: 8,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appModelName: {
+    fontSize: 15,
+    fontWeight: "500",
+    flex: 1,
+  },
+  // Keep old styles for reference
   enhancedSelector: {
     flexDirection: "row",
     alignItems: "center",
@@ -203,13 +222,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 1,
-  },
-  modelIconContainer: {
-    marginRight: 10,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   enhancedModelName: {
     fontSize: 16,

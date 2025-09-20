@@ -136,40 +136,17 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
         <View
           style={[styles.container, { backgroundColor: colors.background }]}
         >
-          {/* Beautiful Chat Header with Gradient Effect */}
+          {/* App-themed Chat Header */}
           <View
             style={[
-              styles.beautifulHeader,
+              styles.appThemedHeader,
               {
-                backgroundColor: isDark ? '#1a1f2c' : '#f0f7ff',
+                backgroundColor: colors.background, // Match app's dark blue background
               },
             ]}
           >
-            {/* Decorative gradient line at top */}
-            <View style={styles.gradientLine} />
-            
             <View style={styles.headerContent}>
-              {/* New Chat button with pulse animation */}
-              <TouchableOpacity
-                style={[
-                  styles.beautifulIconButton,
-                  { 
-                    backgroundColor: isDark ? '#2d3748' : '#e6f0ff',
-                  },
-                ]}
-                onPress={handleReset}
-                activeOpacity={0.6}
-              >
-                <View style={[styles.iconBackground, { backgroundColor: colors.primary + '15' }]}>
-                  <Ionicons
-                    name="refresh-outline"
-                    size={20}
-                    color={colors.primary}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* Model selector with enhanced styling */}
+              {/* Model selector with app-consistent styling */}
               <View style={styles.modelSelectorContainerInHeader}>
                 <ModelSelector
                   models={getAvailableModels()}
@@ -179,32 +156,28 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
                 />
               </View>
 
-              {/* Options button with improved styling */}
+              {/* Options button with app-themed styling */}
               <TouchableOpacity
                 style={[
-                  styles.beautifulIconButton,
+                  styles.appIconButton,
                   {
-                    backgroundColor: isDark ? '#2d3748' : '#e6f0ff',
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
                   },
                 ]}
                 onPress={() => setShowOptions(!showOptions)}
-                activeOpacity={0.6}
+                activeOpacity={0.7}
               >
-                <View style={[styles.iconBackground, { backgroundColor: colors.primary + '15' }]}>
-                  <Ionicons
-                    name="ellipsis-horizontal"
-                    size={20}
-                    color={colors.primary}
-                  />
-                </View>
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={22}
+                  color={colors.text}
+                />
               </TouchableOpacity>
             </View>
-            
-            {/* Subtle shadow effect */}
-            <View style={styles.headerShadow} />
           </View>
 
-            {/* Options menu - redesigned with modern styling */}
+            {/* Options menu - styled to match app theme */}
             {showOptions && (
               <View
                 style={[
@@ -296,61 +269,29 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
   },
-  // Beautiful header styles with modern design
-  beautifulHeader: {
+  // App-themed header styles that match the rest of the application
+  appThemedHeader: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    position: 'relative',
-    overflow: 'hidden',
-    zIndex: 10,
-  },
-  gradientLine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: '#10b981', // Primary green color
-    opacity: 0.7,
-  },
-  headerShadow: {
-    position: 'absolute',
-    bottom: -3,
-    left: 0,
-    right: 0,
-    height: 6,
-    backgroundColor: 'rgba(0,0,0,0.04)',
-    borderRadius: 50,
+    paddingVertical: 12,
+    marginBottom: 6,
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 2,
   },
   modelSelectorContainerInHeader: {
     flex: 1,
-    marginHorizontal: 10,
+    marginRight: 12,
     maxHeight: 46,
   },
-  beautifulIconButton: {
+  appIconButton: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 21,
+    borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  iconBackground: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   // Keep old styles for reference
   enhancedHeader: {
@@ -396,11 +337,10 @@ const styles = StyleSheet.create({
   },
   optionsMenu: {
     position: "absolute",
-    top: 56,
+    top: 66,
     right: 16,
     minWidth: 160,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 12,
     zIndex: 1000,
     elevation: 5,
     shadowColor: "#000",
