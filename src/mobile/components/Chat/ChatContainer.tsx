@@ -45,7 +45,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
     getAvailableModels,
   } = useChat();
 
-  const [showOptions, setShowOptions] = useState(false);
+  // Options menu replaced with direct buttons
   const [apiConnectionTested, setApiConnectionTested] = useState(false);
 
   // Test API connection when component mounts or selected model changes
@@ -100,20 +100,20 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
   // Reset conversation
   const handleReset = () => {
     clearMessages();
-    setShowOptions(false);
   };
-  
+
   // Test API connection
   const handleTestConnection = async () => {
-    setShowOptions(false);
     try {
       const openRouterService = OpenRouterService.getInstance();
-      const isConnected = await openRouterService.testConnection(selectedModel.apiKey);
-      
+      const isConnected = await openRouterService.testConnection(
+        selectedModel.apiKey
+      );
+
       Alert.alert(
         isConnected ? "Connection Successful" : "Connection Failed",
-        isConnected 
-          ? "Successfully connected to the AI service." 
+        isConnected
+          ? "Successfully connected to the AI service."
           : "Could not connect to the AI service. Please check your API key and internet connection.",
         [{ text: "OK" }]
       );
@@ -156,7 +156,27 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
                 />
               </View>
 
-              {/* Options button with app-themed styling */}
+              {/* Connection status indicator */}
+              <TouchableOpacity
+                style={[
+                  styles.appIconButton,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginRight: 8,
+                  },
+                ]}
+                onPress={handleTestConnection}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={apiConnectionTested ? "checkmark-circle" : "radio"}
+                  size={22}
+                  color={apiConnectionTested ? "#10B981" : colors.textSecondary}
+                />
+              </TouchableOpacity>
+              
+              {/* New chat button */}
               <TouchableOpacity
                 style={[
                   styles.appIconButton,
@@ -165,11 +185,11 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
                     borderColor: colors.border,
                   },
                 ]}
-                onPress={() => setShowOptions(!showOptions)}
+                onPress={handleReset}
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name="ellipsis-horizontal"
+                  name="refresh"
                   size={22}
                   color={colors.text}
                 />
@@ -177,43 +197,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ colors, isDark }) => {
             </View>
           </View>
 
-            {/* Options menu - styled to match app theme */}
-            {showOptions && (
-              <View
-                style={[
-                  styles.optionsMenu,
-                  { 
-                    backgroundColor: colors.card, 
-                    borderColor: colors.border,
-                    borderWidth: 1,
-                    borderRadius: 12,
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.optionItem,
-                    { borderBottomColor: colors.border },
-                  ]}
-                  onPress={handleReset}
-                >
-                  <Ionicons name="refresh" size={18} color={colors.primary} />
-                  <Text style={[styles.optionText, { color: colors.text }]}>
-                    New Chat
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={styles.optionItem}
-                  onPress={handleTestConnection}
-                >
-                  <Ionicons name="cloud-outline" size={18} color={colors.primary} />
-                  <Text style={[styles.optionText, { color: colors.text }]}>
-                    Test Connection
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+          {/* Options menu removed - replaced with direct buttons */}
 
           {/* Display error message if any */}
           {error && (
@@ -268,20 +252,19 @@ const styles = StyleSheet.create({
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    paddingHorizontal: 16, // Add consistent horizontal padding
+    paddingHorizontal: 0, // Remove horizontal padding to use full width
   },
   // App-themed header styles that match the rest of the application
   appThemedHeader: {
-    paddingHorizontal: 0, // Remove padding since container has padding now
+    paddingHorizontal: 16, // Add padding to the header
     paddingVertical: 12,
     marginBottom: 6,
-    marginHorizontal: -16, // Extend the header to the edges
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16, // Add back padding for the content
+    paddingHorizontal: 0, // Remove padding since the header has padding now
   },
   modelSelectorContainerInHeader: {
     flex: 1,
@@ -338,30 +321,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  optionsMenu: {
-    position: "absolute",
-    top: 66,
-    right: 0, // Align with the container's right edge
-    minWidth: 160,
-    borderRadius: 12,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  optionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderBottomWidth: 1,
-  },
-  optionText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "500",
-  },
+  // Options menu styles removed - replaced with direct buttons
   errorContainer: {
     flexDirection: "row",
     justifyContent: "space-between",

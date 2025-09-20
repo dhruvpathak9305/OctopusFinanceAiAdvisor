@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { ChatMessage, ChatModel } from "../../types/chat";
-import ModelIcon from '../../components/ModelIcon';
+import ModelIcon from "../../components/ModelIcon";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -135,7 +135,9 @@ const MessageList: React.FC<MessageListProps> = ({
             key={message.id}
             style={[
               styles.messageRow,
-              message.role === "user" ? styles.userMessageRow : styles.assistantMessageRow,
+              message.role === "user"
+                ? styles.userMessageRow
+                : styles.assistantMessageRow,
             ]}
           >
             {/* Assistant Avatar (only for assistant messages) */}
@@ -146,23 +148,29 @@ const MessageList: React.FC<MessageListProps> = ({
                 </View>
               </View>
             )}
-            
+
             {/* Message Bubble */}
-            <View 
+            <View
               style={[
                 styles.messageBubble,
-                message.role === "user" 
-                  ? [styles.userBubble, { backgroundColor: '#10B981' }] // Green for user
-                  : [styles.assistantBubble, { backgroundColor: colors.card, borderColor: colors.border }],
+                message.role === "user"
+                  ? [styles.userBubble, { backgroundColor: "#10B981" }] // Green for user
+                  : [
+                      styles.assistantBubble,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ],
               ]}
             >
               {/* Assistant name (only shown for assistant messages) */}
               {message.role === "assistant" && (
-                <Text style={[styles.assistantName, { color: colors.primary }]}>
+                <Text style={[styles.assistantName, { color: "#FFFFFF" }]}>
                   {selectedModel.name}
                 </Text>
               )}
-              
+
               {/* Message content */}
               <Text
                 style={[
@@ -172,22 +180,27 @@ const MessageList: React.FC<MessageListProps> = ({
                     : [styles.assistantMessageText, { color: colors.text }],
                 ]}
               >
-                {typeof message.content === 'string' ? message.content : 'Unsupported message format'}
+                {typeof message.content === "string"
+                  ? message.content
+                  : "Unsupported message format"}
               </Text>
-              
+
               {/* Timestamp */}
               <Text
                 style={[
                   styles.timestamp,
                   message.role === "user"
                     ? styles.userTimestamp
-                    : [styles.assistantTimestamp, { color: colors.textSecondary }],
+                    : [
+                        styles.assistantTimestamp,
+                        { color: colors.textSecondary },
+                      ],
                 ]}
               >
                 {formatTime(message.timestamp)}
               </Text>
             </View>
-            
+
             {/* Empty space on user messages to balance avatar */}
             {message.role === "user" && <View style={styles.avatarContainer} />}
           </View>
@@ -201,7 +214,7 @@ const MessageList: React.FC<MessageListProps> = ({
                 <ModelIcon model={selectedModel} size={24} />
               </View>
             </View>
-            
+
             {/* Loading bubble */}
             <View
               style={[
@@ -213,14 +226,19 @@ const MessageList: React.FC<MessageListProps> = ({
                 },
               ]}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary, marginLeft: 8 }]}>
+                <Text
+                  style={[
+                    styles.loadingText,
+                    { color: colors.textSecondary, marginLeft: 8 },
+                  ]}
+                >
                   Thinking...
                 </Text>
               </View>
             </View>
-            
+
             {/* Empty space for balance */}
             <View style={styles.avatarContainer} />
           </View>
@@ -237,34 +255,35 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
     paddingBottom: 24,
+    width: '100%', // Ensure content takes full width
   },
   // WhatsApp style message layout
   messageRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginVertical: 2,
     paddingVertical: 2,
-    width: '100%',
+    width: "100%",
   },
   userMessageRow: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   assistantMessageRow: {
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   // Avatar styling
   avatarContainer: {
     width: 36,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    alignItems: "center",
+    justifyContent: "flex-start",
     paddingTop: 2,
   },
   avatar: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
   // Bubble styling
   messageBubble: {
@@ -285,8 +304,8 @@ const styles = StyleSheet.create({
   },
   // Text styling within bubbles
   assistantName: {
-    fontWeight: "600",
-    fontSize: 13,
+    fontWeight: "700",
+    fontSize: 14,
     marginBottom: 4,
   },
   messageText: {
@@ -337,8 +356,8 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingContainer: {
     flexDirection: "row",
