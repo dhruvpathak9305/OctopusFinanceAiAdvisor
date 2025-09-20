@@ -19,15 +19,17 @@ const ModelIcon: React.FC<ModelIconProps> = ({ model, size = 24 }) => {
   if (model.id === "grok-4") {
     // Use theme-specific Grok logos based on the current theme
     return (
-      <View style={[
-        styles.logoContainer,
-        // Add a contrasting background in light mode for better visibility
-        !isDark && { 
-          backgroundColor: '#222', 
-          borderRadius: size / 2,
-          padding: 2
-        }
-      ]}>
+      <View
+        style={[
+          styles.logoContainer,
+          // Add a contrasting background in light mode for better visibility
+          !isDark && {
+            backgroundColor: "#222",
+            borderRadius: size / 2,
+            padding: 2,
+          },
+        ]}
+      >
         <Image
           source={
             isDark
@@ -36,7 +38,11 @@ const ModelIcon: React.FC<ModelIconProps> = ({ model, size = 24 }) => {
           }
           style={[
             styles.image,
-            { width: isDark ? size : size - 4, height: isDark ? size : size - 4, borderRadius: size / 2 },
+            {
+              width: isDark ? size : size - 4,
+              height: isDark ? size : size - 4,
+              borderRadius: size / 2,
+            },
           ]}
           resizeMode="contain"
         />
@@ -58,6 +64,66 @@ const ModelIcon: React.FC<ModelIconProps> = ({ model, size = 24 }) => {
         ]}
         resizeMode="contain"
       />
+    );
+  }
+  // Gemini model with colorful gradient-style emoji
+  else if (model.id === "gemini-2.0-flash") {
+    return (
+      <View
+        style={[
+          styles.logoContainer,
+          styles.geminiContainer,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: isDark ? "#1a73e8" : "#4285f4", // Google blue
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.emojiText,
+            {
+              fontSize: size * 0.6,
+              color: "white",
+              fontWeight: "600",
+            },
+          ]}
+        >
+          ✨
+        </Text>
+      </View>
+    );
+  }
+  // Llama model with Meta-branded styling
+  else if (model.id === "llama-3.3-8b") {
+    return (
+      <View
+        style={[
+          styles.logoContainer,
+          styles.llamaContainer,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: isDark ? "#0866FF" : "#1877F2", // Meta blue
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.emojiText,
+            {
+              fontSize: size * 0.6,
+              color: "white",
+              fontWeight: "600",
+            },
+          ]}
+        >
+          🦙
+        </Text>
+      </View>
     );
   }
   // If model has a logo path, use the image
@@ -87,8 +153,28 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   logoContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  geminiContainer: {
+    shadowColor: "#4285f4",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  llamaContainer: {
+    shadowColor: "#1877F2",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   emojiText: {
     textAlign: "center",

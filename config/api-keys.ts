@@ -8,10 +8,16 @@
 export const API_KEYS = {
   // OpenRouter API Keys for accessing various LLM models
   OPENROUTER_API_KEY_GROK:
-    "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",
+    "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",
 
   OPENROUTER_API_KEY_DEEPSEEK:
-    "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",
+    "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",
+
+  OPENROUTER_API_KEY_GEMINI:
+    "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",
+
+  OPENROUTER_API_KEY_LLAMA:
+    "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",
 
   // Site information for OpenRouter
   SITE_URL: "https://octopus-finance.ai",
@@ -47,6 +53,26 @@ export const MODEL_CONFIGS = {
     description: "Advanced language model by DeepSeek",
     // We handle theme-specific logos in the ModelIcon component
     apiKey: API_KEYS.OPENROUTER_API_KEY_DEEPSEEK,
+    supportsImages: false,
+  },
+  GEMINI: {
+    id: "gemini-2.0-flash",
+    name: "Gemini 2.0 Flash",
+    provider: "openrouter",
+    model: "google/gemini-2.0-flash-exp:free", // Google Gemini model on free tier
+    description: "Google's advanced multimodal AI model",
+    // We handle theme-specific logos in the ModelIcon component
+    apiKey: API_KEYS.OPENROUTER_API_KEY_GEMINI,
+    supportsImages: true,
+  },
+  LLAMA: {
+    id: "llama-3.3-8b",
+    name: "Llama 3.3 8B",
+    provider: "openrouter",
+    model: "meta-llama/llama-3.3-8b-instruct:free", // Meta Llama model on free tier
+    description: "Meta's advanced open-source language model",
+    // We handle theme-specific logos in the ModelIcon component
+    apiKey: API_KEYS.OPENROUTER_API_KEY_LLAMA,
     supportsImages: false,
   },
 };
