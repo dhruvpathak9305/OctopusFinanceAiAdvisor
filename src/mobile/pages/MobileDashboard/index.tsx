@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useFinancialData } from "../../hooks/useFinancialData";
+import { ChatContainer } from "../../components/Chat";
 
 // Import components
 import Header from "./Header";
@@ -169,21 +170,8 @@ export default function MobileDashboard() {
         );
       case "advisor":
         return (
-          <View
-            style={[
-              styles.tabContentPlaceholder,
-              { backgroundColor: colors.card },
-            ]}
-          >
-            <Text style={styles.tabContentIcon}>🤖</Text>
-            <Text style={[styles.tabContentTitle, { color: colors.text }]}>
-              Financial Advisor
-            </Text>
-            <Text
-              style={[styles.tabContentText, { color: colors.textSecondary }]}
-            >
-              Get personalized financial advice from our AI advisor.
-            </Text>
+          <View style={styles.chatContainer}>
+            <ChatContainer colors={colors} isDark={isDark} />
           </View>
         );
       default:
@@ -249,8 +237,8 @@ export default function MobileDashboard() {
         </View>
       </ScrollView>
 
-      {/* Quick Add Button */}
-      <QuickAddButton />
+      {/* Quick Add Button - Only show when not on advisor tab */}
+      {activeTab !== "advisor" && <QuickAddButton />}
     </SafeAreaView>
   );
 }
@@ -317,5 +305,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 24,
     paddingHorizontal: 20,
+  },
+  chatContainer: {
+    flex: 1,
+    height: 600, // Adjust as needed for your design
+    marginBottom: 20,
+    marginTop: 0,
+    borderRadius: 12,
+    overflow: "hidden",
   },
 });
