@@ -8,7 +8,7 @@
 export const API_KEYS = {
   // OpenRouter API Keys for accessing various LLM models
   OPENROUTER_API_KEY_GROK:
-    "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",
+    "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",
 
   OPENROUTER_API_KEY_DEEPSEEK:
     "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",

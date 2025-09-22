@@ -180,7 +180,8 @@ export class OpenRouterService {
   public async generateResponse(
     messages: ChatMessage[],
     modelId: string,
-    apiKey?: string
+    apiKey?: string,
+    maxTokens?: number
   ): Promise<string> {
     // Use the provided API key or fall back to the default one
     const authKey = apiKey || this.apiKey;
@@ -205,7 +206,7 @@ export class OpenRouterService {
           const requestBody = {
             model: currentModel,
             messages: preparedMessages,
-            max_tokens: 500, // Limit tokens to stay within free tier limits
+            max_tokens: maxTokens || 500, // Use provided maxTokens or default to 500
           };
 
           console.log("Request body:", JSON.stringify(requestBody, null, 2));

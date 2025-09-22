@@ -11,6 +11,7 @@ import {
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useFinancialData } from "../../hooks/useFinancialData";
 import { ChatContainer } from "../../components/Chat";
+import { SMSChatContainer } from "../../components/SMSAnalysis";
 
 // Import components
 import Header from "./Header";
@@ -89,6 +90,11 @@ export default function MobileDashboard() {
   const [isExpandedView, setIsExpandedView] = useState(true);
   const financialData = useFinancialData();
 
+  // SMS Transaction Modal state
+  const [smsTransactionData, setSmsTransactionData] = useState<any>(null);
+  const [showSmsTransactionModal, setShowSmsTransactionModal] = useState(false);
+  const [smsModalIsEditMode, setSmsModalIsEditMode] = useState(false);
+
   // Ref for scroll control
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -98,6 +104,14 @@ export default function MobileDashboard() {
 
   // Handle tab change and scroll to chat when advisor is selected
   useEffect(() => {
+    // Reset SMS transaction modal state when switching tabs
+    if (showSmsTransactionModal) {
+      console.log("Closing SMS modal due to tab change");
+      setShowSmsTransactionModal(false);
+      setSmsTransactionData(null);
+      setSmsModalIsEditMode(false);
+    }
+
     if (activeTab === "advisor") {
       // Small delay to ensure the tab content is rendered
       setTimeout(() => {
@@ -107,7 +121,56 @@ export default function MobileDashboard() {
         }
       }, 150);
     }
-  }, [activeTab]);
+  }, [activeTab, showSmsTransactionModal]);
+
+  // Handle opening transaction modal from SMS analysis
+  const handleOpenTransactionModal = (
+    transactionData: any,
+    isEditMode: boolean = false
+  ) => {
+    console.log(
+      "Opening transaction modal - Edit Mode:",
+      isEditMode,
+      "Data:",
+      transactionData
+    );
+
+    // Always reset state first to ensure clean modal opening
+    setShowSmsTransactionModal(false);
+    setSmsTransactionData(null);
+    setSmsModalIsEditMode(false);
+
+    // Then set new data after a brief delay
+    setTimeout(() => {
+      setSmsTransactionData(transactionData);
+      setSmsModalIsEditMode(isEditMode);
+      setShowSmsTransactionModal(true);
+    }, 50);
+  };
+
+  // Handle modal close - this will be called when modal is closed
+  const handleSmsTransactionModalClose = () => {
+    console.log("Closing SMS transaction modal");
+    setShowSmsTransactionModal(false);
+    setSmsTransactionData(null);
+    setSmsModalIsEditMode(false);
+  };
+
+  // Monitor modal state and auto-close after a delay if needed
+  useEffect(() => {
+    if (showSmsTransactionModal) {
+      console.log("SMS Transaction modal opened");
+
+      // Check if modal is still open after a short delay
+      const checkInterval = setInterval(() => {
+        // If the modal has been open for more than 1 second, assume user might have closed it
+        // This is a workaround since QuickAddButton doesn't properly call onTransactionUpdate on close
+        console.log("Checking if modal should be closed...");
+      }, 5000);
+
+      return () => clearInterval(checkInterval);
+    }
+  }, [showSmsTransactionModal]);
 
   const colors = isDark
     ? {
@@ -180,19 +243,15 @@ export default function MobileDashboard() {
         return (
           <View
             style={[
-              styles.tabContentPlaceholder,
-              { backgroundColor: colors.card },
+              styles.chatTabContent,
+              { height: chatHeight, maxHeight: chatHeight },
             ]}
           >
-            <Text style={styles.tabContentIcon}>💬</Text>
-            <Text style={[styles.tabContentTitle, { color: colors.text }]}>
-              SMS Analysis
-            </Text>
-            <Text
-              style={[styles.tabContentText, { color: colors.textSecondary }]}
-            >
-              AI-powered analysis of your transaction SMS messages coming soon.
-            </Text>
+            <SMSChatContainer
+              colors={colors}
+              isDark={isDark}
+              onOpenTransactionModal={handleOpenTransactionModal}
+            />
           </View>
         );
       case "advisor":
@@ -271,8 +330,18 @@ export default function MobileDashboard() {
         </View>
       </ScrollView>
 
-      {/* Quick Add Button - Only show when not on advisor tab */}
-      {activeTab !== "advisor" && <QuickAddButton />}
+      {/* Quick Add Button - Only show when on overview tab */}
+      {activeTab === "overview" && <QuickAddButton />}
+
+      {/* SMS Transaction Modal */}
+      {showSmsTransactionModal && (
+        <QuickAddButton
+          editTransaction={smsModalIsEditMode ? smsTransactionData : undefined}
+          isEditMode={smsModalIsEditMode}
+          onTransactionUpdate={handleSmsTransactionModalClose}
+          key={`sms-modal-${Date.now()}`} // Force re-render with unique key
+        />
+      )}
     </SafeAreaView>
   );
 }
