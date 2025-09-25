@@ -50,6 +50,14 @@ import { OpenAIService } from "../../../../services/openaiService";
 // Import image handling
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
+// Import expense splitting
+import ExpenseSplittingInterface from "../ExpenseSplitting/ExpenseSplittingInterface";
+import {
+  Group,
+  SplitCalculation,
+  SplitValidation,
+} from "../../../../types/splitting";
+import { ExpenseSplittingService } from "../../../../services/expenseSplittingService";
 
 interface QuickAddButtonProps {
   style?: any;
@@ -60,6 +68,7 @@ interface QuickAddButtonProps {
 
 interface AddTransactionModalProps {
   colors: any;
+  isDark: boolean;
   onClose: () => void;
   onBack: () => void;
   editTransaction?: any; // Transaction to edit (if in edit mode)
@@ -188,6 +197,7 @@ const ToastNotification = ({
 
 const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   colors,
+  isDark,
   onClose,
   onBack,
   editTransaction,
@@ -238,6 +248,23 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [enableAutopay, setEnableAutopay] = useState(false);
   const [autopayAccount, setAutopayAccount] = useState("");
   const [useSameAccount, setUseSameAccount] = useState(true);
+
+  // Expense splitting state
+  const [isSplitEnabled, setIsSplitEnabled] = useState(false);
+  const [selectedSplitGroup, setSelectedSplitGroup] = useState<Group | null>(
+    null
+  );
+  const [splitCalculations, setSplitCalculations] = useState<
+    SplitCalculation[]
+  >([]);
+  const [splitValidation, setSplitValidation] = useState<SplitValidation>({
+    is_valid: true,
+    total_shares: 0,
+    expected_total: 0,
+    difference: 0,
+    errors: [],
+    warnings: [],
+  });
 
   // Database state
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>(
@@ -336,6 +363,35 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     setAccounts((prev) => [...prev, creditCardAsAccount]);
     setAccount(`${newCreditCard.name} (${newCreditCard.institution})`);
     setShowAddCreditCardModal(false);
+  };
+
+  // Handle expense splitting changes
+  const handleSplitChange = (
+    enabled: boolean,
+    splits?: SplitCalculation[],
+    group?: Group
+  ) => {
+    setIsSplitEnabled(enabled);
+    setSelectedSplitGroup(group || null);
+    setSplitCalculations(splits || []);
+
+    // Update validation when splits change
+    if (enabled && splits && splits.length > 0) {
+      const validation = ExpenseSplittingService.validateSplits(
+        parseFloat(amount) || 0,
+        splits
+      );
+      setSplitValidation(validation);
+    } else {
+      setSplitValidation({
+        is_valid: true,
+        total_shares: 0,
+        expected_total: 0,
+        difference: 0,
+        errors: [],
+        warnings: [],
+      });
+    }
   };
 
   // Fetch data from database on component mount
@@ -459,6 +515,22 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
+    // Validate splits if splitting is enabled
+    if (isSplitEnabled) {
+      if (!splitValidation.is_valid) {
+        Alert.alert(
+          "Invalid Split",
+          `Please fix the split errors:\n${splitValidation.errors.join("\n")}`
+        );
+        return;
+      }
+
+      if (splitCalculations.length === 0) {
+        Alert.alert("Error", "Please select a group and configure splits");
+        return;
+      }
+    }
+
     try {
       // Find the selected category and subcategory IDs
       const selectedCategory = budgetCategories.find(
@@ -544,12 +616,33 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         // Then perform the database operation in the background
         setTimeout(async () => {
           try {
-            await addTransaction(transactionData, isDemo);
+            // Check if this is a split transaction
+            if (
+              isSplitEnabled &&
+              splitCalculations.length > 0 &&
+              splitValidation.is_valid
+            ) {
+              // Create transaction with splits
+              await ExpenseSplittingService.createTransactionWithSplits(
+                transactionData,
+                splitCalculations,
+                selectedSplitGroup?.id
+              );
 
-            // Show a more detailed success toast notification
-            setToastMessage(
-              `Transaction "${transactionData.name}" added successfully!`
-            );
+              // Show split-specific success message
+              setToastMessage(
+                `Split transaction "${transactionData.name}" created with ${splitCalculations.length} participants!`
+              );
+            } else {
+              // Regular transaction without splits
+              await addTransaction(transactionData, isDemo);
+
+              // Show regular success message
+              setToastMessage(
+                `Transaction "${transactionData.name}" added successfully!`
+              );
+            }
+
             setToastVisible(true);
 
             // Wait a moment before triggering the refresh to ensure UI responsiveness
@@ -1049,6 +1142,19 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Expense Splitting Interface */}
+            {transactionType === "expense" && (
+              <View style={styles.fieldContainer}>
+                <ExpenseSplittingInterface
+                  transactionAmount={parseFloat(amount) || 0}
+                  onSplitChange={handleSplitChange}
+                  colors={colors}
+                  isDark={isDark}
+                  disabled={loading}
+                />
+              </View>
+            )}
 
             {/* Category (full width for expense/income) */}
             {transactionType !== "transfer" && (
@@ -2814,6 +2920,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               >
                 <AddTransactionModal
                   colors={colors}
+                  isDark={isDark}
                   onClose={handleCloseCopyModal}
                   onBack={handleCloseCopyModal}
                   editTransaction={copyTransactionData}
@@ -3432,6 +3539,7 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
         return (
           <AddTransactionModal
             colors={colors}
+            isDark={isDark}
             onClose={handleCloseModal}
             onBack={handleBackToQuickActions}
             editTransaction={editTransaction}
