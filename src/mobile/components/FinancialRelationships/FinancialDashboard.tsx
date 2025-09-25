@@ -6,6 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme as useNavTheme } from "@react-navigation/native";
@@ -64,6 +69,32 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Modal states
+  const [createLoanModalVisible, setCreateLoanModalVisible] = useState(false);
+  const [requestPaymentModalVisible, setRequestPaymentModalVisible] =
+    useState(false);
+  const [viewAllModalVisible, setViewAllModalVisible] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [groupMembers, setGroupMembers] = useState<
+    { id: string; name: string; role: string }[]
+  >([]);
+
+  // Form states
+  const [selectedContact, setSelectedContact] = useState("");
+  const [recipientType, setRecipientType] = useState<
+    "person" | "group" | "bank"
+  >("person");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [interestRate, setInterestRate] = useState("0");
+  const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [banks, setBanks] = useState<{ id: string; name: string }[]>([]);
+
   // Use the dark theme but with specific adjustments to match the main dashboard
   const colors = {
     ...darkTheme,
@@ -90,6 +121,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
 
         // Load upcoming payments
         await loadUpcomingPayments();
+
+        // Load contacts
+        await loadContacts();
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -99,6 +133,90 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
 
     loadDashboardData();
   }, [userId]);
+
+  // Load user's contacts, groups and banks for modals
+  const loadContacts = async () => {
+    try {
+      // In a real implementation, we would fetch from individual_contacts table
+      // For now, we'll create some sample data
+      const mockContacts = [
+        { id: "contact1", name: "Rahul Kumar" },
+        { id: "contact2", name: "Priya Sharma" },
+        { id: "contact3", name: "Vikram Singh" },
+        { id: "contact4", name: "Neha Gupta" },
+        { id: "contact5", name: "Amit Patel" },
+      ];
+
+      // Mock groups data with member information
+      const mockGroups = [
+        { id: "group1", name: "Family" },
+        { id: "group2", name: "Weekend Trip" },
+        { id: "group3", name: "Office Team" },
+        { id: "group4", name: "Roommates" },
+      ];
+
+      // Mock banks data
+      const mockBanks = [
+        { id: "bank1", name: "HDFC Bank" },
+        { id: "bank2", name: "SBI" },
+        { id: "bank3", name: "ICICI Bank" },
+        { id: "bank4", name: "Axis Bank" },
+      ];
+
+      setContacts(mockContacts);
+      setGroups(mockGroups);
+      setBanks(mockBanks);
+    } catch (error) {
+      console.error("Error loading contacts:", error);
+    }
+  };
+
+  // Function to load group members
+  const loadGroupMembers = (groupId: string, groupName: string) => {
+    // In a real implementation, this would fetch from a database
+    // Mock member data for each group
+    let mockMembers: { id: string; name: string; role: string }[] = [];
+
+    switch (groupId) {
+      case "group1": // Family
+        mockMembers = [
+          { id: "member1", name: "Rahul Kumar", role: "admin" },
+          { id: "member2", name: "Priya Sharma", role: "member" },
+          { id: "member3", name: "Anil Kumar", role: "member" },
+          { id: "member4", name: "Sneha Patel", role: "member" },
+        ];
+        break;
+      case "group2": // Weekend Trip
+        mockMembers = [
+          { id: "member5", name: "Vikram Singh", role: "admin" },
+          { id: "member6", name: "Neha Gupta", role: "member" },
+          { id: "member7", name: "Arjun Mehta", role: "member" },
+          { id: "member8", name: "Divya Shah", role: "member" },
+        ];
+        break;
+      case "group3": // Office Team
+        mockMembers = [
+          { id: "member9", name: "Amit Patel", role: "admin" },
+          { id: "member10", name: "Ravi Sharma", role: "member" },
+          { id: "member11", name: "Pooja Verma", role: "member" },
+          { id: "member12", name: "Sandeep Rao", role: "member" },
+          { id: "member13", name: "Tanvi Mishra", role: "member" },
+        ];
+        break;
+      case "group4": // Roommates
+        mockMembers = [
+          { id: "member14", name: "Karan Singh", role: "admin" },
+          { id: "member15", name: "Nisha Joshi", role: "member" },
+          { id: "member16", name: "Rohit Kumar", role: "member" },
+        ];
+        break;
+      default:
+        mockMembers = [];
+    }
+
+    setGroupMembers(mockMembers);
+    setSelectedGroup({ id: groupId, name: groupName });
+  };
 
   const loadFinancialSummary = async () => {
     try {
@@ -248,6 +366,102 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
       return "Tomorrow";
     } else {
       return `${days}d remaining`;
+    }
+  };
+
+  // Handle form submissions
+  const handleCreateLoan = () => {
+    // Validate form
+    if (!selectedContact) {
+      Alert.alert("Error", "Please select a contact");
+      return;
+    }
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      Alert.alert("Error", "Please enter a valid amount");
+      return;
+    }
+    if (!description) {
+      Alert.alert("Error", "Please provide a description");
+      return;
+    }
+    if (!dueDate) {
+      Alert.alert("Error", "Please provide a due date");
+      return;
+    }
+
+    // Create loan (in real implementation, this would call LoanManagementService)
+    Alert.alert(
+      "Success",
+      `Loan created successfully!\n\nAmount: ₹${amount}\nFor: ${description}\nDue by: ${dueDate}`,
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            // Reset form and close modal
+            setSelectedContact("");
+            setAmount("");
+            setDescription("");
+            setDueDate("");
+            setInterestRate("0");
+            setCreateLoanModalVisible(false);
+
+            // Refresh data
+            loadFinancialSummary();
+            loadRecentActivity();
+            loadUpcomingPayments();
+          },
+        },
+      ]
+    );
+
+    if (onCreateLoan) {
+      onCreateLoan();
+    }
+  };
+
+  const handleRequestPayment = () => {
+    // Validate form
+    if (!selectedContact) {
+      Alert.alert("Error", "Please select a contact");
+      return;
+    }
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      Alert.alert("Error", "Please enter a valid amount");
+      return;
+    }
+    if (!description) {
+      Alert.alert("Error", "Please provide a description");
+      return;
+    }
+
+    // Send payment request (in real implementation, this would use a service)
+    Alert.alert(
+      "Success",
+      `Payment request sent successfully!\n\nAmount: ₹${amount}\nFor: ${description}${
+        dueDate ? `\nDue by: ${dueDate}` : ""
+      }`,
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            // Reset form and close modal
+            setSelectedContact("");
+            setAmount("");
+            setDescription("");
+            setDueDate("");
+            setRequestPaymentModalVisible(false);
+
+            // Refresh data
+            loadFinancialSummary();
+            loadRecentActivity();
+            loadUpcomingPayments();
+          },
+        },
+      ]
+    );
+
+    if (onRequestPayment) {
+      onRequestPayment();
     }
   };
 
@@ -440,27 +654,50 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
         <Text style={[styles.cardTitle, { color: colors.text }]}>
           QUICK ACTIONS
         </Text>
-        <View style={styles.actionButtons}>
+        <View style={styles.actionButtonsGrid}>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#10B981" }]}
-            onPress={onCreateLoan}
+            style={styles.gridActionButton}
+            onPress={() => setCreateLoanModalVisible(true)}
           >
-            <Ionicons name="cash-outline" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Create Loan</Text>
+            <View
+              style={[
+                styles.gridIconContainer,
+                { backgroundColor: "rgba(16,185,129,0.15)" },
+              ]}
+            >
+              <Ionicons name="cash-outline" size={26} color="#10B981" />
+            </View>
+            <Text style={styles.gridActionText}>Loan</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#10B981" }]}
-            onPress={onRequestPayment}
+            style={styles.gridActionButton}
+            onPress={() => setRequestPaymentModalVisible(true)}
           >
-            <Ionicons name="arrow-down-outline" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Request Payment</Text>
+            <View
+              style={[
+                styles.gridIconContainer,
+                { backgroundColor: "rgba(59,130,246,0.15)" },
+              ]}
+            >
+              <Ionicons name="arrow-down-circle" size={26} color="#3B82F6" />
+            </View>
+            <Text style={styles.gridActionText}>Request</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#10B981" }]}
-            onPress={onViewRelationships}
+            style={styles.gridActionButton}
+            onPress={() => setViewAllModalVisible(true)}
           >
-            <Ionicons name="people-outline" size={20} color="white" />
-            <Text style={styles.actionButtonText}>View All</Text>
+            <View
+              style={[
+                styles.gridIconContainer,
+                { backgroundColor: "rgba(245,158,11,0.15)" },
+              ]}
+            >
+              <Ionicons name="people" size={26} color="#F59E0B" />
+            </View>
+            <Text style={styles.gridActionText}>View All</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -760,6 +997,1111 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
           </>
         )}
       </View>
+
+      {/* Create Loan Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={createLoanModalVisible}
+        onRequestClose={() => setCreateLoanModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.card }]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Create Loan
+              </Text>
+              <TouchableOpacity
+                onPress={() => setCreateLoanModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Form Fields */}
+            <ScrollView style={styles.formContainer}>
+              {/* Recipient Type Tabs */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Select Recipient
+              </Text>
+              <View style={styles.recipientTypeTabs}>
+                <TouchableOpacity
+                  style={[
+                    styles.recipientTypeTab,
+                    recipientType === "person" && styles.activeRecipientTab,
+                  ]}
+                  onPress={() => setRecipientType("person")}
+                >
+                  <Ionicons
+                    name="person"
+                    size={18}
+                    color={
+                      recipientType === "person"
+                        ? "#10B981"
+                        : colors.textSecondary
+                    }
+                    style={styles.recipientTabIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.recipientTabText,
+                      {
+                        color:
+                          recipientType === "person"
+                            ? "#10B981"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Person
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.recipientTypeTab,
+                    recipientType === "group" && styles.activeRecipientTab,
+                  ]}
+                  onPress={() => setRecipientType("group")}
+                >
+                  <Ionicons
+                    name="people"
+                    size={18}
+                    color={
+                      recipientType === "group"
+                        ? "#10B981"
+                        : colors.textSecondary
+                    }
+                    style={styles.recipientTabIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.recipientTabText,
+                      {
+                        color:
+                          recipientType === "group"
+                            ? "#10B981"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Group
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.recipientTypeTab,
+                    recipientType === "bank" && styles.activeRecipientTab,
+                  ]}
+                  onPress={() => setRecipientType("bank")}
+                >
+                  <Ionicons
+                    name="business"
+                    size={18}
+                    color={
+                      recipientType === "bank"
+                        ? "#10B981"
+                        : colors.textSecondary
+                    }
+                    style={styles.recipientTabIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.recipientTabText,
+                      {
+                        color:
+                          recipientType === "bank"
+                            ? "#10B981"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Bank
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Contact/Group/Bank Picker */}
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    recipientType === "person"
+                      ? "person"
+                      : recipientType === "group"
+                      ? "people"
+                      : "business"
+                  }
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+
+                {recipientType === "person" && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.contactPicker}
+                  >
+                    {contacts.map((contact) => (
+                      <TouchableOpacity
+                        key={contact.id}
+                        style={[
+                          styles.contactChip,
+                          {
+                            backgroundColor:
+                              selectedContact === contact.id
+                                ? colors.primary
+                                : "rgba(255,255,255,0.1)",
+                            borderColor:
+                              selectedContact === contact.id
+                                ? colors.primary
+                                : colors.border,
+                          },
+                        ]}
+                        onPress={() => setSelectedContact(contact.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.contactChipText,
+                            {
+                              color:
+                                selectedContact === contact.id
+                                  ? "#FFFFFF"
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {contact.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {recipientType === "group" && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.contactPicker}
+                  >
+                    {groups.map((group) => (
+                      <TouchableOpacity
+                        key={group.id}
+                        style={[
+                          styles.contactChip,
+                          {
+                            backgroundColor:
+                              selectedContact === group.id
+                                ? colors.primary
+                                : "rgba(255,255,255,0.1)",
+                            borderColor:
+                              selectedContact === group.id
+                                ? colors.primary
+                                : colors.border,
+                          },
+                        ]}
+                        onPress={() => setSelectedContact(group.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.contactChipText,
+                            {
+                              color:
+                                selectedContact === group.id
+                                  ? "#FFFFFF"
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {group.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {recipientType === "bank" && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.contactPicker}
+                  >
+                    {banks.map((bank) => (
+                      <TouchableOpacity
+                        key={bank.id}
+                        style={[
+                          styles.contactChip,
+                          {
+                            backgroundColor:
+                              selectedContact === bank.id
+                                ? colors.primary
+                                : "rgba(255,255,255,0.1)",
+                            borderColor:
+                              selectedContact === bank.id
+                                ? colors.primary
+                                : colors.border,
+                          },
+                        ]}
+                        onPress={() => setSelectedContact(bank.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.contactChipText,
+                            {
+                              color:
+                                selectedContact === bank.id
+                                  ? "#FFFFFF"
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {bank.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              {/* Amount Field */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Amount
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.currencySymbol,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  ₹
+                </Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Enter amount"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="numeric"
+                  value={amount}
+                  onChangeText={setAmount}
+                />
+              </View>
+
+              {/* Description Field */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Description
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="E.g., Home renovation, Education, etc."
+                  placeholderTextColor={colors.textSecondary}
+                  value={description}
+                  onChangeText={setDescription}
+                />
+              </View>
+
+              {/* Due Date Field */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Due Date
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="calendar"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor={colors.textSecondary}
+                  value={dueDate}
+                  onChangeText={setDueDate}
+                />
+              </View>
+
+              {/* Interest Rate Field */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Interest Rate (%)
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="trending-up"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="numeric"
+                  value={interestRate}
+                  onChangeText={setInterestRate}
+                />
+              </View>
+            </ScrollView>
+
+            {/* Form Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { borderColor: colors.border }]}
+                onPress={() => setCreateLoanModalVisible(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleCreateLoan}
+              >
+                <Text style={styles.submitButtonText}>Create Loan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Request Payment Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={requestPaymentModalVisible}
+        onRequestClose={() => setRequestPaymentModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.card }]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Request Payment
+              </Text>
+              <TouchableOpacity
+                onPress={() => setRequestPaymentModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Form Fields */}
+            <ScrollView style={styles.formContainer}>
+              {/* Recipient Type Tabs */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Select Recipient
+              </Text>
+              <View style={styles.recipientTypeTabs}>
+                <TouchableOpacity
+                  style={[
+                    styles.recipientTypeTab,
+                    recipientType === "person" && styles.activeRecipientTab,
+                  ]}
+                  onPress={() => setRecipientType("person")}
+                >
+                  <Ionicons
+                    name="person"
+                    size={18}
+                    color={
+                      recipientType === "person"
+                        ? "#10B981"
+                        : colors.textSecondary
+                    }
+                    style={styles.recipientTabIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.recipientTabText,
+                      {
+                        color:
+                          recipientType === "person"
+                            ? "#10B981"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Person
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.recipientTypeTab,
+                    recipientType === "group" && styles.activeRecipientTab,
+                  ]}
+                  onPress={() => setRecipientType("group")}
+                >
+                  <Ionicons
+                    name="people"
+                    size={18}
+                    color={
+                      recipientType === "group"
+                        ? "#10B981"
+                        : colors.textSecondary
+                    }
+                    style={styles.recipientTabIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.recipientTabText,
+                      {
+                        color:
+                          recipientType === "group"
+                            ? "#10B981"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Group
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.recipientTypeTab,
+                    recipientType === "bank" && styles.activeRecipientTab,
+                  ]}
+                  onPress={() => setRecipientType("bank")}
+                >
+                  <Ionicons
+                    name="business"
+                    size={18}
+                    color={
+                      recipientType === "bank"
+                        ? "#10B981"
+                        : colors.textSecondary
+                    }
+                    style={styles.recipientTabIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.recipientTabText,
+                      {
+                        color:
+                          recipientType === "bank"
+                            ? "#10B981"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Bank
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Contact/Group/Bank Picker */}
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    recipientType === "person"
+                      ? "person"
+                      : recipientType === "group"
+                      ? "people"
+                      : "business"
+                  }
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+
+                {recipientType === "person" && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.contactPicker}
+                  >
+                    {contacts.map((contact) => (
+                      <TouchableOpacity
+                        key={contact.id}
+                        style={[
+                          styles.contactChip,
+                          {
+                            backgroundColor:
+                              selectedContact === contact.id
+                                ? colors.primary
+                                : "rgba(255,255,255,0.1)",
+                            borderColor:
+                              selectedContact === contact.id
+                                ? colors.primary
+                                : colors.border,
+                          },
+                        ]}
+                        onPress={() => setSelectedContact(contact.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.contactChipText,
+                            {
+                              color:
+                                selectedContact === contact.id
+                                  ? "#FFFFFF"
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {contact.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {recipientType === "group" && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.contactPicker}
+                  >
+                    {groups.map((group) => (
+                      <TouchableOpacity
+                        key={group.id}
+                        style={[
+                          styles.contactChip,
+                          {
+                            backgroundColor:
+                              selectedContact === group.id
+                                ? colors.primary
+                                : "rgba(255,255,255,0.1)",
+                            borderColor:
+                              selectedContact === group.id
+                                ? colors.primary
+                                : colors.border,
+                          },
+                        ]}
+                        onPress={() => setSelectedContact(group.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.contactChipText,
+                            {
+                              color:
+                                selectedContact === group.id
+                                  ? "#FFFFFF"
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {group.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {recipientType === "bank" && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.contactPicker}
+                  >
+                    {banks.map((bank) => (
+                      <TouchableOpacity
+                        key={bank.id}
+                        style={[
+                          styles.contactChip,
+                          {
+                            backgroundColor:
+                              selectedContact === bank.id
+                                ? colors.primary
+                                : "rgba(255,255,255,0.1)",
+                            borderColor:
+                              selectedContact === bank.id
+                                ? colors.primary
+                                : colors.border,
+                          },
+                        ]}
+                        onPress={() => setSelectedContact(bank.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.contactChipText,
+                            {
+                              color:
+                                selectedContact === bank.id
+                                  ? "#FFFFFF"
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {bank.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              {/* Amount Field */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Amount
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.currencySymbol,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  ₹
+                </Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Enter amount"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="numeric"
+                  value={amount}
+                  onChangeText={setAmount}
+                />
+              </View>
+
+              {/* Description Field */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Description
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="What is this payment for?"
+                  placeholderTextColor={colors.textSecondary}
+                  value={description}
+                  onChangeText={setDescription}
+                />
+              </View>
+
+              {/* Due Date Field */}
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Due By
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHighlight,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="calendar"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor={colors.textSecondary}
+                  value={dueDate}
+                  onChangeText={setDueDate}
+                />
+              </View>
+            </ScrollView>
+
+            {/* Form Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { borderColor: colors.border }]}
+                onPress={() => setRequestPaymentModalVisible(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleRequestPayment}
+              >
+                <Text style={styles.submitButtonText}>Send Request</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* View All Relationships Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={viewAllModalVisible}
+        onRequestClose={() => {
+          setSelectedGroup(null);
+          setViewAllModalVisible(false);
+        }}
+      >
+        <View
+          style={[
+            styles.fullScreenModalOverlay,
+            { backgroundColor: darkTheme.background },
+          ]}
+        >
+          {selectedGroup ? (
+            // Group Members View
+            <>
+              <View style={styles.enhancedModalHeader}>
+                <View style={styles.headerLeftSection}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedGroup(null)}
+                    style={styles.backButton}
+                  >
+                    <Ionicons name="arrow-back" size={24} color="#10B981" />
+                  </TouchableOpacity>
+                </View>
+                <Text
+                  style={[styles.enhancedModalTitle, { color: colors.text }]}
+                >
+                  {selectedGroup.name} Members
+                </Text>
+                <View style={styles.headerRightSection}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedGroup(null);
+                      setViewAllModalVisible(false);
+                    }}
+                    style={styles.closeButtonContainer}
+                  >
+                    <Ionicons name="close" size={24} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <ScrollView style={styles.relationshipsList}>
+                {groupMembers.map((member) => (
+                  <TouchableOpacity
+                    key={member.id}
+                    style={[
+                      styles.relationshipItem,
+                      { backgroundColor: darkTheme.card },
+                    ]}
+                    onPress={() => {
+                      // Handle member selection if needed
+                    }}
+                  >
+                    <View style={styles.contactAvatar}>
+                      <Ionicons name="person" size={24} color="#10B981" />
+                    </View>
+                    <View style={styles.contactDetails}>
+                      <Text
+                        style={[styles.contactName, { color: colors.text }]}
+                      >
+                        {member.name}
+                      </Text>
+                      <View style={styles.roleContainer}>
+                        <Text
+                          style={[
+                            styles.contactInfo,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {member.role === "admin" ? "" : "Member"}
+                        </Text>
+                        {member.role === "admin" && (
+                          <View style={styles.adminBadge}>
+                            <Ionicons
+                              name="shield-checkmark"
+                              size={12}
+                              color="#10B981"
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text style={styles.adminBadgeText}>Admin</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          ) : (
+            // Main Relationships View
+            <>
+              <View style={styles.enhancedModalHeader}>
+                <View style={styles.headerLeftSection}>
+                  {/* Empty view for alignment */}
+                </View>
+                <Text
+                  style={[styles.enhancedModalTitle, { color: colors.text }]}
+                >
+                  All Relationships
+                </Text>
+                <View style={styles.headerRightSection}>
+                  <TouchableOpacity
+                    onPress={() => setViewAllModalVisible(false)}
+                    style={styles.closeButtonContainer}
+                  >
+                    <Ionicons name="close" size={24} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Tabs for Individuals and Groups with counts */}
+              <View style={styles.tabContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.tab,
+                    recipientType === "person" && {
+                      borderBottomColor: "#10B981",
+                      borderBottomWidth: 2,
+                    },
+                  ]}
+                  onPress={() => setRecipientType("person")}
+                >
+                  <View style={styles.tabContent}>
+                    <Ionicons
+                      name="person"
+                      size={18}
+                      color={
+                        recipientType === "person"
+                          ? "#10B981"
+                          : colors.textSecondary
+                      }
+                      style={styles.tabIcon}
+                    />
+                    <Text
+                      style={[
+                        styles.tabText,
+                        {
+                          color:
+                            recipientType === "person"
+                              ? "#10B981"
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      Individuals
+                    </Text>
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>
+                        {contacts.length}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.tab,
+                    recipientType === "group" && {
+                      borderBottomColor: "#10B981",
+                      borderBottomWidth: 2,
+                    },
+                  ]}
+                  onPress={() => setRecipientType("group")}
+                >
+                  <View style={styles.tabContent}>
+                    <Ionicons
+                      name="people"
+                      size={18}
+                      color={
+                        recipientType === "group"
+                          ? "#10B981"
+                          : colors.textSecondary
+                      }
+                      style={styles.tabIcon}
+                    />
+                    <Text
+                      style={[
+                        styles.tabText,
+                        {
+                          color:
+                            recipientType === "group"
+                              ? "#10B981"
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      Groups
+                    </Text>
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>{groups.length}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Individuals List */}
+              {recipientType === "person" && (
+                <ScrollView style={styles.relationshipsList}>
+                  {contacts.map((contact) => (
+                    <TouchableOpacity
+                      key={contact.id}
+                      style={[
+                        styles.relationshipItem,
+                        { backgroundColor: darkTheme.card },
+                      ]}
+                      onPress={() => {
+                        setViewAllModalVisible(false);
+                        if (onViewRelationships) {
+                          onViewRelationships();
+                        }
+                      }}
+                    >
+                      <View style={styles.contactAvatar}>
+                        <Ionicons name="person" size={24} color="#10B981" />
+                      </View>
+                      <View style={styles.contactDetails}>
+                        <Text
+                          style={[styles.contactName, { color: colors.text }]}
+                        >
+                          {contact.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.contactInfo,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Individual
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Groups List */}
+              {recipientType === "group" && (
+                <ScrollView style={styles.relationshipsList}>
+                  {groups.map((group) => (
+                    <TouchableOpacity
+                      key={group.id}
+                      style={[
+                        styles.relationshipItem,
+                        { backgroundColor: darkTheme.card },
+                      ]}
+                      onPress={() => loadGroupMembers(group.id, group.name)}
+                    >
+                      <View
+                        style={[
+                          styles.contactAvatar,
+                          { backgroundColor: "rgba(59,130,246,0.15)" },
+                        ]}
+                      >
+                        <Ionicons name="people" size={24} color="#3B82F6" />
+                      </View>
+                      <View style={styles.contactDetails}>
+                        <Text
+                          style={[styles.contactName, { color: colors.text }]}
+                        >
+                          {group.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.contactInfo,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Group
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </>
+          )}
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -768,6 +2110,160 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  fullScreenModalOverlay: {
+    flex: 1,
+    padding: 16,
+    paddingTop: 30,
+  },
+  // Enhanced header styles
+  enhancedModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  headerLeftSection: {
+    width: 44,
+    alignItems: "flex-start",
+  },
+  headerRightSection: {
+    width: 44,
+    alignItems: "flex-end",
+  },
+  enhancedModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    flex: 1,
+  },
+  closeButtonContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(16,185,129,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  formContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+    fontWeight: "500",
+  },
+  pickerContainer: {
+    flexDirection: "row",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    padding: 0,
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: "500",
+    marginRight: 8,
+  },
+  contactPicker: {
+    flex: 1,
+  },
+  contactChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  contactChipText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cancelButton: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+    alignItems: "center",
+    marginRight: 10,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  submitButton: {
+    flex: 2,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
@@ -893,25 +2389,64 @@ const styles = StyleSheet.create({
   },
 
   // Quick Actions
-  actionButtons: {
+  actionButtonsGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginTop: 15,
+    marginBottom: 5,
   },
-  actionButton: {
+  gridActionButton: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    width: "31%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  gridIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  gridActionText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  recipientTypeTabs: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 10,
+    padding: 4,
+  },
+  recipientTypeTab: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 4,
   },
-  actionButtonText: {
-    color: "white",
-    marginLeft: 8,
+  activeRecipientTab: {
+    backgroundColor: "rgba(16,185,129,0.15)",
+  },
+  recipientTabIcon: {
+    marginRight: 6,
+  },
+  recipientTabText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 
   // Recent Activity
@@ -1032,6 +2567,95 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
     fontSize: 14,
+  },
+  relationshipsList: {
+    flex: 1,
+    marginTop: 16,
+  },
+  relationshipItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+  },
+  contactAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(16,185,129,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  contactDetails: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  contactInfo: {
+    fontSize: 13,
+  },
+  roleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  adminBadge: {
+    backgroundColor: "rgba(16,185,129,0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 0,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  adminBadgeText: {
+    color: "#10B981",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  tabContainer: {
+    flexDirection: "row",
+    marginVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.1)",
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  tabContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+  },
+  tabIcon: {
+    marginRight: 8,
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginRight: 5,
+  },
+  countBadge: {
+    backgroundColor: "#10B981",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+    minWidth: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });
 

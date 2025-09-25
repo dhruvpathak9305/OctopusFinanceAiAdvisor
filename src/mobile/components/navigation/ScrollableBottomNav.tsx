@@ -54,7 +54,7 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
     {
       id: "Dashboard",
       title: "Dashboard",
-      icon: "analytics",
+      icon: "grid-outline",
       color: colors.primary,
       onPress: () => onTabPress("Dashboard"),
     },
