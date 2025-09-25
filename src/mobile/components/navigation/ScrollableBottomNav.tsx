@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,13 @@ import {
   ScrollView,
   Animated,
   Dimensions,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme, darkTheme, lightTheme } from '../../../../contexts/ThemeContext';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  useTheme,
+  darkTheme,
+  lightTheme,
+} from "../../../../contexts/ThemeContext";
 
 interface NavItem {
   id: string;
@@ -36,75 +40,82 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const animatedValues = useRef<{ [key: string]: Animated.Value }>({});
 
-  const screenWidth = Dimensions.get('window').width;
+  const screenWidth = Dimensions.get("window").width;
 
   // Navigation items
   const navItems: NavItem[] = [
     {
-      id: 'Home',
-      title: 'Home',
-      icon: 'home',
+      id: "Home",
+      title: "Home",
+      icon: "home",
       color: colors.primary,
-      onPress: () => onTabPress('Home'),
+      onPress: () => onTabPress("Home"),
     },
     {
-      id: 'Dashboard',
-      title: 'Dashboard',
-      icon: 'analytics',
+      id: "Dashboard",
+      title: "Dashboard",
+      icon: "analytics",
       color: colors.primary,
-      onPress: () => onTabPress('Dashboard'),
+      onPress: () => onTabPress("Dashboard"),
     },
     {
-      id: 'Portfolio',
-      title: 'Portfolio',
-      icon: 'trending-up',
+      id: "Relationships",
+      title: "Money Ties",
+      icon: "cash-outline",
       color: colors.primary,
-      onPress: () => onTabPress('Portfolio'),
+      onPress: () => onTabPress("Relationships"),
     },
     {
-      id: 'Goals',
-      title: 'Goals',
-      icon: 'flag',
+      id: "Portfolio",
+      title: "Portfolio",
+      icon: "trending-up",
       color: colors.primary,
-      onPress: () => onTabPress('Goals'),
+      onPress: () => onTabPress("Portfolio"),
     },
     {
-      id: 'Travel',
-      title: 'Travel',
-      icon: 'airplane',
-      color: '#8B5CF6',
-      onPress: () => onTabPress('Travel'),
+      id: "Goals",
+      title: "Goals",
+      icon: "flag",
+      color: colors.primary,
+      onPress: () => onTabPress("Goals"),
     },
     {
-      id: 'Date',
-      title: 'Date',
-      icon: 'calendar',
-      color: '#F59E0B',
-      onPress: () => navigation.navigate('MobileDateFilter'),
+      id: "Travel",
+      title: "Travel",
+      icon: "airplane",
+      color: "#8B5CF6",
+      onPress: () => onTabPress("Travel"),
     },
     {
-      id: 'Analytics',
-      title: 'Analytics',
-      icon: 'bar-chart',
-      color: '#06B6D4',
-      onPress: () => navigation.navigate('MobileAnalytics'),
+      id: "Date",
+      title: "Date",
+      icon: "calendar",
+      color: "#F59E0B",
+      onPress: () => navigation.navigate("MobileDateFilter"),
     },
     {
-      id: 'Reports',
-      title: 'Reports',
-      icon: 'document-text',
-      color: '#EF4444',
-      onPress: () => navigation.navigate('MobileReports'),
+      id: "Analytics",
+      title: "Analytics",
+      icon: "bar-chart",
+      color: "#06B6D4",
+      onPress: () => navigation.navigate("MobileAnalytics"),
+    },
+    {
+      id: "Reports",
+      title: "Reports",
+      icon: "document-text",
+      color: "#EF4444",
+      onPress: () => navigation.navigate("MobileReports"),
     },
   ];
 
   // Fixed Settings item
   const settingsItem: NavItem = {
-    id: 'Settings',
-    title: 'Settings',
-    icon: 'settings',
+    id: "Settings",
+    title: "Settings",
+    icon: "settings",
     color: colors.textSecondary,
-    onPress: () => onTabPress('Settings'),
+    onPress: () => onTabPress("Settings"),
     isFixed: true,
   };
 
@@ -112,7 +123,9 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
   useEffect(() => {
     [...navItems, settingsItem].forEach((item) => {
       if (!animatedValues.current[item.id]) {
-        animatedValues.current[item.id] = new Animated.Value(activeTab === item.id ? 1 : 0);
+        animatedValues.current[item.id] = new Animated.Value(
+          activeTab === item.id ? 1 : 0
+        );
       }
     });
   }, []);
@@ -166,11 +179,13 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
             styles.iconContainer,
             {
               transform: [{ scale: animatedScale || 1 }],
-              backgroundColor: isActive ? `${item.color}20` : 'transparent',
+              backgroundColor: isActive ? `${item.color}20` : "transparent",
             },
           ]}
         >
-          <Animated.Text style={{ color: animatedColor || colors.textSecondary }}>
+          <Animated.Text
+            style={{ color: animatedColor || colors.textSecondary }}
+          >
             <Ionicons name={item.icon as any} size={22} />
           </Animated.Text>
         </Animated.View>
@@ -179,7 +194,7 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
             styles.navLabel,
             {
               color: isActive ? item.color : colors.textSecondary,
-              fontWeight: isActive ? '600' : '500',
+              fontWeight: isActive ? "600" : "500",
             },
           ]}
         >
@@ -190,7 +205,12 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.tabBar, borderTopColor: colors.tabBarBorder }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.tabBar, borderTopColor: colors.tabBarBorder },
+      ]}
+    >
       <View style={styles.navContent}>
         {/* Scrollable navigation items */}
         <ScrollView
@@ -204,9 +224,7 @@ const ScrollableBottomNav: React.FC<ScrollableBottomNavProps> = ({
         </ScrollView>
 
         {/* Fixed Settings item */}
-        <View style={styles.fixedContainer}>
-          {renderNavItem(settingsItem)}
-        </View>
+        <View style={styles.fixedContainer}>{renderNavItem(settingsItem)}</View>
       </View>
     </View>
   );
@@ -221,26 +239,26 @@ const styles = StyleSheet.create({
   },
   navContent: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   scrollableNav: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 10,
-    alignItems: 'center',
-    minWidth: '100%',
+    alignItems: "center",
+    minWidth: "100%",
   },
   fixedContainer: {
     paddingRight: 20,
     paddingLeft: 10,
     borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255,255,255,0.1)',
+    borderLeftColor: "rgba(255,255,255,0.1)",
   },
   navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 12,
     paddingVertical: 4,
     marginHorizontal: 4,
@@ -253,14 +271,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 4,
   },
   navLabel: {
     fontSize: 11,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
 });
 

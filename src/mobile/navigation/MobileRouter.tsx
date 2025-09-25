@@ -26,12 +26,14 @@ import MobileAccounts from "../pages/MobileAccounts";
 import MobileCredit from "../pages/MobileCredit";
 import MobileTravel from "../pages/MobileTravel";
 import MobileDateFilter from "../pages/MobileDateFilter";
+import FinancialRelationshipsScreen from "../screens/FinancialRelationshipsScreen";
 import ScrollableBottomNav from "../components/navigation/ScrollableBottomNav";
 
 // Navigation Types
 export type MobileTabParamList = {
   Home: undefined;
   Dashboard: undefined;
+  Relationships: undefined;
   Portfolio: undefined;
   Goals: undefined;
   Settings: undefined;
@@ -105,6 +107,14 @@ const MainTabNavigator: React.FC = () => {
           <ScreenWithHeader>
             <MobileRequireAuth>
               <DashboardStack />
+            </MobileRequireAuth>
+          </ScreenWithHeader>
+        );
+      case "Relationships":
+        return (
+          <ScreenWithHeader>
+            <MobileRequireAuth>
+              <FinancialRelationshipsScreen />
             </MobileRequireAuth>
           </ScreenWithHeader>
         );

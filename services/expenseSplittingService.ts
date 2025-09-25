@@ -11,6 +11,7 @@ import {
   SETTLEMENT_METHODS,
   IndividualPerson,
 } from "../types/splitting";
+import { FinancialRelationshipService } from "./financialRelationshipService";
 
 export class ExpenseSplittingService {
   // Create a new group
@@ -247,16 +248,56 @@ export class ExpenseSplittingService {
         throw new Error(`Invalid splits: ${validation.errors.join(", ")}`);
       }
 
+      // Get current user
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error("User not authenticated");
+      }
+
       // Prepare splits data for database function
-      const splitsData = splits.map((split) => ({
-        user_id: split.user_id,
-        group_id: groupId || null,
-        share_amount: split.share_amount,
-        share_percentage: split.share_percentage,
-        split_type: "equal", // Default, can be enhanced
-        paid_by: null, // Will be set when someone pays
-        notes: null,
-      }));
+      const splitsData = await Promise.all(
+        splits.map(async (split) => {
+          // Create or get financial relationship for this split
+          let relationshipId = null;
+
+          // Only create relationship if this is not the current user
+          if (split.user_id !== user.id) {
+            try {
+              const relationship =
+                await FinancialRelationshipService.getRelationshipWithUser(
+                  split.user_id
+                );
+              if (relationship) {
+                relationshipId = relationship.id;
+              } else {
+                const newRelationship =
+                  await FinancialRelationshipService.createRelationship(
+                    split.user_id,
+                    "split_expense"
+                  );
+                relationshipId = newRelationship.id;
+              }
+            } catch (err) {
+              console.error("Error creating financial relationship:", err);
+              // Continue without relationship if there's an error
+            }
+          }
+
+          return {
+            user_id: split.user_id,
+            group_id: groupId || null,
+            relationship_id: relationshipId,
+            share_amount: split.share_amount,
+            share_percentage: split.share_percentage,
+            split_type: "equal", // Default, can be enhanced
+            paid_by: null, // Will be set when someone pays
+            notes: null,
+          };
+        })
+      );
 
       const { data, error } = await supabase.rpc(
         "create_transaction_with_splits",
@@ -267,6 +308,26 @@ export class ExpenseSplittingService {
       );
 
       if (error) throw error;
+
+      // Update relationship balances
+      const relationshipIds = splitsData
+        .map((split) => split.relationship_id)
+        .filter((id) => id !== null) as string[];
+
+      // Update each relationship balance
+      for (const relationshipId of relationshipIds) {
+        try {
+          await FinancialRelationshipService.updateRelationshipBalance(
+            relationshipId
+          );
+        } catch (err) {
+          console.error(
+            `Error updating relationship balance for ${relationshipId}:`,
+            err
+          );
+          // Continue even if balance update fails
+        }
+      }
 
       return data;
     } catch (error) {
@@ -334,6 +395,16 @@ export class ExpenseSplittingService {
     notes?: string
   ): Promise<boolean> {
     try {
+      // First, get the split to find the relationship_id
+      const { data: splitData, error: splitError } = await supabase
+        .from("transaction_splits")
+        .select("relationship_id")
+        .eq("id", splitId)
+        .single();
+
+      if (splitError) throw splitError;
+
+      // Call the RPC to settle the split
       const { data, error } = await supabase.rpc("settle_transaction_split", {
         p_split_id: splitId,
         p_settlement_method: settlementMethod,
@@ -341,6 +412,21 @@ export class ExpenseSplittingService {
       });
 
       if (error) throw error;
+
+      // If there's a relationship, update its balance
+      if (splitData?.relationship_id) {
+        try {
+          await FinancialRelationshipService.updateRelationshipBalance(
+            splitData.relationship_id
+          );
+        } catch (err) {
+          console.error(
+            `Error updating relationship balance for ${splitData.relationship_id}:`,
+            err
+          );
+          // Continue even if balance update fails
+        }
+      }
 
       return data;
     } catch (error) {
