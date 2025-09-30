@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
+import { LoanCreationModal } from "../LoanCreation";
 import BankStatementUploader from "../BankStatementUploader";
 import BankStatementErrorBoundary from "../BankStatementUploader/BankStatementErrorBoundary";
 // Import database services
@@ -3271,7 +3272,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             : "Add New Transaction"}
         </Text>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="close" size={24} color={colors.textSecondary} />
+          <Ionicons name="close" size={20} color="#10B981" />
         </TouchableOpacity>
       </View>
 
@@ -3328,8 +3329,189 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+
+  // Form states for loan and contact actions
+  const [recipientType, setRecipientType] = useState<
+    "person" | "group" | "bank"
+  >("person");
+  const [loanType, setLoanType] = useState<"give" | "take" | null>("take");
+  const [selectedContact, setSelectedContact] = useState("");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [interestRate, setInterestRate] = useState("0");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [formProgress, setFormProgress] = useState(0);
+
+  // Enhanced loan data capture states
+  const [loanStartDate, setLoanStartDate] = useState("");
+  const [loanEndDate, setLoanEndDate] = useState("");
+  const [repaymentFrequency, setRepaymentFrequency] = useState("monthly");
+  const [numberOfInstallments, setNumberOfInstallments] = useState("");
+  const [gracePeriod, setGracePeriod] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderDays, setReminderDays] = useState("3");
+  const [notes, setNotes] = useState("");
+  const [contactInfo, setContactInfo] = useState("");
+  const [bankBranch, setBankBranch] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [loanReference, setLoanReference] = useState("");
+  const [groupMembers, setGroupMembers] = useState<
+    Array<{ name: string; share: string }>
+  >([]);
+  const [currency, setCurrency] = useState("INR");
   const { isDark } = useTheme();
   const navigation = useNavigation();
+
+  // Mock data for the reusable LoanCreationModal
+  const mockPersons = [
+    {
+      id: "1",
+      name: "John Doe",
+      type: "person" as const,
+      email: "john@example.com",
+      balance: 5000,
+    },
+    {
+      id: "2",
+      name: "Jane Smith",
+      type: "person" as const,
+      email: "jane@example.com",
+      balance: -2000,
+    },
+    {
+      id: "3",
+      name: "Mike Johnson",
+      type: "person" as const,
+      email: "mike@example.com",
+      balance: 0,
+    },
+  ];
+
+  const mockGroups = [
+    { id: "1", name: "Family", type: "group" as const, memberCount: 5 },
+    { id: "2", name: "Office Team", type: "group" as const, memberCount: 8 },
+    {
+      id: "3",
+      name: "Weekend Friends",
+      type: "group" as const,
+      memberCount: 6,
+    },
+  ];
+
+  const mockBanks = [
+    {
+      id: "1",
+      name: "Chase Bank",
+      type: "bank" as const,
+      branch: "Downtown Branch",
+    },
+    {
+      id: "2",
+      name: "Wells Fargo",
+      type: "bank" as const,
+      branch: "Main Street Branch",
+    },
+    {
+      id: "3",
+      name: "Bank of America",
+      type: "bank" as const,
+      branch: "Central Branch",
+    },
+  ];
+
+  // Handle loan creation from the reusable component
+  const handleCreateLoan = async (loanData: any) => {
+    try {
+      console.log("Creating loan with data:", loanData);
+      // Here you would integrate with your loan management service
+      // await LoanManagementService.createLoan(loanData.selectedRecipient, Number(loanData.amount), {
+      //   interestRate: Number(loanData.interestRate),
+      //   dueDate: loanData.dueDate,
+      //   description: loanData.description,
+      // });
+
+      // Show success message
+      Alert.alert("Success", "Loan created successfully!");
+
+      // Close the modal
+      handleCloseModal();
+    } catch (error) {
+      console.error("Error creating loan:", error);
+      Alert.alert("Error", "Failed to create loan. Please try again.");
+    }
+  };
+
+  // Smart suggestions based on loan amount
+  const getSuggestions = (amount: number): string[] => {
+    if (amount <= 5000) {
+      return [
+        "Emergency expenses",
+        "Medical bills",
+        "Phone/Laptop repair",
+        "Monthly expenses",
+      ];
+    } else if (amount <= 25000) {
+      return [
+        "Education fees",
+        "Home appliances",
+        "Wedding expenses",
+        "Medical treatment",
+      ];
+    } else if (amount <= 100000) {
+      return [
+        "Home renovation",
+        "Vehicle down payment",
+        "Business investment",
+        "Debt consolidation",
+      ];
+    } else {
+      return [
+        "Property investment",
+        "Business expansion",
+        "Major home renovation",
+        "Education abroad",
+      ];
+    }
+  };
+
+  // Calculate form progress
+  useEffect(() => {
+    if (selectedAction === "loan") {
+      const fields = [
+        loanType,
+        recipientType,
+        selectedContact,
+        amount,
+        description,
+      ];
+      const filledFields = fields.filter((field) => {
+        if (typeof field === "string") {
+          return field && field.trim() !== "";
+        }
+        return field !== null && field !== undefined;
+      }).length;
+      setFormProgress((filledFields / fields.length) * 100);
+    } else if (selectedAction === "contact") {
+      const fields = [description];
+      const filledFields = fields.filter(
+        (field) => field && field.trim() !== ""
+      ).length;
+      setFormProgress((filledFields / fields.length) * 100);
+    }
+  }, [
+    selectedAction,
+    loanType,
+    recipientType,
+    selectedContact,
+    amount,
+    description,
+    interestRate,
+    repaymentFrequency,
+    numberOfInstallments,
+    paymentMethod,
+  ]);
 
   // Auto-open modal for edit mode
   useEffect(() => {
@@ -3464,6 +3646,28 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
       color: "#06B6D4",
       action: () => {
         setSelectedAction("recurring");
+        setIsModalVisible(true);
+      },
+    },
+    {
+      id: "loan",
+      title: "Add Loan",
+      subtitle: "Create or manage loans",
+      icon: "cash-outline",
+      color: "#10B981",
+      action: () => {
+        setSelectedAction("loan");
+        setIsModalVisible(true);
+      },
+    },
+    {
+      id: "contact",
+      title: "Add Contact",
+      subtitle: "Add individual or group",
+      icon: "person-add-outline",
+      color: "#F59E0B",
+      action: () => {
+        setSelectedAction("contact");
         setIsModalVisible(true);
       },
     },
@@ -3620,6 +3824,1819 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
           </View>
         );
 
+      case "loan":
+        return (
+          <LoanCreationModal
+            visible={selectedAction === "loan"}
+            onClose={handleCloseModal}
+            onCreateLoan={handleCreateLoan}
+            headerStyle="clean"
+            enableProgress={true}
+            enableAdvancedOptions={true}
+            // Don't pass recipients prop - let it fetch from DB automatically
+          />
+        );
+
+      case "contact":
+        return (
+          <View style={styles.modalContent}>
+            <View style={styles.enhancedModalHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBackToQuickActions}
+              >
+                <Ionicons name="arrow-back" size={24} color="#10B981" />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <View style={styles.headerIconContainer}>
+                  <Ionicons name="person-add" size={24} color="#F59E0B" />
+                  <View style={styles.progressRing}>
+                    <View
+                      style={[
+                        styles.progressRingFill,
+                        {
+                          transform: [{ rotate: `${formProgress * 3.6}deg` }],
+                          opacity: formProgress > 0 ? 1 : 0,
+                          borderTopColor: "#F59E0B",
+                          borderRightColor:
+                            formProgress > 25 ? "#F59E0B" : "transparent",
+                          borderBottomColor:
+                            formProgress > 50 ? "#F59E0B" : "transparent",
+                          borderLeftColor:
+                            formProgress > 75 ? "#F59E0B" : "transparent",
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+                <View style={styles.headerTitleContainer}>
+                  <Text
+                    style={[styles.enhancedModalTitle, { color: colors.text }]}
+                  >
+                    Add Contact
+                  </Text>
+                  <Text style={styles.modalSubtitle}>
+                    Create individual or group contact
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.headerSpacer}>
+                <View style={styles.progressBarContainer}>
+                  <View
+                    style={[
+                      styles.progressBarBackground,
+                      { backgroundColor: colors.border },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        {
+                          width: `${formProgress}%`,
+                          backgroundColor:
+                            formProgress === 100 ? "#F59E0B" : "#8B5CF6",
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.progressText}>{formProgress}%</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleCloseModal}
+              >
+                <Ionicons name="close" size={20} color="#10B981" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="person" size={20} color="#10B981" />
+                  <Text
+                    style={[
+                      styles.fullWidthSectionTitle,
+                      { color: colors.text },
+                    ]}
+                  >
+                    Loan Type
+                  </Text>
+                  <View style={styles.loanTypeCards}>
+                    <TouchableOpacity
+                      style={[
+                        styles.loanTypeCard,
+                        {
+                          backgroundColor:
+                            loanType === "take" ? "#F59E0B" : colors.card,
+                          borderColor:
+                            loanType === "take"
+                              ? "#F59E0B"
+                              : "rgba(245,158,11,0.3)", // Better inactive border
+                          shadowColor: loanType === "take" ? "#F59E0B" : "#000",
+                          shadowOpacity: loanType === "take" ? 0.3 : 0.15,
+                        },
+                      ]}
+                      onPress={() => setLoanType("take")}
+                    >
+                      <View style={styles.slimLoanContent}>
+                        <View style={styles.slimIconContainer}>
+                          <Ionicons
+                            name="arrow-down-circle-outline"
+                            size={20} // Much smaller icon for slim design
+                            color={loanType === "take" ? "#FFFFFF" : "#F59E0B"}
+                          />
+                        </View>
+                        <View style={styles.slimTextContainer}>
+                          <Text
+                            style={[
+                              styles.slimLoanTitle,
+                              {
+                                color:
+                                  loanType === "take" ? "#FFFFFF" : colors.text,
+                              },
+                            ]}
+                          >
+                            Take Loan
+                          </Text>
+                          <Text
+                            style={[
+                              styles.slimLoanDescription,
+                              {
+                                color:
+                                  loanType === "take"
+                                    ? "rgba(255,255,255,0.7)"
+                                    : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            Borrow money
+                          </Text>
+                        </View>
+                        {loanType === "take" && (
+                          <View style={styles.slimSelectedIndicator}>
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.loanTypeCard,
+                        {
+                          backgroundColor:
+                            loanType === "give" ? "#10B981" : colors.card,
+                          borderColor:
+                            loanType === "give"
+                              ? "#10B981"
+                              : "rgba(16,185,129,0.3)", // Better inactive border
+                          shadowColor: loanType === "give" ? "#10B981" : "#000",
+                          shadowOpacity: loanType === "give" ? 0.3 : 0.15,
+                        },
+                      ]}
+                      onPress={() => setLoanType("give")}
+                    >
+                      <View style={styles.slimLoanContent}>
+                        <View style={styles.slimIconContainer}>
+                          <Ionicons
+                            name="arrow-up-circle-outline"
+                            size={20} // Much smaller icon for slim design
+                            color={loanType === "give" ? "#FFFFFF" : "#10B981"}
+                          />
+                        </View>
+                        <View style={styles.slimTextContainer}>
+                          <Text
+                            style={[
+                              styles.slimLoanTitle,
+                              {
+                                color:
+                                  loanType === "give" ? "#FFFFFF" : colors.text,
+                              },
+                            ]}
+                          >
+                            Give Loan
+                          </Text>
+                          <Text
+                            style={[
+                              styles.slimLoanDescription,
+                              {
+                                color:
+                                  loanType === "give"
+                                    ? "rgba(255,255,255,0.7)"
+                                    : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            Lend money
+                          </Text>
+                        </View>
+                        {loanType === "give" && (
+                          <View style={styles.slimSelectedIndicator}>
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Contact Selection */}
+                {(loanType === "give" || loanType === "take") && (
+                  <View style={styles.contactSection}>
+                    <Text
+                      style={[
+                        styles.fullWidthSectionTitle,
+                        { color: colors.text },
+                      ]}
+                    >
+                      {loanType === "give" ? "Lend To" : "Borrow From"}
+                    </Text>
+
+                    {/* Contact Type Tabs */}
+                    <View style={styles.tabsWithAddNew}>
+                      <View style={styles.fullWidthTabs}>
+                        <TouchableOpacity
+                          style={[
+                            styles.fullWidthTab,
+                            {
+                              backgroundColor:
+                                selectedContact === "person"
+                                  ? "#10B981"
+                                  : "rgba(16,185,129,0.1)",
+                              borderColor:
+                                selectedContact === "person"
+                                  ? "#10B981"
+                                  : "rgba(16,185,129,0.3)",
+                              borderBottomColor:
+                                selectedContact === "person"
+                                  ? "#10B981"
+                                  : "transparent", // Active tab indicator
+                            },
+                          ]}
+                          onPress={() => setSelectedContact("person")}
+                        >
+                          <Ionicons
+                            name="person"
+                            size={20}
+                            color={
+                              selectedContact === "person"
+                                ? "#FFFFFF"
+                                : "#10B981"
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.fullWidthTabText,
+                              {
+                                color:
+                                  selectedContact === "person"
+                                    ? "#FFFFFF"
+                                    : "#10B981",
+                              },
+                            ]}
+                          >
+                            Person
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.fullWidthTab,
+                            {
+                              backgroundColor:
+                                selectedContact === "group"
+                                  ? "#8B5CF6"
+                                  : "rgba(139,92,246,0.1)",
+                              borderColor:
+                                selectedContact === "group"
+                                  ? "#8B5CF6"
+                                  : "rgba(139,92,246,0.3)",
+                              borderBottomColor:
+                                selectedContact === "group"
+                                  ? "#8B5CF6"
+                                  : "transparent", // Active tab indicator
+                            },
+                          ]}
+                          onPress={() => setSelectedContact("group")}
+                        >
+                          <Ionicons
+                            name="people"
+                            size={20}
+                            color={
+                              selectedContact === "group"
+                                ? "#FFFFFF"
+                                : "#8B5CF6"
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.fullWidthTabText,
+                              {
+                                color:
+                                  selectedContact === "group"
+                                    ? "#FFFFFF"
+                                    : "#8B5CF6",
+                              },
+                            ]}
+                          >
+                            Group
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.fullWidthTab,
+                            {
+                              backgroundColor:
+                                selectedContact === "bank"
+                                  ? "#EF4444"
+                                  : "rgba(239,68,68,0.1)",
+                              borderColor:
+                                selectedContact === "bank"
+                                  ? "#EF4444"
+                                  : "rgba(239,68,68,0.3)",
+                              borderBottomColor:
+                                selectedContact === "bank"
+                                  ? "#EF4444"
+                                  : "transparent", // Active tab indicator
+                            },
+                          ]}
+                          onPress={() => setSelectedContact("bank")}
+                        >
+                          <Ionicons
+                            name="business"
+                            size={20}
+                            color={
+                              selectedContact === "bank" ? "#FFFFFF" : "#EF4444"
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.fullWidthTabText,
+                              {
+                                color:
+                                  selectedContact === "bank"
+                                    ? "#FFFFFF"
+                                    : "#EF4444",
+                              },
+                            ]}
+                          >
+                            Bank
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Add New Button */}
+                      <TouchableOpacity style={styles.addNewButton}>
+                        <Ionicons name="add-circle" size={16} color="#10B981" />
+                        <Text style={[styles.addNewText, { color: "#10B981" }]}>
+                          Add New
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Contact List */}
+                    <View style={styles.contactList}>
+                      {selectedContact === "person" && (
+                        <>
+                          <TouchableOpacity style={styles.contactItem}>
+                            <View style={styles.contactAvatar}>
+                              <Text style={styles.contactInitial}>RK</Text>
+                            </View>
+                            <View style={styles.contactInfo}>
+                              <Text
+                                style={[
+                                  styles.contactName,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                Rahul Kumar
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.contactDetail,
+                                  { color: colors.textSecondary },
+                                ]}
+                              >
+                                +91 98765 43210
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.contactBalance,
+                                  { color: "#10B981" },
+                                ]}
+                              >
+                                ₹2,500 owed to you
+                              </Text>
+                            </View>
+                            <View style={styles.contactActions}>
+                              <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons
+                                  name="information-circle"
+                                  size={14}
+                                  color={colors.textSecondary}
+                                />
+                              </TouchableOpacity>
+                              <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons
+                                  name="time"
+                                  size={14}
+                                  color={colors.textSecondary}
+                                />
+                              </TouchableOpacity>
+                            </View>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity style={styles.contactItem}>
+                            <View
+                              style={[
+                                styles.contactAvatar,
+                                { backgroundColor: "#F59E0B" },
+                              ]}
+                            >
+                              <Text style={styles.contactInitial}>PS</Text>
+                            </View>
+                            <View style={styles.contactInfo}>
+                              <Text
+                                style={[
+                                  styles.contactName,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                Priya Sharma
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.contactDetail,
+                                  { color: colors.textSecondary },
+                                ]}
+                              >
+                                priya.sharma@email.com
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.contactBalance,
+                                  { color: "#EF4444" },
+                                ]}
+                              >
+                                You owe ₹1,200
+                              </Text>
+                            </View>
+                            <View style={styles.contactActions}>
+                              <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons
+                                  name="information-circle"
+                                  size={14}
+                                  color={colors.textSecondary}
+                                />
+                              </TouchableOpacity>
+                              <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons
+                                  name="time"
+                                  size={14}
+                                  color={colors.textSecondary}
+                                />
+                              </TouchableOpacity>
+                            </View>
+                          </TouchableOpacity>
+                        </>
+                      )}
+
+                      {selectedContact === "group" && (
+                        <>
+                          <TouchableOpacity style={styles.contactItem}>
+                            <View
+                              style={[
+                                styles.contactAvatar,
+                                { backgroundColor: "#8B5CF6" },
+                              ]}
+                            >
+                              <Ionicons
+                                name="people"
+                                size={20}
+                                color="#FFFFFF"
+                              />
+                            </View>
+                            <View style={styles.contactInfo}>
+                              <Text
+                                style={[
+                                  styles.contactName,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                Family Group
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.contactDetail,
+                                  { color: colors.textSecondary },
+                                ]}
+                              >
+                                4 members
+                              </Text>
+                            </View>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={20}
+                              color={colors.textSecondary}
+                            />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity style={styles.contactItem}>
+                            <View
+                              style={[
+                                styles.contactAvatar,
+                                { backgroundColor: "#10B981" },
+                              ]}
+                            >
+                              <Ionicons
+                                name="briefcase"
+                                size={20}
+                                color="#FFFFFF"
+                              />
+                            </View>
+                            <View style={styles.contactInfo}>
+                              <Text
+                                style={[
+                                  styles.contactName,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                Office Team
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.contactDetail,
+                                  { color: colors.textSecondary },
+                                ]}
+                              >
+                                8 members
+                              </Text>
+                            </View>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={20}
+                              color={colors.textSecondary}
+                            />
+                          </TouchableOpacity>
+                        </>
+                      )}
+
+                      {selectedContact === "bank" && (
+                        <>
+                          <TouchableOpacity style={styles.contactItem}>
+                            <View
+                              style={[
+                                styles.contactAvatar,
+                                { backgroundColor: "#EF4444" },
+                              ]}
+                            >
+                              <Text style={styles.contactInitial}>SBI</Text>
+                            </View>
+                            <View style={styles.contactInfo}>
+                              <Text
+                                style={[
+                                  styles.contactName,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                State Bank of India
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.contactDetail,
+                                  { color: colors.textSecondary },
+                                ]}
+                              >
+                                Account: ****1234
+                              </Text>
+                            </View>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={20}
+                              color={colors.textSecondary}
+                            />
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Amount Section */}
+                {(loanType === "give" || loanType === "take") &&
+                  selectedContact && (
+                    <View style={styles.amountSection}>
+                      <Text
+                        style={[
+                          styles.fullWidthSectionTitle,
+                          { color: colors.text },
+                        ]}
+                      >
+                        Amount
+                      </Text>
+
+                      <View style={styles.amountInputContainer}>
+                        <View style={styles.currencySection}>
+                          <Text
+                            style={[styles.largeCurrency, { color: "#10B981" }]}
+                          >
+                            ₹
+                          </Text>
+                        </View>
+                        <TextInput
+                          style={[styles.amountInput, { color: colors.text }]}
+                          placeholder="0"
+                          placeholderTextColor={colors.textSecondary}
+                          keyboardType="numeric"
+                          value={amount}
+                          onChangeText={setAmount}
+                          onFocus={() => setFocusedField("amount")}
+                          onBlur={() => setFocusedField(null)}
+                          autoFocus={false} // Will be controlled by touch
+                          returnKeyType="done"
+                        />
+                      </View>
+
+                      {/* Quick Amount Grid */}
+                      <View style={styles.quickAmountGrid}>
+                        {[
+                          { value: "1000", label: "₹1K" },
+                          { value: "5000", label: "₹5K" },
+                          { value: "10000", label: "₹10K" },
+                          { value: "25000", label: "₹25K" },
+                          { value: "50000", label: "₹50K" },
+                          { value: "100000", label: "₹1L" },
+                        ].map((quickAmount) => (
+                          <TouchableOpacity
+                            key={quickAmount.value}
+                            style={[
+                              styles.quickAmountGridItem,
+                              {
+                                backgroundColor:
+                                  amount === quickAmount.value
+                                    ? "#10B981"
+                                    : colors.card,
+                                borderColor:
+                                  amount === quickAmount.value
+                                    ? "#10B981"
+                                    : colors.border,
+                              },
+                            ]}
+                            onPress={() => setAmount(quickAmount.value)}
+                          >
+                            <Text
+                              style={[
+                                styles.quickAmountGridText,
+                                {
+                                  color:
+                                    amount === quickAmount.value
+                                      ? "#FFFFFF"
+                                      : colors.text,
+                                },
+                              ]}
+                            >
+                              {quickAmount.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                {/* Loan Details Section */}
+                {amount && (
+                  <View style={styles.loanDetailsSection}>
+                    <Text
+                      style={[
+                        styles.fullWidthSectionTitle,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Loan Details
+                    </Text>
+
+                    {/* Purpose */}
+                    <View style={styles.detailInputGroup}>
+                      <Text style={[styles.inputLabel, { color: colors.text }]}>
+                        Purpose
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.detailInput,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor:
+                              focusedField === "description"
+                                ? "#10B981"
+                                : colors.border,
+                            color: colors.text,
+                          },
+                        ]}
+                        placeholder={
+                          loanType === "give"
+                            ? "What is this loan for?"
+                            : "Why do you need this loan?"
+                        }
+                        placeholderTextColor={colors.textSecondary}
+                        value={description}
+                        onChangeText={setDescription}
+                        onFocus={() => setFocusedField("description")}
+                        onBlur={() => setFocusedField(null)}
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
+
+                    {/* Due Date & Interest Rate Row */}
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailHalfInput}>
+                        <Text
+                          style={[styles.inputLabel, { color: colors.text }]}
+                        >
+                          Due Date
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.detailInput,
+                            {
+                              backgroundColor: colors.card,
+                              borderColor: colors.border,
+                              color: colors.text,
+                            },
+                          ]}
+                          placeholder="DD/MM/YYYY"
+                          placeholderTextColor={colors.textSecondary}
+                          value={dueDate}
+                          onChangeText={setDueDate}
+                        />
+                      </View>
+
+                      <View style={styles.detailHalfInput}>
+                        <Text
+                          style={[styles.inputLabel, { color: colors.text }]}
+                        >
+                          Interest Rate (%)
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.detailInput,
+                            {
+                              backgroundColor: colors.card,
+                              borderColor: colors.border,
+                              color: colors.text,
+                            },
+                          ]}
+                          placeholder="0.0"
+                          placeholderTextColor={colors.textSecondary}
+                          keyboardType="numeric"
+                          value={interestRate}
+                          onChangeText={setInterestRate}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Smart Suggestions */}
+                    {amount && parseInt(amount) > 0 && (
+                      <View style={styles.smartSuggestionsSection}>
+                        <Text
+                          style={[
+                            styles.suggestionsTitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          💡 Suggested purposes for ₹{amount}:
+                        </Text>
+                        <View style={styles.suggestionTags}>
+                          {getSuggestions(parseInt(amount)).map(
+                            (suggestion, index) => (
+                              <TouchableOpacity
+                                key={index}
+                                style={[
+                                  styles.suggestionTag,
+                                  {
+                                    backgroundColor:
+                                      description === suggestion
+                                        ? "#10B981"
+                                        : "rgba(16,185,129,0.1)",
+                                    borderColor:
+                                      description === suggestion
+                                        ? "#10B981"
+                                        : "rgba(16,185,129,0.3)",
+                                  },
+                                ]}
+                                onPress={() => setDescription(suggestion)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.suggestionTagText,
+                                    {
+                                      color:
+                                        description === suggestion
+                                          ? "#FFFFFF"
+                                          : "#10B981",
+                                    },
+                                  ]}
+                                >
+                                  {suggestion}
+                                </Text>
+                              </TouchableOpacity>
+                            )
+                          )}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Terms Section */}
+                    <View style={styles.termsSection}>
+                      <View style={styles.sectionHeaderWithIcon}>
+                        <Ionicons
+                          name="document-text"
+                          size={16}
+                          color="#10B981"
+                        />
+                        <Text
+                          style={[
+                            styles.fullWidthSectionTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Loan Terms
+                        </Text>
+                      </View>
+
+                      {/* Repayment Schedule */}
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailHalfInput}>
+                          <Text
+                            style={[styles.inputLabel, { color: colors.text }]}
+                          >
+                            Repayment Frequency
+                          </Text>
+                          <View style={styles.pickerContainer}>
+                            <ScrollView
+                              horizontal
+                              showsHorizontalScrollIndicator={false}
+                            >
+                              {["weekly", "monthly", "quarterly", "yearly"].map(
+                                (freq) => (
+                                  <TouchableOpacity
+                                    key={freq}
+                                    style={[
+                                      styles.frequencyChip,
+                                      {
+                                        backgroundColor:
+                                          repaymentFrequency === freq
+                                            ? "#10B981"
+                                            : colors.card,
+                                        borderColor:
+                                          repaymentFrequency === freq
+                                            ? "#10B981"
+                                            : colors.border,
+                                      },
+                                    ]}
+                                    onPress={() => setRepaymentFrequency(freq)}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.frequencyChipText,
+                                        {
+                                          color:
+                                            repaymentFrequency === freq
+                                              ? "#FFFFFF"
+                                              : colors.text,
+                                        },
+                                      ]}
+                                    >
+                                      {freq.charAt(0).toUpperCase() +
+                                        freq.slice(1)}
+                                    </Text>
+                                  </TouchableOpacity>
+                                )
+                              )}
+                            </ScrollView>
+                          </View>
+                        </View>
+
+                        <View style={styles.detailHalfInput}>
+                          <Text
+                            style={[styles.inputLabel, { color: colors.text }]}
+                          >
+                            Installments
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.detailInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            placeholder="12"
+                            placeholderTextColor={colors.textSecondary}
+                            keyboardType="numeric"
+                            value={numberOfInstallments}
+                            onChangeText={setNumberOfInstallments}
+                          />
+                        </View>
+                      </View>
+
+                      {/* Start Date & Grace Period */}
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailHalfInput}>
+                          <Text
+                            style={[styles.inputLabel, { color: colors.text }]}
+                          >
+                            Start Date
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.detailInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            placeholder="DD/MM/YYYY"
+                            placeholderTextColor={colors.textSecondary}
+                            value={loanStartDate}
+                            onChangeText={setLoanStartDate}
+                          />
+                        </View>
+
+                        <View style={styles.detailHalfInput}>
+                          <Text
+                            style={[styles.inputLabel, { color: colors.text }]}
+                          >
+                            Grace Period (days)
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.detailInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            placeholder="30"
+                            placeholderTextColor={colors.textSecondary}
+                            keyboardType="numeric"
+                            value={gracePeriod}
+                            onChangeText={setGracePeriod}
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Payment Method Section */}
+                    <View style={styles.paymentSection}>
+                      <View style={styles.sectionHeaderWithIcon}>
+                        <Ionicons name="card" size={16} color="#10B981" />
+                        <Text
+                          style={[
+                            styles.fullWidthSectionTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Payment Method
+                        </Text>
+                      </View>
+                      <View style={styles.paymentMethodGrid}>
+                        {[
+                          { id: "cash", label: "Cash", icon: "cash" },
+                          {
+                            id: "bank",
+                            label: "Bank Transfer",
+                            icon: "business",
+                          },
+                          { id: "upi", label: "UPI", icon: "phone-portrait" },
+                          { id: "card", label: "Card", icon: "card" },
+                        ].map((method) => (
+                          <TouchableOpacity
+                            key={method.id}
+                            style={[
+                              styles.paymentMethodItem,
+                              {
+                                backgroundColor:
+                                  paymentMethod === method.id
+                                    ? "#10B981"
+                                    : colors.card,
+                                borderColor:
+                                  paymentMethod === method.id
+                                    ? "#10B981"
+                                    : colors.border,
+                              },
+                            ]}
+                            onPress={() => setPaymentMethod(method.id)}
+                          >
+                            <Ionicons
+                              name={method.icon as any}
+                              size={14}
+                              color={
+                                paymentMethod === method.id
+                                  ? "#FFFFFF"
+                                  : "#10B981"
+                              }
+                            />
+                            <Text
+                              style={[
+                                styles.paymentMethodText,
+                                {
+                                  color:
+                                    paymentMethod === method.id
+                                      ? "#FFFFFF"
+                                      : colors.text,
+                                },
+                              ]}
+                            >
+                              {method.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* Group Members Section */}
+                    {selectedContact === "group" && (
+                      <View style={styles.groupMembersSection}>
+                        <View style={styles.sectionHeaderWithIcon}>
+                          <Ionicons name="people" size={16} color="#8B5CF6" />
+                          <Text
+                            style={[
+                              styles.fullWidthSectionTitle,
+                              { color: colors.text },
+                            ]}
+                          >
+                            Member Contributions
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.inputLabel,
+                            { color: colors.textSecondary, marginBottom: 12 },
+                          ]}
+                        >
+                          Specify how much each member owes or contributes
+                        </Text>
+
+                        {/* Sample Group Members */}
+                        <View style={styles.membersList}>
+                          {[
+                            { name: "John Doe", defaultShare: "25" },
+                            { name: "Jane Smith", defaultShare: "25" },
+                            { name: "Mike Johnson", defaultShare: "25" },
+                            { name: "Sarah Wilson", defaultShare: "25" },
+                          ].map((member, index) => (
+                            <View key={index} style={styles.memberItem}>
+                              <View style={styles.memberInfo}>
+                                <View
+                                  style={[
+                                    styles.memberAvatar,
+                                    { backgroundColor: "#8B5CF6" },
+                                  ]}
+                                >
+                                  <Text style={styles.memberInitial}>
+                                    {member.name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")}
+                                  </Text>
+                                </View>
+                                <Text
+                                  style={[
+                                    styles.memberName,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  {member.name}
+                                </Text>
+                              </View>
+                              <View style={styles.memberShareContainer}>
+                                <TextInput
+                                  style={[
+                                    styles.memberShareInput,
+                                    {
+                                      backgroundColor: colors.card,
+                                      borderColor: colors.border,
+                                      color: colors.text,
+                                    },
+                                  ]}
+                                  placeholder="0"
+                                  placeholderTextColor={colors.textSecondary}
+                                  keyboardType="numeric"
+                                  defaultValue={member.defaultShare}
+                                />
+                                <Text
+                                  style={[
+                                    styles.percentageText,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  %
+                                </Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+
+                        <TouchableOpacity style={styles.addMemberButton}>
+                          <Ionicons
+                            name="add-circle"
+                            size={20}
+                            color="#8B5CF6"
+                          />
+                          <Text
+                            style={[styles.addMemberText, { color: "#8B5CF6" }]}
+                          >
+                            Add Member
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Contact Information Section */}
+                    {selectedContact === "person" && (
+                      <View style={styles.contactInfoSection}>
+                        <View style={styles.sectionHeaderWithIcon}>
+                          <Ionicons name="call" size={16} color="#10B981" />
+                          <Text
+                            style={[
+                              styles.fullWidthSectionTitle,
+                              { color: colors.text },
+                            ]}
+                          >
+                            Contact Information
+                          </Text>
+                        </View>
+                        <TextInput
+                          style={[
+                            styles.detailInput,
+                            {
+                              backgroundColor: colors.card,
+                              borderColor: colors.border,
+                              color: colors.text,
+                            },
+                          ]}
+                          placeholder="Phone number or email address"
+                          placeholderTextColor={colors.textSecondary}
+                          value={contactInfo}
+                          onChangeText={setContactInfo}
+                        />
+                      </View>
+                    )}
+
+                    {/* Bank Details Section */}
+                    {selectedContact === "bank" && (
+                      <View style={styles.bankDetailsSection}>
+                        <View style={styles.sectionHeaderWithIcon}>
+                          <Ionicons name="business" size={16} color="#10B981" />
+                          <Text
+                            style={[
+                              styles.fullWidthSectionTitle,
+                              { color: colors.text },
+                            ]}
+                          >
+                            Bank Details
+                          </Text>
+                        </View>
+                        <View style={styles.detailInputGroup}>
+                          <Text
+                            style={[styles.inputLabel, { color: colors.text }]}
+                          >
+                            Branch Name
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.detailInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            placeholder="Main Branch, City"
+                            placeholderTextColor={colors.textSecondary}
+                            value={bankBranch}
+                            onChangeText={setBankBranch}
+                          />
+                        </View>
+                        <View style={styles.detailRow}>
+                          <View style={styles.detailHalfInput}>
+                            <Text
+                              style={[
+                                styles.inputLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Account Number
+                            </Text>
+                            <TextInput
+                              style={[
+                                styles.detailInput,
+                                {
+                                  backgroundColor: colors.card,
+                                  borderColor: colors.border,
+                                  color: colors.text,
+                                },
+                              ]}
+                              placeholder="****1234"
+                              placeholderTextColor={colors.textSecondary}
+                              value={accountNumber}
+                              onChangeText={setAccountNumber}
+                            />
+                          </View>
+                          <View style={styles.detailHalfInput}>
+                            <Text
+                              style={[
+                                styles.inputLabel,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Loan Reference
+                            </Text>
+                            <TextInput
+                              style={[
+                                styles.detailInput,
+                                {
+                                  backgroundColor: colors.card,
+                                  borderColor: colors.border,
+                                  color: colors.text,
+                                },
+                              ]}
+                              placeholder="LN123456"
+                              placeholderTextColor={colors.textSecondary}
+                              value={loanReference}
+                              onChangeText={setLoanReference}
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Reminders Section */}
+                    <View style={styles.remindersSection}>
+                      <View style={styles.sectionHeaderWithIcon}>
+                        <Ionicons
+                          name="notifications"
+                          size={16}
+                          color="#10B981"
+                        />
+                        <Text
+                          style={[
+                            styles.fullWidthSectionTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Payment Reminders
+                        </Text>
+                      </View>
+                      <View style={styles.reminderToggleContainer}>
+                        <TouchableOpacity
+                          style={styles.reminderToggle}
+                          onPress={() => setReminderEnabled(!reminderEnabled)}
+                        >
+                          <View
+                            style={[
+                              styles.toggleSwitch,
+                              {
+                                backgroundColor: reminderEnabled
+                                  ? "#10B981"
+                                  : colors.border,
+                              },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.toggleThumb,
+                                {
+                                  transform: [
+                                    {
+                                      translateX: reminderEnabled ? 20 : 2,
+                                    },
+                                  ],
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.reminderToggleText,
+                              { color: colors.text },
+                            ]}
+                          >
+                            Enable payment reminders
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {reminderEnabled && (
+                        <View style={styles.reminderDaysContainer}>
+                          <Text
+                            style={[styles.inputLabel, { color: colors.text }]}
+                          >
+                            Remind me (days before due date)
+                          </Text>
+                          <View style={styles.reminderDaysGrid}>
+                            {["1", "3", "7", "14"].map((days) => (
+                              <TouchableOpacity
+                                key={days}
+                                style={[
+                                  styles.reminderDayChip,
+                                  {
+                                    backgroundColor:
+                                      reminderDays === days
+                                        ? "#10B981"
+                                        : colors.card,
+                                    borderColor:
+                                      reminderDays === days
+                                        ? "#10B981"
+                                        : colors.border,
+                                  },
+                                ]}
+                                onPress={() => setReminderDays(days)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.reminderDayText,
+                                    {
+                                      color:
+                                        reminderDays === days
+                                          ? "#FFFFFF"
+                                          : colors.text,
+                                    },
+                                  ]}
+                                >
+                                  {days} day{days !== "1" ? "s" : ""}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Notes Section */}
+                    <View style={styles.notesSection}>
+                      <View style={styles.sectionHeaderWithIcon}>
+                        <Ionicons name="create" size={16} color="#10B981" />
+                        <Text
+                          style={[
+                            styles.fullWidthSectionTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Additional Notes
+                        </Text>
+                      </View>
+                      <TextInput
+                        style={[
+                          styles.detailInput,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                            color: colors.text,
+                            minHeight: 80,
+                          },
+                        ]}
+                        placeholder="Add any additional notes or terms..."
+                        placeholderTextColor={colors.textSecondary}
+                        value={notes}
+                        onChangeText={setNotes}
+                        multiline
+                        numberOfLines={4}
+                      />
+                    </View>
+                  </View>
+                )}
+
+                {/* Action Buttons */}
+                {amount && description && (
+                  <View style={styles.fullWidthActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.fullWidthCancelButton,
+                        { borderColor: colors.border },
+                      ]}
+                      onPress={handleBackToQuickActions}
+                    >
+                      <Text
+                        style={[
+                          styles.fullWidthCancelText,
+                          { color: colors.text },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.fullWidthSubmitButton,
+                        {
+                          backgroundColor:
+                            loanType === "give" ? "#10B981" : "#F59E0B",
+                          opacity:
+                            !amount || !selectedContact || !description
+                              ? 0.6
+                              : 1,
+                        },
+                      ]}
+                      disabled={!amount || !selectedContact || !description}
+                      onPress={() => {
+                        const action =
+                          loanType === "give" ? "Loan given" : "Loan taken";
+                        Alert.alert("Success", `${action} successfully!`);
+                        setAmount("");
+                        setDescription("");
+                        setDueDate("");
+                        setInterestRate("0");
+                        setSelectedContact("");
+                        setRecipientType("person");
+                        handleCloseModal();
+                      }}
+                    >
+                      <Ionicons
+                        name={
+                          loanType === "give"
+                            ? "arrow-up-circle"
+                            : "arrow-down-circle"
+                        }
+                        size={24}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.fullWidthSubmitText}>
+                        {loanType === "give" ? "Give Loan" : "Take Loan"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Bottom Spacing */}
+                <View style={{ height: 40 }} />
+              </View>
+            </ScrollView>
+          </View>
+        );
+
+      case "contact":
+        return (
+          <View style={styles.modalContent}>
+            <View style={styles.enhancedModalHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBackToQuickActions}
+              >
+                <Ionicons name="arrow-back" size={24} color="#10B981" />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <View style={styles.headerIconContainer}>
+                  <Ionicons name="person-add" size={24} color="#F59E0B" />
+                  <View style={styles.progressRing}>
+                    <View
+                      style={[
+                        styles.progressRingFill,
+                        {
+                          transform: [{ rotate: `${formProgress * 3.6}deg` }],
+                          opacity: formProgress > 0 ? 1 : 0,
+                          borderTopColor: "#F59E0B",
+                          borderRightColor: "#F59E0B",
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+                <Text
+                  style={[styles.enhancedModalTitle, { color: colors.text }]}
+                >
+                  Add Contact
+                </Text>
+                <Text
+                  style={[
+                    styles.modalSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Create new financial relationships
+                </Text>
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBarBackground} />
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${formProgress}%`,
+                        backgroundColor:
+                          formProgress === 100 ? "#F59E0B" : "#8B5CF6",
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[styles.progressText, { color: colors.textSecondary }]}
+                >
+                  {Math.round(formProgress)}% Complete
+                </Text>
+              </View>
+              <View style={styles.headerSpacer} />
+            </View>
+
+            <ScrollView style={styles.modalScrollView}>
+              <View style={styles.formContainer}>
+                {/* Contact Type Selection */}
+                <View style={styles.sectionContainer}>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="person-circle" size={20} color="#F59E0B" />
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      Contact Type
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.sectionDescription,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Choose between individual or group contact
+                  </Text>
+                </View>
+                <View style={styles.recipientTypeTabs}>
+                  <TouchableOpacity
+                    style={[
+                      styles.recipientTypeTab,
+                      recipientType === "person" && styles.activeRecipientTab,
+                    ]}
+                    onPress={() => setRecipientType("person")}
+                  >
+                    <Ionicons
+                      name="person"
+                      size={18}
+                      color={
+                        recipientType === "person"
+                          ? "#10B981"
+                          : colors.textSecondary
+                      }
+                      style={styles.recipientTabIcon}
+                    />
+                    <Text
+                      style={[
+                        styles.recipientTabText,
+                        {
+                          color:
+                            recipientType === "person"
+                              ? "#10B981"
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      Individual
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.recipientTypeTab,
+                      recipientType === "group" && styles.activeRecipientTab,
+                    ]}
+                    onPress={() => setRecipientType("group")}
+                  >
+                    <Ionicons
+                      name="people"
+                      size={18}
+                      color={
+                        recipientType === "group"
+                          ? "#10B981"
+                          : colors.textSecondary
+                      }
+                      style={styles.recipientTabIcon}
+                    />
+                    <Text
+                      style={[
+                        styles.recipientTabText,
+                        {
+                          color:
+                            recipientType === "group"
+                              ? "#10B981"
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      Group
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Name Input */}
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  {recipientType === "group" ? "Group Name" : "Contact Name"}
+                </Text>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      recipientType === "group"
+                        ? "people-outline"
+                        : "person-outline"
+                    }
+                    size={20}
+                    color={colors.textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder={
+                      recipientType === "group"
+                        ? "Enter group name"
+                        : "Enter contact name"
+                    }
+                    placeholderTextColor={colors.textSecondary}
+                    value={description}
+                    onChangeText={setDescription}
+                  />
+                </View>
+
+                {/* Email Input (for individuals) */}
+                {recipientType === "person" && (
+                  <>
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>
+                      Email (Optional)
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputContainer,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="mail-outline"
+                        size={20}
+                        color={colors.textSecondary}
+                        style={styles.inputIcon}
+                      />
+                      <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        placeholder="Enter email address"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="email-address"
+                      />
+                    </View>
+
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>
+                      Phone (Optional)
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputContainer,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="call-outline"
+                        size={20}
+                        color={colors.textSecondary}
+                        style={styles.inputIcon}
+                      />
+                      <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        placeholder="Enter phone number"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="phone-pad"
+                      />
+                    </View>
+                  </>
+                )}
+
+                {/* Description Input (for groups) */}
+                {recipientType === "group" && (
+                  <>
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>
+                      Description (Optional)
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputContainer,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={20}
+                        color={colors.textSecondary}
+                        style={styles.inputIcon}
+                      />
+                      <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        placeholder="Enter group description"
+                        placeholderTextColor={colors.textSecondary}
+                      />
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.text, marginTop: 20 },
+                      ]}
+                    >
+                      Members will be added in the next step
+                    </Text>
+                  </>
+                )}
+
+                {/* Action Buttons */}
+                <View style={styles.enhancedModalActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.enhancedCancelButton,
+                      { borderColor: colors.border },
+                    ]}
+                    onPress={handleBackToQuickActions}
+                  >
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={20}
+                      color={colors.text}
+                    />
+                    <Text
+                      style={[
+                        styles.enhancedCancelButtonText,
+                        { color: colors.text },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.enhancedSubmitButton,
+                      {
+                        backgroundColor:
+                          recipientType === "group" ? "#8B5CF6" : "#F59E0B",
+                        opacity: !description ? 0.6 : 1,
+                      },
+                    ]}
+                    disabled={!description}
+                    onPress={() => {
+                      const contactType =
+                        recipientType === "group" ? "Group" : "Contact";
+                      Alert.alert(
+                        "Success",
+                        `${contactType} added successfully!`
+                      );
+                      setDescription("");
+                      handleCloseModal();
+                    }}
+                  >
+                    <Ionicons
+                      name={
+                        recipientType === "group"
+                          ? "people-circle"
+                          : "person-add"
+                      }
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.enhancedSubmitButtonText}>
+                      {recipientType === "group"
+                        ? "Create Group"
+                        : "Add Contact"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        );
+
       default:
         return null;
     }
@@ -3655,20 +5672,22 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
             { backgroundColor: colors.background },
           ]}
         >
-          {/* Modal Header - Hide when transaction modal is open */}
-          {selectedAction !== "transaction" && (
-            <View style={styles.modalHeaderContainer}>
-              <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>
-                Quick Actions
-              </Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleCloseModal}
-              >
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Modal Header - Hide when specific action modals are open */}
+          {selectedAction !== "transaction" &&
+            selectedAction !== "loan" &&
+            selectedAction !== "contact" && (
+              <View style={styles.modalHeaderContainer}>
+                <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>
+                  Quick Actions
+                </Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={handleCloseModal}
+                >
+                  <Ionicons name="close" size={20} color="#10B981" />
+                </TouchableOpacity>
+              </View>
+            )}
 
           {/* Quick Actions Grid */}
           {!selectedAction && (
@@ -3759,6 +5778,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
+    borderRadius: 18,
+    backgroundColor: "rgba(16,185,129,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.3)",
   },
   modalScrollView: {
     flex: 1,
@@ -3834,6 +5857,1132 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     lineHeight: 18,
+  },
+
+  // Form styles for loan and contact actions - matching Financial Relationships
+  recipientTypeTabs: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 10,
+    padding: 4,
+  },
+  recipientTypeTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  activeRecipientTab: {
+    backgroundColor: "rgba(16,185,129,0.15)",
+  },
+  recipientTabIcon: {
+    marginRight: 6,
+  },
+  recipientTabText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  pickerContainer: {
+    flexDirection: "row",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  contactPicker: {
+    flex: 1,
+  },
+  contactChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    padding: 0,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 32,
+    marginBottom: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  submitButton: {
+    flex: 2,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  submitButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  contactChipText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  // Enhanced Modal Header Styles
+  enhancedModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(16,185,129,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  enhancedModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    opacity: 0.8,
+  },
+  headerSpacer: {
+    width: 44,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(16,185,129,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Enhanced Section Styles
+  sectionContainer: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    marginLeft: 28,
+    opacity: 0.8,
+  },
+
+  // Enhanced Input Styles
+  enhancedInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 2,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    minHeight: 60,
+  },
+  currencyContainer: {
+    backgroundColor: "rgba(16,185,129,0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  enhancedInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "600",
+    padding: 0,
+  },
+  inputValidIcon: {
+    marginLeft: 8,
+  },
+
+  // Quick Amount Styles
+  quickAmountContainer: {
+    marginBottom: 24,
+  },
+  quickAmountLabel: {
+    fontSize: 14,
+    marginBottom: 12,
+    fontWeight: "500",
+  },
+  quickAmountButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  quickAmountButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  quickAmountText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Enhanced Action Button Styles
+  enhancedModalActions: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 32,
+    marginBottom: 20,
+  },
+  enhancedCancelButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  enhancedCancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  enhancedSubmitButton: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  enhancedSubmitButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  // Progress Ring and Bar Styles
+  progressRing: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: 26,
+  },
+  progressRingFill: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 26,
+    borderWidth: 3,
+    borderTopColor: "#10B981",
+    borderRightColor: "#10B981",
+    borderBottomColor: "transparent",
+    borderLeftColor: "transparent",
+  },
+  progressBarContainer: {
+    width: "80%",
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 3,
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  progressBarBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 6,
+  },
+
+  // Floating Label Styles
+  floatingLabelContainer: {
+    position: "relative",
+    marginBottom: 20,
+  },
+  floatingLabel: {
+    position: "absolute",
+    top: -8,
+    left: 16,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: "600",
+    zIndex: 1,
+  },
+
+  // Enhanced Quick Amount Button Styles
+  popularAmountButton: {
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  popularBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#F59E0B",
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  popularBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+
+  // Smart Suggestions Styles
+  smartSuggestionsContainer: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: "rgba(16,185,129,0.05)",
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#10B981",
+  },
+  smartSuggestionsLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  suggestionChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  suggestionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  suggestionChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+
+  // Full Width Modal Styles - Enhanced Visual Hierarchy
+  fullScreenModalContent: {
+    flex: 1,
+    backgroundColor: "#0B1426",
+    borderTopLeftRadius: 0, // Remove border radius for full screen
+    borderTopRightRadius: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+
+  // Clean Header Styles (sleeker and thinner)
+  cleanHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 10, // Minimal safe area padding for full screen
+    paddingBottom: 10, // Reduced bottom padding
+    paddingHorizontal: 20,
+    backgroundColor: "#1F2937",
+    borderBottomWidth: 0.5, // Thinner border
+    borderBottomColor: "rgba(255,255,255,0.08)", // More subtle border
+  },
+  cleanBackButton: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cleanTitle: {
+    fontSize: 18, // Match Add New Transaction size
+    fontWeight: "600", // Match Add New Transaction weight
+    textAlign: "center",
+    flex: 1,
+    letterSpacing: -0.2, // Tighter letter spacing
+  },
+  cleanCloseButton: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerMainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  modernBackButton: {
+    width: 44, // Increased for better touch target
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    justifyContent: "center",
+    alignItems: "center",
+    // Add subtle press feedback
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  primaryTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    textAlign: "center",
+  },
+  modernCloseButton: {
+    width: 44, // Increased for better touch target
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    justifyContent: "center",
+    alignItems: "center",
+    // Add subtle press feedback
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  subtitleText: {
+    fontSize: 14,
+    fontWeight: "500",
+    flex: 1,
+  },
+  compactProgressIndicator: {
+    backgroundColor: "rgba(16,185,129,0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.3)",
+  },
+  fullWidthHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16, // Consistent with app spacing
+    paddingVertical: 12,
+    paddingTop: 50,
+    backgroundColor: "#1F2937", // Dark card background
+    borderBottomWidth: 1,
+    borderBottomColor: "#374151", // App border color
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  headerBackButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(16,185,129,0.15)", // App primary color with opacity
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.3)",
+  },
+  headerCenter: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  fullWidthTitle: {
+    fontSize: 18, // Reduced from 20px for better proportion
+    fontWeight: "600", // Reduced from 700 for less visual weight
+    color: "#FFFFFF",
+    marginBottom: 4,
+    letterSpacing: -0.1,
+  },
+  fullWidthSubtitle: {
+    fontSize: 14, // App standard body size
+    fontWeight: "500",
+    color: "#9CA3AF", // App secondary text color
+    lineHeight: 20,
+  },
+  progressIndicator: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(16,185,129,0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  progressPercentage: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#10B981",
+  },
+  progressStep: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  fullWidthScrollView: {
+    flex: 1,
+    backgroundColor: "#0B1426", // App background
+  },
+  fullWidthContainer: {
+    paddingHorizontal: 20, // Increased for better mobile spacing
+    paddingTop: 8, // Small top padding for breathing room
+    paddingBottom: 32, // Increased bottom padding for safe area
+  },
+
+  // Loan Type Section - Tighter Spacing
+  loanTypeSection: {
+    marginTop: 8, // Further reduced for tighter layout
+    marginBottom: 12, // Further reduced for tighter layout
+  },
+  fullWidthSectionTitle: {
+    fontSize: 16, // Smaller heading for compact design
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: 8, // Reduced spacing
+    letterSpacing: -0.1,
+  },
+  loanTypeCards: {
+    flexDirection: "row",
+    gap: 12, // App spacing
+  },
+  loanTypeCard: {
+    flex: 1,
+    paddingVertical: 12, // Much thinner vertical padding
+    paddingHorizontal: 16, // Maintain horizontal padding for text
+    borderRadius: 8, // Smaller radius for slimmer look
+    borderWidth: 1, // Very thin border
+    alignItems: "center",
+    minHeight: 60, // Much slimmer height
+    justifyContent: "center",
+    backgroundColor: "#1F2937",
+    elevation: 1, // Minimal elevation for slim appearance
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    // Ultra-slim inactive state
+    borderColor: "rgba(255,255,255,0.05)", // Very subtle border
+  },
+  loanTypeIconContainer: {
+    marginBottom: 6, // Sleeker spacing
+    position: "relative", // For positioning the selected indicator
+    padding: 6, // Reduced padding for sleeker look
+    borderRadius: 50, // Circular background for icon
+    backgroundColor: "rgba(255,255,255,0.03)", // More subtle background
+  },
+  selectedIndicator: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#10B981", // Use app's primary green
+    borderRadius: 10,
+    padding: 2,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF", // White border for contrast
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  loanTypeTitle: {
+    fontSize: 15, // Sleeker font size
+    fontWeight: "600", // Slightly lighter for sleeker look
+    marginBottom: 3, // Tighter spacing
+    textAlign: "center",
+    letterSpacing: -0.2, // Tighter letter spacing
+  },
+  loanTypeDescription: {
+    fontSize: 11, // Smaller for sleeker appearance
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 14, // Tighter line height
+    opacity: 0.8, // More subtle for sleeker hierarchy
+  },
+
+  // New Slim Design Styles
+  slimLoanContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  slimIconContainer: {
+    marginRight: 12,
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  slimTextContainer: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  slimLoanTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 2,
+    letterSpacing: -0.1,
+  },
+  slimLoanDescription: {
+    fontSize: 10,
+    fontWeight: "500",
+    opacity: 0.7,
+    lineHeight: 12,
+  },
+  slimSelectedIndicator: {
+    marginLeft: 8,
+    padding: 2,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+
+  // Contact Section - Tighter Spacing
+  contactSection: {
+    marginBottom: 12,
+  },
+  tabsWithAddNew: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  fullWidthTabs: {
+    flexDirection: "row",
+    gap: 6,
+    flex: 1, // Take available space, leaving room for Add New button
+  },
+  addNewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.3)",
+    backgroundColor: "rgba(16,185,129,0.1)",
+  },
+  addNewText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  fullWidthTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+    backgroundColor: "#1F2937",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    // Add bottom border space for active indicator
+    borderBottomWidth: 3,
+    borderBottomColor: "transparent", // Default transparent bottom border
+  },
+  fullWidthTabText: {
+    fontSize: 13, // Slightly smaller for compact design
+    fontWeight: "600",
+  },
+  contactList: {
+    gap: 6, // Reduced gap for compact design
+  },
+  contactItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12, // App padding
+    borderRadius: 8, // App border radius
+    backgroundColor: "#1F2937", // App card background
+    borderWidth: 1,
+    borderColor: "#374151", // App border color
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 1,
+  },
+  contactAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#10B981", // App primary color
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  contactInitial: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: 14, // App body size
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginBottom: 2,
+  },
+  contactDetail: {
+    fontSize: 12, // App caption size
+    fontWeight: "500",
+    color: "#9CA3AF", // App secondary text
+    lineHeight: 16,
+  },
+  contactBalance: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+    lineHeight: 14,
+  },
+  contactActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  actionButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+
+  // Amount Section - Tighter Spacing
+  amountSection: {
+    marginBottom: 12, // Further reduced for tighter layout
+  },
+  amountInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: "#1F2937",
+    borderWidth: 2,
+    borderColor: "#374151",
+    paddingHorizontal: 14, // Slightly reduced
+    paddingVertical: 10, // Reduced for compact design
+    marginBottom: 12, // Reduced spacing
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  currencySection: {
+    marginRight: 8,
+  },
+  largeCurrency: {
+    fontSize: 24, // Reduced for better proportion
+    fontWeight: "700",
+    color: "#10B981", // App primary color
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 24, // Reduced for better proportion
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "left",
+  },
+  quickAmountGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8, // App spacing
+  },
+  quickAmountGridItem: {
+    width: "30%",
+    paddingVertical: 14, // Slightly larger for better touch
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 2, // Thicker border for better definition
+    alignItems: "center",
+    backgroundColor: "#1F2937",
+    borderColor: "#374151",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  quickAmountGridText: {
+    fontSize: 15, // Slightly larger for better readability
+    fontWeight: "700", // Bolder for better visibility
+    letterSpacing: 0.5,
+  },
+
+  // Loan Details Section - App Theme
+  loanDetailsSection: {
+    marginBottom: 24,
+  },
+  detailInputGroup: {
+    marginBottom: 16,
+  },
+  detailInput: {
+    borderRadius: 8, // App border radius
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14, // App body size
+    fontWeight: "500",
+    minHeight: 44, // App touch target
+    backgroundColor: "#1F2937", // App card background
+    borderColor: "#374151", // App border color
+    color: "#FFFFFF",
+  },
+  detailRow: {
+    flexDirection: "row",
+    gap: 12, // App spacing
+    marginBottom: 16,
+  },
+  detailHalfInput: {
+    flex: 1,
+  },
+  smartSuggestionsSection: {
+    marginTop: 16,
+  },
+  suggestionsTitle: {
+    fontSize: 12, // App caption size
+    fontWeight: "600",
+    color: "#9CA3AF", // App secondary text
+    marginBottom: 8,
+    lineHeight: 16,
+  },
+  suggestionTags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6, // App spacing
+  },
+  suggestionTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12, // App border radius
+    borderWidth: 1,
+    backgroundColor: "#1F2937", // App card background
+  },
+  suggestionTagText: {
+    fontSize: 11, // App small size
+    fontWeight: "500",
+    lineHeight: 14,
+  },
+
+  // Full Width Actions - App Theme
+  fullWidthActions: {
+    flexDirection: "row",
+    gap: 12, // App spacing
+    marginTop: 20,
+    marginBottom: 16,
+    paddingHorizontal: 4, // Slight inset for visual balance
+  },
+  fullWidthCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8, // App border radius
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1F2937", // App card background
+    borderColor: "#374151", // App border color
+  },
+  fullWidthCancelText: {
+    fontSize: 14, // App body size
+    fontWeight: "600",
+    color: "#9CA3AF", // App secondary text
+  },
+  fullWidthSubmitButton: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8, // App border radius
+    gap: 6,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  fullWidthSubmitText: {
+    color: "#FFFFFF",
+    fontSize: 16, // App subheading size
+    fontWeight: "700",
+    letterSpacing: 0.1,
+  },
+
+  // Enhanced Data Capture Styles
+  sectionHeaderWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  termsSection: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  frequencyChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 8,
+    minWidth: 70,
+    alignItems: "center",
+  },
+  frequencyChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  paymentSection: {
+    marginBottom: 16,
+  },
+  paymentMethodGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  paymentMethodItem: {
+    width: "48%",
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  paymentMethodText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  contactInfoSection: {
+    marginBottom: 16,
+  },
+  bankDetailsSection: {
+    marginBottom: 16,
+  },
+  remindersSection: {
+    marginBottom: 16,
+  },
+  reminderToggleContainer: {
+    marginBottom: 12,
+  },
+  reminderToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  toggleSwitch: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+  },
+  reminderToggleText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  reminderDaysContainer: {
+    marginTop: 8,
+  },
+  reminderDaysGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  reminderDayChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  reminderDayText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  notesSection: {
+    marginBottom: 16,
+  },
+  groupMembersSection: {
+    marginBottom: 16,
+  },
+  membersList: {
+    gap: 8,
+  },
+  memberItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#1F2937",
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  memberInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  memberAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  memberInitial: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  memberName: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  memberShareContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  memberShareInput: {
+    width: 50,
+    height: 32,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  percentageText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  addMemberButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(139,92,246,0.3)",
+    backgroundColor: "rgba(139,92,246,0.1)",
+    marginTop: 8,
+  },
+  addMemberText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 
   // Add Transaction Modal Styles
@@ -3935,16 +7084,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  currencySymbol: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginRight: 8,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: 16,
-    padding: 0,
-  },
   dateButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -4016,17 +7155,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     paddingBottom: 32,
-  },
-  cancelButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
   },
   addTransactionButton: {
     flex: 2,
@@ -4255,16 +7383,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     paddingHorizontal: 2,
-  },
-  toggleThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
 
   // Date Picker Styles
