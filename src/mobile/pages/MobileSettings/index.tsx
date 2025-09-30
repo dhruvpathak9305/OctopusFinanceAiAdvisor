@@ -39,7 +39,7 @@ import { settingsConfig } from "./config/settingsConfig";
 const MobileSettings: React.FC = () => {
   const { theme, isDark, setTheme } = useTheme();
   const { signOut, user } = useUnifiedAuth();
-  const { colors } = useTheme();
+  const colors = isDark ? darkTheme : lightTheme;
 
   // Settings state management
   const [settingsState, setters] = useSettingsState();

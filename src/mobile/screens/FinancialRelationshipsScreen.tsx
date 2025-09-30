@@ -1,11 +1,16 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { useTheme } from "@react-navigation/native";
+import {
+  useTheme,
+  darkTheme,
+  lightTheme,
+} from "../../../contexts/ThemeContext";
 import { FinancialRelationships } from "../components/FinancialRelationships";
 import { supabase } from "../../../lib/supabase/client";
 
 const FinancialRelationshipsScreen: React.FC = () => {
-  const { colors } = useTheme();
+  const { isDark } = useTheme();
+  const colors = isDark ? darkTheme : lightTheme;
   const [userId, setUserId] = React.useState<string | null>(null);
 
   React.useEffect(() => {

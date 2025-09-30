@@ -29,7 +29,7 @@ interface CreditCard {
 
 const MobileCredit: React.FC = () => {
   const { isDark } = useTheme();
-  const { colors } = useTheme();
+  const colors = isDark ? darkTheme : lightTheme;
   const navigation = useNavigation();
   const [selectedFilter, setSelectedFilter] = useState("All");
 

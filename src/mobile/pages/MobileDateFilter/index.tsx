@@ -27,7 +27,7 @@ interface DateRange {
 
 const MobileDateFilter: React.FC = () => {
   const { isDark } = useTheme();
-  const { colors } = useTheme();
+  const colors = isDark ? darkTheme : lightTheme;
   const navigation = useNavigation();
 
   const [selectedRange, setSelectedRange] = useState<string>("this-month");

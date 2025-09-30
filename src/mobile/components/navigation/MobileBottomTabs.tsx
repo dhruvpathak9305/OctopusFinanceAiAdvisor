@@ -13,7 +13,8 @@ import FinancialRelationshipsScreen from "../../screens/FinancialRelationshipsSc
 const Tab = createBottomTabNavigator();
 
 const MobileBottomTabs = () => {
-  const { colors } = useTheme();
+  const { isDark } = useTheme();
+  const colors = isDark ? darkTheme : lightTheme;
 
   return (
     <Tab.Navigator
