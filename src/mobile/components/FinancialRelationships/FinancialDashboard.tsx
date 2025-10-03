@@ -22,6 +22,7 @@ import {
 import { FinancialRelationshipService } from "../../../../services/financialRelationshipService";
 import { LoanManagementService } from "../../../../services/loanManagementService";
 import { UserFinancialSummary } from "../../../../types/financial-relationships";
+import FinancialDashboardSkeleton from "./FinancialDashboardSkeleton";
 
 interface FinancialDashboardProps {
   userId: string;
@@ -466,19 +467,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
   };
 
   if (loading) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.text }]}>
-          Loading financial data...
-        </Text>
-      </View>
-    );
+    return <FinancialDashboardSkeleton isDark={isDark} />;
   }
 
   return (

@@ -4,9 +4,12 @@ import { createMaterialTopTabNavigator } from "@react-navigation/material-top-ta
 import { useTheme as useNavTheme } from "@react-navigation/native";
 import { useTheme, darkTheme } from "../../../../contexts/ThemeContext";
 import FinancialDashboard from "./FinancialDashboard";
+import FinancialDashboardSkeleton from "./FinancialDashboardSkeleton";
 import RelationshipList from "./RelationshipList";
 import RelationshipDetail from "./RelationshipDetail";
 import LoanSummaryTab from "./LoanSummaryTab";
+// Development/testing component - not exported for production
+// import SkeletonDemo from "./SkeletonDemo";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -127,6 +130,7 @@ const styles = StyleSheet.create({
 export {
   FinancialRelationships,
   FinancialDashboard,
+  FinancialDashboardSkeleton,
   RelationshipList,
   RelationshipDetail,
   LoanSummaryTab,
