@@ -14,7 +14,7 @@
  * - Theme-consistent UI
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ import {
   fetchCategories,
   fetchSubcategories,
   createNetWorthEntry,
+  fetchInstitutions,
 } from "../../../../services/netWorthService";
 
 interface AddNetWorthEntryModalProps {
@@ -84,12 +85,14 @@ const AddNetWorthEntryModal: React.FC<AddNetWorthEntryModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<any[]>([]);
+  const [institutions, setInstitutions] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
 
   // Picker modal states
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showSubcategoryPicker, setShowSubcategoryPicker] = useState(false);
+  const [showInstitutionPicker, setShowInstitutionPicker] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -134,19 +137,8 @@ const AddNetWorthEntryModal: React.FC<AddNetWorthEntryModalProps> = ({
         error: "#EF4444",
       };
 
-  // Load categories on mount
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  // Load subcategories when category changes
-  useEffect(() => {
-    if (formData.category) {
-      loadSubcategories(formData.category);
-    }
-  }, [formData.category]);
-
-  const loadCategories = async () => {
+  // Function definitions with useCallback for proper hoisting
+  const loadCategories = useCallback(async () => {
     try {
       const categoriesData = await fetchCategories(isDemo);
       const filteredCategories = categoriesData.filter(
@@ -157,17 +149,46 @@ const AddNetWorthEntryModal: React.FC<AddNetWorthEntryModalProps> = ({
       console.error("Error loading categories:", error);
       Alert.alert("Error", "Failed to load categories");
     }
-  };
+  }, [isDemo, categoryType]);
 
-  const loadSubcategories = async (categoryId: string) => {
+  const loadSubcategories = useCallback(
+    async (categoryId: string) => {
+      try {
+        const subcategoriesData = await fetchSubcategories(categoryId, isDemo);
+        setSubcategories(subcategoriesData);
+      } catch (error) {
+        console.error("Error loading subcategories:", error);
+        Alert.alert("Error", "Failed to load subcategories");
+      }
+    },
+    [isDemo]
+  );
+
+  const loadInstitutions = useCallback(async () => {
     try {
-      const subcategoriesData = await fetchSubcategories(categoryId, isDemo);
-      setSubcategories(subcategoriesData);
+      const institutionsData = await fetchInstitutions(isDemo);
+      setInstitutions(institutionsData);
     } catch (error) {
-      console.error("Error loading subcategories:", error);
-      Alert.alert("Error", "Failed to load subcategories");
+      console.error("Error loading institutions:", error);
+      // Don't show alert for institutions as it's not critical
     }
-  };
+  }, [isDemo]);
+
+  // Load categories and institutions on mount
+  useEffect(() => {
+    const initializeData = async () => {
+      await loadCategories();
+      await loadInstitutions();
+    };
+    initializeData();
+  }, [loadCategories, loadInstitutions]);
+
+  // Load subcategories when category changes
+  useEffect(() => {
+    if (formData.category) {
+      loadSubcategories(formData.category);
+    }
+  }, [formData.category, loadSubcategories]);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({
@@ -888,20 +909,52 @@ const AddNetWorthEntryModal: React.FC<AddNetWorthEntryModalProps> = ({
           <Text style={[styles.fieldLabel, { color: colors.text }]}>
             Institution
           </Text>
-          <TextInput
+          <TouchableOpacity
             style={[
-              styles.textInput,
+              styles.selectButton,
               {
                 backgroundColor: colors.card,
-                color: colors.text,
                 borderColor: colors.border,
               },
             ]}
-            value={formData.institution}
-            onChangeText={(value) => handleInputChange("institution", value)}
-            placeholder="Bank name"
-            placeholderTextColor={colors.textSecondary}
-          />
+            onPress={() => setShowInstitutionPicker(true)}
+          >
+            <View style={styles.selectContent}>
+              {formData.institution && (
+                <Ionicons
+                  name={
+                    (institutions.find(
+                      (inst) => inst.id === formData.institution
+                    )?.icon as any) || "business-outline"
+                  }
+                  size={16}
+                  color={colors.text}
+                  style={styles.selectIcon}
+                />
+              )}
+              <Text
+                style={[
+                  styles.selectText,
+                  {
+                    color: formData.institution
+                      ? colors.text
+                      : colors.textSecondary,
+                  },
+                ]}
+              >
+                {formData.institution
+                  ? institutions.find(
+                      (inst) => inst.id === formData.institution
+                    )?.name || formData.institution
+                  : "Select institution"}
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.fieldGroup, styles.halfWidth]}>
@@ -1238,6 +1291,211 @@ const AddNetWorthEntryModal: React.FC<AddNetWorthEntryModalProps> = ({
           </TouchableWithoutFeedback>
         </Modal>
       )}
+
+      {/* Institution Picker Modal */}
+      {showInstitutionPicker && (
+        <Modal
+          visible={showInstitutionPicker}
+          transparent
+          animationType="slide"
+        >
+          <TouchableWithoutFeedback
+            onPress={() => setShowInstitutionPicker(false)}
+          >
+            <View style={styles.pickerOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View
+                  style={[
+                    styles.pickerModalContainer,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.pickerHeader,
+                      {
+                        backgroundColor: colors.card,
+                        borderBottomColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setShowInstitutionPicker(false)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerHeaderButton,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                    <Text
+                      style={[styles.pickerHeaderTitle, { color: colors.text }]}
+                    >
+                      Select Institution
+                    </Text>
+                    <View style={{ width: 60 }} />
+                  </View>
+                  <ScrollView style={styles.pickerScrollView}>
+                    {/* Option to enter custom institution */}
+                    <TouchableOpacity
+                      style={[
+                        styles.pickerItem,
+                        { borderBottomColor: colors.border },
+                      ]}
+                      onPress={() => {
+                        setShowInstitutionPicker(false);
+                        Alert.prompt(
+                          "Enter Institution",
+                          "Enter the institution name:",
+                          (text) => {
+                            if (text && text.trim()) {
+                              handleInputChange("institution", text.trim());
+                            }
+                          },
+                          "plain-text",
+                          formData.institution
+                        );
+                      }}
+                    >
+                      <View style={styles.pickerItemContent}>
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={20}
+                          color={colors.primary}
+                          style={styles.pickerItemIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            { color: colors.primary, fontWeight: "500" },
+                          ]}
+                        >
+                          Add Custom Institution
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Clear selection option */}
+                    {formData.institution && (
+                      <TouchableOpacity
+                        style={[
+                          styles.pickerItem,
+                          { borderBottomColor: colors.border },
+                        ]}
+                        onPress={() => {
+                          handleInputChange("institution", "");
+                          setShowInstitutionPicker(false);
+                        }}
+                      >
+                        <View style={styles.pickerItemContent}>
+                          <Ionicons
+                            name="close-circle-outline"
+                            size={20}
+                            color={colors.error}
+                            style={styles.pickerItemIcon}
+                          />
+                          <Text
+                            style={[
+                              styles.pickerItemText,
+                              { color: colors.error, fontWeight: "500" },
+                            ]}
+                          >
+                            Clear Selection
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Existing institutions from accounts */}
+                    {institutions.map((institution) => (
+                      <TouchableOpacity
+                        key={institution.id}
+                        style={[
+                          styles.pickerItem,
+                          { borderBottomColor: colors.border },
+                        ]}
+                        onPress={() => {
+                          handleInputChange("institution", institution.id);
+                          setShowInstitutionPicker(false);
+                        }}
+                      >
+                        <View style={styles.pickerItemContent}>
+                          {institution.icon && (
+                            <Ionicons
+                              name={institution.icon as any}
+                              size={20}
+                              color={
+                                formData.institution === institution.id
+                                  ? colors.primary
+                                  : colors.textSecondary
+                              }
+                              style={styles.pickerItemIcon}
+                            />
+                          )}
+                          <Text
+                            style={[
+                              styles.pickerItemText,
+                              {
+                                color:
+                                  formData.institution === institution.id
+                                    ? colors.primary
+                                    : colors.text,
+                                fontWeight:
+                                  formData.institution === institution.id
+                                    ? "600"
+                                    : "400",
+                              },
+                            ]}
+                          >
+                            {institution.name}
+                          </Text>
+                        </View>
+                        {formData.institution === institution.id && (
+                          <Ionicons
+                            name="checkmark"
+                            size={20}
+                            color={colors.primary}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+
+                    {/* Show message if no institutions found */}
+                    {institutions.length === 0 && (
+                      <View style={styles.emptyStateContainer}>
+                        <Ionicons
+                          name="business-outline"
+                          size={48}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.emptyStateText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          No institutions found in your accounts
+                        </Text>
+                        <Text
+                          style={[
+                            styles.emptyStateSubtext,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Add accounts first or use "Add Custom Institution"
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </Modal>
   );
 };
@@ -1489,6 +1747,33 @@ const styles = StyleSheet.create({
   },
   halfWidth: {
     flex: 1,
+  },
+  emptyStateContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  pickerHeaderButton: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  pickerHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  pickerScrollView: {
+    maxHeight: 400,
   },
 });
 

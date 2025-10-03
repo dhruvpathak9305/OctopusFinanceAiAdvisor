@@ -37,12 +37,13 @@
  */
 
 import { supabase } from "../lib/supabase/client";
-import type { Asset } from "@/mobile/pages/Money/components/NetWorthSection";
 import {
   getTableMap,
   validateTableConsistency,
   type TableMap,
 } from "../utils/tableMapping";
+import { fetchAccountsWithBalances } from "./optimizedAccountsService";
+import { fetchCreditCards } from "./creditCardService";
 
 // =============================================================================
 // TABLE MAPPING HELPER
@@ -1099,8 +1100,50 @@ export const fetchFormattedCategoriesForUI = async (
 
     const categoriesWithEntries = await Promise.all(entriesPromises);
 
-    // Calculate total value for percentage calculation
-    const totalPortfolioValue = categoriesWithEntries.reduce(
+    // Get accounts and credit cards data
+    let systemCards = [];
+    if (type === "asset") {
+      try {
+        console.log("🔍 Fetching accounts for net worth...");
+        const accountsCard = await fetchAccountsForNetWorth(isDemo);
+        console.log("🔍 Accounts card result:", accountsCard);
+        if (accountsCard) {
+          console.log(
+            "✅ Adding accounts card to system cards (items:",
+            accountsCard.items,
+            ")"
+          );
+          systemCards.push(accountsCard);
+        } else {
+          console.log("⚠️ No accounts card returned");
+        }
+      } catch (error) {
+        console.error("❌ Error fetching accounts for net worth:", error);
+        console.warn("Could not fetch accounts for net worth:", error);
+      }
+    } else if (type === "liability") {
+      try {
+        console.log("🔍 Fetching credit cards for net worth...");
+        const creditCardsCard = await fetchCreditCardsForNetWorth(isDemo);
+        console.log("🔍 Credit cards result:", creditCardsCard);
+        if (creditCardsCard) {
+          console.log(
+            "✅ Adding credit cards to system cards (items:",
+            creditCardsCard.items,
+            ")"
+          );
+          systemCards.push(creditCardsCard);
+        } else {
+          console.log("⚠️ No credit cards card returned");
+        }
+      } catch (error) {
+        console.error("❌ Error fetching credit cards for net worth:", error);
+        console.warn("Could not fetch credit cards for net worth:", error);
+      }
+    }
+
+    // Calculate total value for percentage calculation (including system cards)
+    const regularCategoriesValue = categoriesWithEntries.reduce(
       (sum, { entries }) => {
         return (
           sum + entries.reduce((entrySum, entry) => entrySum + entry.value, 0)
@@ -1109,47 +1152,83 @@ export const fetchFormattedCategoriesForUI = async (
       0
     );
 
-    // Format for mobile UI
-    return categoriesWithEntries.map(({ category, entries }) => {
-      const totalValue = entries.reduce((sum, entry) => sum + entry.value, 0);
-      const itemCount = entries.length;
+    const systemCardsValue = systemCards.reduce(
+      (sum, card) => sum + card.value,
+      0
+    );
+    const totalPortfolioValue = regularCategoriesValue + systemCardsValue;
 
-      // Calculate percentage based on total portfolio value of this type
-      const percentage =
-        totalPortfolioValue > 0 ? (totalValue / totalPortfolioValue) * 100 : 0;
+    // Format regular categories for mobile UI
+    const formattedCategories = categoriesWithEntries.map(
+      ({ category, entries }) => {
+        const totalValue = entries.reduce((sum, entry) => sum + entry.value, 0);
+        const itemCount = entries.length;
 
-      return {
-        id: category.id,
-        name: category.name,
-        value: totalValue,
-        percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal place
-        items: itemCount,
-        icon: category.icon || (type === "asset" ? "trending-up" : "card"),
-        color: category.color || (type === "asset" ? "#10B981" : "#EF4444"),
-        assets:
-          category.subcategories?.map((sub: any) => {
-            const subEntries = entries.filter(
-              (entry) => entry.subcategory_id === sub.id
-            );
-            const subValue = subEntries.reduce(
-              (sum, entry) => sum + entry.value,
-              0
-            );
-            const subPercentage =
-              totalValue > 0 ? (subValue / totalValue) * 100 : 0;
+        // Calculate percentage based on total portfolio value of this type
+        const percentage =
+          totalPortfolioValue > 0
+            ? (totalValue / totalPortfolioValue) * 100
+            : 0;
 
-            return {
-              id: sub.id,
-              name: sub.name,
-              category: category.name,
-              value: subValue,
-              percentage: Math.round(subPercentage),
-              icon: sub.icon || category.icon || "cash",
-              color: sub.color || category.color || "#10B981",
-            };
-          }) || [],
-      };
-    });
+        return {
+          id: category.id,
+          name: category.name,
+          value: totalValue,
+          percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal place
+          items: category.subcategories?.length || 0, // Show subcategory count instead of entry count
+          icon: category.icon || (type === "asset" ? "trending-up" : "card"),
+          color: category.color || (type === "asset" ? "#10B981" : "#EF4444"),
+          assets:
+            category.subcategories?.map((sub: any) => {
+              const subEntries = entries.filter(
+                (entry) => entry.subcategory_id === sub.id
+              );
+              const subValue = subEntries.reduce(
+                (sum, entry) => sum + entry.value,
+                0
+              );
+              const subPercentage =
+                totalValue > 0 ? (subValue / totalValue) * 100 : 0;
+
+              return {
+                id: sub.id,
+                name: sub.name,
+                category: category.name,
+                value: subValue,
+                percentage: Math.round(subPercentage),
+                icon: sub.icon || category.icon || "cash",
+                color: sub.color || category.color || "#10B981",
+              };
+            }) || [],
+        };
+      }
+    );
+
+    // Format system cards with calculated percentages
+    const formattedSystemCards = systemCards.map((card) => ({
+      ...card,
+      percentage:
+        totalPortfolioValue > 0
+          ? Math.round((card.value / totalPortfolioValue) * 100 * 10) / 10
+          : 0,
+      assets:
+        card.subcategories?.map((sub: any) => ({
+          ...sub,
+          category: card.name,
+          percentage:
+            card.value > 0 ? Math.round((sub.value / card.value) * 100) : 0,
+        })) || [],
+    }));
+
+    // Combine system cards with regular categories
+    // System cards appear first for better visibility
+    const finalResult = [...formattedSystemCards, ...formattedCategories];
+
+    console.log("🎯 Final result for type", type, ":", finalResult);
+    console.log("🎯 System cards count:", formattedSystemCards.length);
+    console.log("🎯 Regular categories count:", formattedCategories.length);
+
+    return finalResult;
   })();
 };
 
@@ -1491,33 +1570,35 @@ export const createNetWorthEntry = async (
   isDemo: boolean = false
 ) => {
   return withErrorHandling(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+
     const tableMap = getTableMapping(isDemo);
 
-    // Create the entry data
-    const entry = {
-      name: entryData.name,
-      description: entryData.description || "",
-      amount: entryData.amount,
+    // 1. Create the main entry data (fields that exist in net_worth_entries_real table)
+    const mainEntry = {
+      asset_name: entryData.name,
       category_id: entryData.category_id,
       subcategory_id: entryData.subcategory_id,
-      type: entryData.type,
-      acquisition_date: entryData.acquisition_date,
-      current_value: entryData.current_value,
-      appreciation_rate: entryData.appreciation_rate,
-      interest_rate: entryData.interest_rate,
-      monthly_payment: entryData.monthly_payment,
-      maturity_date: entryData.maturity_date,
-      institution: entryData.institution,
-      account_number: entryData.account_number,
-      notes: entryData.notes,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      value: entryData.amount,
+      date: entryData.acquisition_date || null,
+      market_price: entryData.current_value || null,
+      notes: entryData.description || entryData.notes || null,
+      user_id: user.id,
+      is_active: true,
+      is_included_in_net_worth: true,
+      linked_source_type: "manual",
+      quantity: 1, // Default quantity
     };
 
-    // Insert the entry
-    const { data, error } = await supabase
+    console.log("Creating main entry:", mainEntry);
+
+    // Insert the main entry
+    const { data, error } = await (supabase as any)
       .from(tableMap.net_worth_entries)
-      .insert([entry])
+      .insert([mainEntry])
       .select()
       .single();
 
@@ -1527,6 +1608,283 @@ export const createNetWorthEntry = async (
     }
 
     console.log("Net worth entry created successfully:", data);
+
+    // 2. Create metadata entries for additional fields
+    const metadataEntries = [];
+
+    if (
+      entryData.appreciation_rate !== undefined &&
+      entryData.appreciation_rate !== null
+    ) {
+      metadataEntries.push({
+        entry_id: data.id,
+        key: "appreciation_rate",
+        value: entryData.appreciation_rate,
+      });
+    }
+
+    if (
+      entryData.interest_rate !== undefined &&
+      entryData.interest_rate !== null
+    ) {
+      metadataEntries.push({
+        entry_id: data.id,
+        key: "interest_rate",
+        value: entryData.interest_rate,
+      });
+    }
+
+    if (
+      entryData.monthly_payment !== undefined &&
+      entryData.monthly_payment !== null
+    ) {
+      metadataEntries.push({
+        entry_id: data.id,
+        key: "monthly_payment",
+        value: entryData.monthly_payment,
+      });
+    }
+
+    if (entryData.maturity_date) {
+      metadataEntries.push({
+        entry_id: data.id,
+        key: "maturity_date",
+        value: entryData.maturity_date,
+      });
+    }
+
+    if (entryData.institution) {
+      metadataEntries.push({
+        entry_id: data.id,
+        key: "institution",
+        value: entryData.institution,
+      });
+    }
+
+    if (entryData.account_number) {
+      metadataEntries.push({
+        entry_id: data.id,
+        key: "account_number",
+        value: entryData.account_number,
+      });
+    }
+
+    // Insert metadata entries if any exist
+    if (metadataEntries.length > 0) {
+      console.log("Creating metadata entries:", metadataEntries);
+
+      const { error: metadataError } = await (supabase as any)
+        .from(tableMap.net_worth_entry_metadata)
+        .insert(metadataEntries);
+
+      if (metadataError) {
+        console.error("Error creating metadata entries:", metadataError);
+        // Don't throw error for metadata - main entry was successful
+        console.warn(
+          "Metadata insertion failed, but main entry was created successfully"
+        );
+      } else {
+        console.log("Metadata entries created successfully");
+      }
+    }
+
     return data;
+  })();
+};
+
+// Fetch unique institutions from accounts table for picker
+export const fetchInstitutions = async (isDemo: boolean = false) => {
+  return withErrorHandling(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+
+    const tableMap = getTableMapping(isDemo);
+
+    // Fetch unique institutions from accounts table
+    const { data, error } = await (supabase as any)
+      .from(tableMap.accounts)
+      .select("institution")
+      .eq("user_id", user.id)
+      .not("institution", "is", null)
+      .order("institution");
+
+    if (error) throw error;
+
+    // Get unique institutions and filter out empty/null values
+    const uniqueInstitutions = Array.from(
+      new Set(
+        (data || [])
+          .map((item: any) => item.institution)
+          .filter((institution: string) => institution && institution.trim())
+      )
+    ).map((institution: string) => ({
+      id: institution,
+      name: institution,
+      icon: "business-outline", // Default icon for institutions
+    }));
+
+    return uniqueInstitutions;
+  })();
+};
+
+// =============================================================================
+// ACCOUNTS & CREDIT CARDS INTEGRATION
+// =============================================================================
+
+/**
+ * Fetch accounts data formatted for Net Worth display
+ */
+export const fetchAccountsForNetWorth = async (isDemo: boolean = false) => {
+  return withErrorHandling(async () => {
+    console.log("🏦 fetchAccountsForNetWorth called with isDemo:", isDemo);
+
+    try {
+      const accounts = await fetchAccountsWithBalances(isDemo);
+      console.log("🏦 Raw accounts data:", accounts);
+      console.log("🏦 Number of accounts:", accounts.length);
+
+      // Calculate total value (including negative balances)
+      const totalValue = accounts.reduce(
+        (sum, account) => sum + (account.current_balance ?? 0),
+        0
+      );
+      console.log("🏦 Total accounts value:", totalValue);
+
+      // Format as Net Worth category
+      const result = {
+        id: "bank-accounts",
+        name: "Bank Accounts",
+        type: "asset",
+        value: totalValue,
+        percentage: 0, // Will be calculated in UI
+        items: accounts.length,
+        icon: "business", // Changed from "card-outline" to better represent bank accounts
+        color: "#10B981",
+        subcategories: accounts.map((account) => ({
+          id: account.id,
+          name: account.name,
+          value: account.current_balance ?? 0, // Keep actual value including negatives
+          percentage:
+            totalValue > 0
+              ? Math.round(
+                  ((account.current_balance ?? 0) / totalValue) * 100 * 10
+                ) / 10
+              : 0,
+          institution: account.institution,
+          account_type: account.type,
+          account_number: account.account_number,
+          icon: "business-outline", // Changed from "card-outline" to match parent category
+          color: "#10B981",
+          isSystemCard: true, // Mark as non-deletable
+        })),
+        isSystemCard: true, // Mark as non-deletable
+        last_calculated_at: new Date().toISOString(),
+      };
+
+      console.log("🏦 Final accounts card result:", result);
+      return result;
+    } catch (error) {
+      console.error("🏦 Error fetching accounts:", error);
+
+      // Return empty accounts card as fallback
+      const fallbackResult = {
+        id: "bank-accounts",
+        name: "Bank Accounts",
+        type: "asset",
+        value: 0,
+        percentage: 0,
+        items: 0,
+        icon: "business-outline", // Changed from "card-outline" to better represent bank accounts
+        color: "#10B981",
+        subcategories: [],
+        isSystemCard: true,
+        last_calculated_at: new Date().toISOString(),
+      };
+
+      console.log("🏦 Returning fallback result:", fallbackResult);
+      return fallbackResult;
+    }
+  })();
+};
+
+/**
+ * Fetch credit cards data formatted for Net Worth display
+ */
+export const fetchCreditCardsForNetWorth = async (isDemo: boolean = false) => {
+  return withErrorHandling(async () => {
+    console.log("💳 fetchCreditCardsForNetWorth called with isDemo:", isDemo);
+
+    try {
+      const creditCards = await fetchCreditCards(isDemo);
+      console.log("💳 Raw credit cards data:", creditCards);
+      console.log("💳 Number of credit cards:", creditCards.length);
+
+      // Calculate total debt (positive value representing liability)
+      const totalValue = creditCards.reduce(
+        (sum, card) => sum + Math.abs(card.currentBalance || 0),
+        0
+      );
+      console.log("💳 Total credit cards value:", totalValue);
+
+      // Format as Net Worth category
+      const result = {
+        id: "credit-cards",
+        name: "Credit Cards",
+        type: "liability",
+        value: totalValue,
+        percentage: 0, // Will be calculated in UI
+        items: creditCards.length,
+        icon: "card",
+        color: "#EF4444",
+        subcategories: creditCards.map((card) => ({
+          id: card.id,
+          name: card.name,
+          value: Math.abs(card.currentBalance || 0), // Always positive for liability
+          percentage:
+            totalValue > 0
+              ? Math.round(
+                  (Math.abs(card.currentBalance || 0) / totalValue) * 100 * 10
+                ) / 10
+              : 0,
+          institution: card.institution || "Unknown", // Use correct field name
+          credit_limit: card.creditLimit,
+          available_credit:
+            (card.creditLimit || 0) - Math.abs(card.currentBalance || 0),
+          card_number: card.lastFourDigits
+            ? `****${card.lastFourDigits}`
+            : "****", // Use correct field name
+          icon: "card",
+          color: "#EF4444",
+          isSystemCard: true, // Mark as non-deletable
+        })),
+        isSystemCard: true, // Mark as non-deletable
+        last_calculated_at: new Date().toISOString(),
+      };
+
+      console.log("💳 Final credit cards result:", result);
+      return result;
+    } catch (error) {
+      console.error("💳 Error fetching credit cards:", error);
+
+      // Return empty credit cards card as fallback
+      const fallbackResult = {
+        id: "credit-cards",
+        name: "Credit Cards",
+        type: "liability",
+        value: 0,
+        percentage: 0,
+        items: 0,
+        icon: "card",
+        color: "#EF4444",
+        subcategories: [],
+        isSystemCard: true,
+        last_calculated_at: new Date().toISOString(),
+      };
+
+      console.log("💳 Returning fallback result:", fallbackResult);
+      return fallbackResult;
+    }
   })();
 };

@@ -8,7 +8,23 @@
 import { supabase } from "../lib/supabase/client";
 import Toast from "react-native-toast-message";
 import { Account } from "../contexts/AccountsContext";
-import { getTableMapping } from "../utils/tableMapping";
+import {
+  getTableMap,
+  validateTableConsistency,
+  type TableMap,
+} from "../utils/tableMapping";
+
+// Helper function to get the appropriate table mapping
+const getTableMapping = (isDemo: boolean): TableMap => {
+  const tableMap = getTableMap(isDemo);
+
+  // Validate consistency during development
+  if (process.env.NODE_ENV === "development") {
+    validateTableConsistency(tableMap);
+  }
+
+  return tableMap;
+};
 
 // Enhanced Account type with computed balance
 export interface AccountWithBalance extends Omit<Account, "balance"> {
@@ -23,7 +39,7 @@ export interface AccountWithBalance extends Omit<Account, "balance"> {
 }
 
 /**
- * Fetch all accounts with real-time calculated balances
+ * Fetch all accounts with real-time calculated balances from balance_real table
  */
 export const fetchAccountsWithBalances = async (
   isDemo: boolean = false
@@ -36,93 +52,132 @@ export const fetchAccountsWithBalances = async (
 
     const tableMap = getTableMapping(isDemo);
 
-    // Get all accounts
-    const { data: accounts, error: accountsError } = await supabase
+    // Query accounts with their balance information from balance_real table
+    // First, let's try a simpler approach - get accounts and balances separately
+    console.log("🔍 Fetching accounts from table:", tableMap.accounts);
+
+    const { data: accounts, error: accountsError } = await (supabase as any)
       .from(tableMap.accounts)
       .select(
         `
-        id, 
-        user_id, 
-        name, 
-        type, 
+        id,
+        user_id,
+        name,
+        type,
         institution,
-        initial_balance,
-        initial_balance_date,
         account_number,
         logo_url,
-        is_active,
         created_at,
         updated_at,
-        last_sync
+        last_sync,
+        ifsc_code,
+        micr_code,
+        branch_name,
+        branch_address,
+        crn,
+        currency,
+        bank_holder_name
       `
       )
       .eq("user_id", user.id)
-      .eq("is_active", true)
       .order("created_at", { ascending: false });
 
-    if (accountsError) throw accountsError;
+    if (accountsError) {
+      console.error("Error fetching accounts:", accountsError);
+      throw accountsError;
+    }
 
-    // Calculate balance for each account using database function
-    const accountsWithBalances = await Promise.all(
-      (accounts || []).map(async (account) => {
-        try {
-          // Use database function for accurate balance calculation
-          const { data: balanceData, error: balanceError } = await supabase.rpc(
-            "get_account_summary",
-            { account_id: account.id }
-          );
+    console.log("🔍 Fetched accounts:", accounts?.length || 0);
 
-          if (balanceError) {
-            console.error(
-              `Error calculating balance for ${account.name}:`,
-              balanceError
-            );
-            // Fallback to manual calculation
-            const balance = await calculateAccountBalanceManual(
-              account.id,
-              isDemo
-            );
-            return {
-              ...account,
-              current_balance: balance,
-              total_income: 0,
-              total_expenses: 0,
-              transaction_count: 0,
-              last_transaction_date: null,
-            };
-          }
+    // Now get balance information separately
+    console.log("🔍 Fetching balances from table:", tableMap.balance_real);
 
-          const summary = balanceData[0] || {
-            current_balance: account.initial_balance || 0,
-            total_income: 0,
-            total_expenses: 0,
-            transaction_count: 0,
-            last_transaction_date: null,
-          };
+    const { data: balances, error: balancesError } = await (supabase as any)
+      .from(tableMap.balance_real)
+      .select(
+        `
+        account_id,
+        current_balance,
+        opening_balance,
+        last_updated,
+        account_name,
+        institution_name
+      `
+      )
+      .eq("user_id", user.id);
 
-          return {
-            ...account,
-            current_balance: summary.current_balance,
-            total_income: summary.total_income,
-            total_expenses: summary.total_expenses,
-            transaction_count: summary.transaction_count,
-            last_transaction_date: summary.last_transaction_date,
-          };
-        } catch (error) {
-          console.error(`Error processing account ${account.name}:`, error);
-          return {
-            ...account,
-            current_balance: account.initial_balance || 0,
-            total_income: 0,
-            total_expenses: 0,
-            transaction_count: 0,
-            last_transaction_date: null,
-          };
-        }
-      })
+    if (balancesError) {
+      console.error("Error fetching balances:", balancesError);
+      // Don't throw error, just log it and continue with 0 balances
+    }
+
+    console.log("🔍 Fetched balances:", balances?.length || 0);
+    console.log("🔍 Balance data:", JSON.stringify(balances, null, 2));
+
+    // Create a map of account_id to balance for easy lookup
+    const balanceMap = new Map();
+    (balances || []).forEach((balance: any) => {
+      balanceMap.set(balance.account_id, balance);
+    });
+
+    console.log("🔍 Balance map created with", balanceMap.size, "entries");
+
+    // Transform the data to match AccountWithBalance interface
+    const transformedAccounts: AccountWithBalance[] = (accounts || []).map(
+      (account) => {
+        const balance = balanceMap.get(account.id);
+
+        console.log(`🔍 Processing account: ${account.name}`);
+        console.log(`🔍 Balance data for ${account.id}:`, balance);
+        console.log(`🔍 Current balance: ${balance?.current_balance}`);
+        console.log(`🔍 Opening balance: ${balance?.opening_balance}`);
+
+        return {
+          id: account.id,
+          user_id: account.user_id,
+          name: account.name,
+          type: account.type,
+          institution: account.institution || "Unknown",
+          account_number: account.account_number,
+          logo_url: account.logo_url,
+          created_at: account.created_at,
+          updated_at: account.updated_at,
+          last_sync: account.last_sync,
+          ifsc_code: account.ifsc_code,
+          micr_code: account.micr_code,
+          branch_name: account.branch_name,
+          branch_address: account.branch_address,
+          crn: account.crn,
+          currency: account.currency || "INR",
+          bank_holder_name: account.bank_holder_name,
+          // Balance information from balance_real table (preserve negative values)
+          current_balance: balance?.current_balance ?? 0,
+          initial_balance: balance?.opening_balance ?? 0,
+          initial_balance_date: balance?.last_updated || account.created_at,
+          // These would need separate queries if needed, for now setting defaults
+          total_income: 0,
+          total_expenses: 0,
+          transaction_count: 0,
+          last_transaction_date: null,
+          is_active: true,
+        };
+      }
     );
 
-    return accountsWithBalances;
+    console.log(
+      `✅ Fetched ${transformedAccounts.length} accounts with balances from ${
+        isDemo ? "demo" : "real"
+      } tables`
+    );
+
+    // Log account balances for debugging
+    transformedAccounts.forEach((account) => {
+      console.log(
+        `Account: ${account.name}, Balance: ${account.current_balance}, Institution: ${account.institution}`
+      );
+    });
+
+    return transformedAccounts;
   } catch (error) {
     console.error("Error fetching accounts with balances:", error);
     Toast.show({

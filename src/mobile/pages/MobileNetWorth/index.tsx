@@ -9,6 +9,8 @@ import {
   Image,
   Modal,
   TextInput,
+  ActivityIndicator,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -26,6 +28,26 @@ import {
 
 // Import the new Add Net Worth Entry Modal
 import AddNetWorthEntryModal from "../../components/NetWorth/AddNetWorthEntryModal";
+
+// Utility function to format currency values
+const formatCurrency = (value: number): string => {
+  const absValue = Math.abs(value);
+  const isNegative = value < 0;
+  const sign = isNegative ? "-" : "";
+
+  if (absValue >= 10000000) {
+    // 1 crore and above
+    return `${sign}₹${(absValue / 10000000).toFixed(1)}Cr`;
+  } else if (absValue >= 100000) {
+    // 1 lakh and above
+    return `${sign}₹${(absValue / 100000).toFixed(1)}L`;
+  } else if (absValue >= 1000) {
+    // 1 thousand and above
+    return `${sign}₹${(absValue / 1000).toFixed(1)}K`;
+  } else {
+    return `${sign}₹${absValue.toFixed(0)}`;
+  }
+};
 
 interface AssetItem {
   id: string;
@@ -48,6 +70,13 @@ interface AssetCategory {
   icon: string;
   color: string;
   assets: AssetItem[];
+  // Optional properties for system cards
+  isSystemCard?: boolean;
+  subcategories?: any[];
+  bank?: string;
+  emi?: number;
+  remaining?: number;
+  category?: string;
 }
 
 const MobileNetWorth: React.FC = () => {
@@ -86,6 +115,11 @@ const MobileNetWorth: React.FC = () => {
     useState<string>("");
   const [entryType, setEntryType] = useState<"asset" | "liability">("asset");
 
+  // Popup menu state
+  const [showPopupMenu, setShowPopupMenu] = useState(false);
+  const [selectedItemForMenu, setSelectedItemForMenu] = useState<any>(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
   // Real data state
   const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
   const [liabilityCategories, setLiabilityCategories] = useState<
@@ -93,6 +127,22 @@ const MobileNetWorth: React.FC = () => {
   >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Calculated values from real data
+  const totalAssets = assetCategories.reduce((sum, cat) => sum + cat.value, 0);
+  const totalLiabilities = liabilityCategories.reduce(
+    (sum, cat) => sum + cat.value,
+    0
+  );
+  const netWorth = totalAssets - totalLiabilities;
+  const assetAllocation =
+    totalAssets + totalLiabilities > 0
+      ? ((totalAssets / (totalAssets + totalLiabilities)) * 100).toFixed(1)
+      : "0.0";
+
+  // TODO: These should be calculated from historical data
+  const monthlyChange = 0; // Will be implemented with historical data
+  const percentageGrowth = 0; // Will be implemented with historical data
 
   // Handle route params to show add asset modal
   useEffect(() => {
@@ -111,14 +161,21 @@ const MobileNetWorth: React.FC = () => {
         // Initialize default categories if needed
         await initializeDefaultCategories(isDemo);
 
-        // Create sample net worth entries if needed
-        await createSampleNetWorthEntries(isDemo);
+        // DON'T create sample entries - let user add their own data
+        // await createSampleNetWorthEntries(isDemo);
 
         // Fetch assets and liabilities
         const [assets, liabilities] = await Promise.all([
           fetchFormattedCategoriesForUI("asset", isDemo),
           fetchFormattedCategoriesForUI("liability", isDemo),
         ]);
+
+        console.log("🔍 Debug: Fetched assets:", assets);
+        console.log("🔍 Debug: Assets count:", assets.length);
+        console.log(
+          "🔍 Debug: System cards in assets:",
+          assets.filter((a) => a.isSystemCard)
+        );
 
         setAssetCategories(assets);
         setLiabilityCategories(liabilities);
@@ -127,8 +184,8 @@ const MobileNetWorth: React.FC = () => {
         setError(err instanceof Error ? err.message : "Failed to load data");
 
         // Fallback to sample data if there's an error
-        setAssetCategories(sampleAssetCategories);
-        setLiabilityCategories(sampleLiabilityCategories);
+        setAssetCategories(sampleAssetCategories as any);
+        setLiabilityCategories(sampleLiabilityCategories as any);
       } finally {
         setLoading(false);
       }
@@ -161,11 +218,16 @@ const MobileNetWorth: React.FC = () => {
         // Initialize default categories if needed
         await initializeDefaultCategories(isDemo);
 
-        // Create sample entries if needed
-        await createSampleNetWorthEntries(isDemo);
+        // DON'T create sample entries - let user add their own data
+        // await createSampleNetWorthEntries(isDemo);
 
-        // Fetch formatted data for UI
-        const data = await fetchFormattedCategoriesForUI(isDemo);
+        // Fetch formatted data for UI - get both assets and liabilities
+        const assetData = await fetchFormattedCategoriesForUI("asset", isDemo);
+        const liabilityData = await fetchFormattedCategoriesForUI(
+          "liability",
+          isDemo
+        );
+        const data = [...assetData, ...liabilityData];
 
         // Separate assets and liabilities
         const assets = data.filter((cat) => cat.type === "asset");
@@ -180,7 +242,96 @@ const MobileNetWorth: React.FC = () => {
         setLoading(false);
       }
     };
+
+    // Actually call the fetchData function
     fetchData();
+  };
+
+  // Popup menu handlers
+  const handleThreeDotsPress = (item: any, event: any) => {
+    console.log("🔍 Three dots pressed for:", item.name);
+
+    try {
+      let touchX = 300; // Default to right side of screen
+      let touchY = 400; // Default middle
+
+      if (event && event.nativeEvent) {
+        // Get the touch coordinates relative to the screen
+        if (event.nativeEvent.pageX && event.nativeEvent.pageY) {
+          touchX = event.nativeEvent.pageX;
+          touchY = event.nativeEvent.pageY;
+          console.log("🔍 Got page coordinates:", { touchX, touchY });
+        } else if (
+          event.nativeEvent.locationX !== undefined &&
+          event.nativeEvent.locationY !== undefined
+        ) {
+          // For locationX/Y, we need to add some offset since it's relative to the component
+          touchX = event.nativeEvent.locationX + 250; // Approximate offset for the card position
+          touchY = event.nativeEvent.locationY + 200; // Approximate offset for scroll position
+          console.log("🔍 Got location coordinates with offset:", {
+            touchX,
+            touchY,
+          });
+        }
+      }
+
+      // Position menu closer to the right, near the three dots button
+      const menuWidth = 160; // Width of our smaller popup menu
+      const menuX = Math.max(10, Math.min(touchX - 80, 250)); // Move it left to stay on screen (was touchX - 20)
+      const menuY = Math.max(80, Math.min(touchY - 20, 600)); // Keep same vertical positioning
+
+      console.log("🔍 Final popup menu position:", { x: menuX, y: menuY });
+
+      setSelectedItemForMenu(item);
+      setMenuPosition({ x: menuX, y: menuY });
+      setShowPopupMenu(true);
+
+      console.log("🔍 Popup menu state set to true");
+    } catch (error) {
+      console.error("Error in handleThreeDotsPress:", error);
+
+      // Fallback: show menu at a reasonable position (more to the right)
+      setSelectedItemForMenu(item);
+      setMenuPosition({ x: 180, y: 300 }); // Moved from x: 100 to x: 180
+      setShowPopupMenu(true);
+    }
+  };
+
+  const handleMenuAction = (action: "add" | "view" | "edit" | "delete") => {
+    setShowPopupMenu(false);
+
+    switch (action) {
+      case "add":
+        console.log("Add entry for:", selectedItemForMenu);
+        // Trigger add entry modal
+        if (selectedItemForMenu) {
+          const categoryId =
+            selectedLiability?.id || selectedCategory?.id || "";
+          const subcategoryId = selectedItemForMenu.id || "";
+          const type = selectedLiability ? "liability" : "asset";
+          handleAddEntry(categoryId, subcategoryId, type);
+        }
+        break;
+      case "view":
+        console.log("View item:", selectedItemForMenu);
+        // Add view logic here - could open a detailed view modal
+        break;
+      case "edit":
+        console.log("Edit item:", selectedItemForMenu);
+        // Add edit logic here - could open edit modal
+        break;
+      case "delete":
+        console.log("Delete item:", selectedItemForMenu);
+        // Add delete logic here - could show confirmation dialog
+        break;
+    }
+
+    setSelectedItemForMenu(null);
+  };
+
+  const closePopupMenu = () => {
+    setShowPopupMenu(false);
+    setSelectedItemForMenu(null);
   };
 
   // Sample data - fallback if database fetch fails
@@ -669,12 +820,6 @@ const MobileNetWorth: React.FC = () => {
     },
   ];
 
-  const totalAssets = assetCategories.reduce((sum, cat) => sum + cat.value, 0);
-  const totalLiabilities = liabilityCategories.reduce(
-    (sum, cat) => sum + cat.value,
-    0
-  );
-
   // Sample liabilities data - fallback if database fetch fails
   const sampleLiabilityCategories = [
     {
@@ -1050,6 +1195,9 @@ const MobileNetWorth: React.FC = () => {
     item: AssetCategory;
     index: number;
   }) => {
+    // Check if this is a system card (accounts or credit cards)
+    const isSystemCard = (item as any).isSystemCard || false;
+
     return (
       <TouchableOpacity
         key={item.id}
@@ -1058,25 +1206,62 @@ const MobileNetWorth: React.FC = () => {
           {
             backgroundColor: colors.card,
             borderColor: colors.border,
+            // Add subtle visual indicator for system cards
+            borderWidth: isSystemCard ? 2 : 1,
+            borderStyle: isSystemCard ? "solid" : "solid",
           },
         ]}
         onPress={() => {
           setSelectedLiability(item);
-          // Use existing assets data as subcategories
-          const subcategoryData =
-            item.assets?.map((asset, index) => ({
-              id: asset.id,
-              name: asset.name,
-              value: asset.value,
-              percentage: asset.percentage,
-              icon: asset.icon,
-              color: asset.color,
-              bank: "Various Banks",
-              emi: 0,
-              remaining: 0,
-              category: asset.category,
-              notes: `Details for ${asset.name}`,
-            })) || [];
+
+          // For system cards (Bank Accounts, Credit Cards), use subcategories
+          // For regular categories, use assets
+          let subcategoryData;
+
+          if (isSystemCard && (item as any).subcategories) {
+            // System card: use subcategories directly
+            subcategoryData = (item as any).subcategories.map(
+              (subcategory: any, index: number) => ({
+                id: subcategory.id,
+                name: subcategory.name,
+                value: subcategory.value,
+                percentage: subcategory.percentage || 0,
+                icon: subcategory.icon,
+                color: subcategory.color,
+                bank: subcategory.institution || "Various Banks",
+                emi: subcategory.emi || 0,
+                remaining: subcategory.remaining || 0,
+                category: subcategory.category || item.name,
+                notes: `Details for ${subcategory.name}`,
+                isSystemCard: true,
+                // Additional system card specific fields
+                institution: subcategory.institution,
+                account_type: subcategory.account_type,
+                account_number: subcategory.account_number,
+                credit_limit: subcategory.credit_limit,
+                available_credit: subcategory.available_credit,
+                card_number: subcategory.card_number,
+              })
+            );
+          } else {
+            // Regular category: use assets
+            subcategoryData =
+              item.assets?.map((asset, index) => ({
+                id: asset.id,
+                name: asset.name,
+                value: asset.value,
+                percentage: asset.percentage,
+                icon: asset.icon,
+                color: asset.color,
+                bank: "Various Banks",
+                emi: 0,
+                remaining: 0,
+                category: asset.category,
+                notes: `Details for ${asset.name}`,
+                isSystemCard: false,
+              })) || [];
+          }
+
           setSelectedAssetSubcategories(subcategoryData);
           setShowAssetSubcategoryModal(true);
         }}
@@ -1085,6 +1270,16 @@ const MobileNetWorth: React.FC = () => {
           style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}
         >
           <Ionicons name={item.icon as any} size={24} color={item.color} />
+          {/* Add system card indicator */}
+          {isSystemCard && (
+            <View style={styles.systemCardBadge}>
+              <Ionicons
+                name="shield-checkmark"
+                size={12}
+                color={colors.primary}
+              />
+            </View>
+          )}
         </View>
         <Text
           style={[styles.categoryName, { color: colors.text }]}
@@ -1093,7 +1288,7 @@ const MobileNetWorth: React.FC = () => {
           {item.name}
         </Text>
         <Text style={[styles.categoryValue, { color: item.color }]}>
-          ₹{(item.value / 100000).toFixed(1)}L
+          {formatCurrency(item.value)}
         </Text>
         <Text
           style={[styles.categoryPercentage, { color: colors.textSecondary }]}
@@ -1107,59 +1302,114 @@ const MobileNetWorth: React.FC = () => {
     );
   };
 
-  const renderListItem = ({ item }: { item: AssetCategory }) => (
-    <TouchableOpacity
-      style={[
-        styles.listItem,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-      onPress={() => {
-        setSelectedLiability(item);
-        // Use existing assets data as subcategories
-        const subcategoryData =
-          item.assets?.map((asset, index) => ({
-            id: asset.id,
-            name: asset.name,
-            value: asset.value,
-            percentage: asset.percentage,
-            icon: asset.icon,
-            color: asset.color,
-            bank: "Various Banks",
-            emi: 0,
-            remaining: 0,
-            category: asset.category,
-            notes: `Details for ${asset.name}`,
-          })) || [];
-        setSelectedAssetSubcategories(subcategoryData);
-        setShowAssetSubcategoryModal(true);
-      }}
-    >
-      <View
-        style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}
+  const renderListItem = ({ item }: { item: AssetCategory }) => {
+    // Check if this is a system card (accounts or credit cards)
+    const isSystemCard = (item as any).isSystemCard || false;
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.listItem,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            // Add subtle visual indicator for system cards
+            borderWidth: isSystemCard ? 2 : 1,
+            borderStyle: isSystemCard ? "solid" : "solid",
+          },
+        ]}
+        onPress={() => {
+          setSelectedLiability(item);
+
+          // For system cards (Bank Accounts, Credit Cards), use subcategories
+          // For regular categories, use assets
+          let subcategoryData;
+
+          if (isSystemCard && (item as any).subcategories) {
+            // System card: use subcategories directly
+            subcategoryData = (item as any).subcategories.map(
+              (subcategory: any, index: number) => ({
+                id: subcategory.id,
+                name: subcategory.name,
+                value: subcategory.value,
+                percentage: subcategory.percentage || 0,
+                icon: subcategory.icon,
+                color: subcategory.color,
+                bank: subcategory.institution || "Various Banks",
+                emi: subcategory.emi || 0,
+                remaining: subcategory.remaining || 0,
+                category: subcategory.category || item.name,
+                notes: `Details for ${subcategory.name}`,
+                isSystemCard: true,
+                // Additional system card specific fields
+                institution: subcategory.institution,
+                account_type: subcategory.account_type,
+                account_number: subcategory.account_number,
+                credit_limit: subcategory.credit_limit,
+                available_credit: subcategory.available_credit,
+                card_number: subcategory.card_number,
+              })
+            );
+          } else {
+            // Regular category: use assets
+            subcategoryData =
+              item.assets?.map((asset, index) => ({
+                id: asset.id,
+                name: asset.name,
+                value: asset.value,
+                percentage: asset.percentage,
+                icon: asset.icon,
+                color: asset.color,
+                bank: "Various Banks",
+                emi: 0,
+                remaining: 0,
+                category: asset.category,
+                notes: `Details for ${asset.name}`,
+                isSystemCard: false,
+              })) || [];
+          }
+
+          setSelectedAssetSubcategories(subcategoryData);
+          setShowAssetSubcategoryModal(true);
+        }}
       >
-        <Ionicons name={item.icon as any} size={24} color={item.color} />
-      </View>
-      <View style={styles.listItemContent}>
-        <Text style={[styles.categoryName, { color: colors.text }]}>
-          {item.name}
-        </Text>
-        <Text style={[styles.categoryItems, { color: colors.textSecondary }]}>
-          {item.items} items
-        </Text>
-      </View>
-      <View style={styles.listItemRight}>
-        <Text style={[styles.categoryValue, { color: item.color }]}>
-          ₹{(item.value / 100000).toFixed(1)}L
-        </Text>
-        <Text
-          style={[styles.categoryPercentage, { color: colors.textSecondary }]}
+        <View
+          style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}
         >
-          {item.percentage}%
-        </Text>
-      </View>
-      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
-    </TouchableOpacity>
-  );
+          <Ionicons name={item.icon as any} size={24} color={item.color} />
+          {/* Add system card indicator */}
+          {isSystemCard && (
+            <View style={styles.systemCardBadge}>
+              <Ionicons
+                name="shield-checkmark"
+                size={12}
+                color={colors.primary}
+              />
+            </View>
+          )}
+        </View>
+        <View style={styles.listItemContent}>
+          <Text style={[styles.categoryName, { color: colors.text }]}>
+            {item.name}
+          </Text>
+          <Text style={[styles.categoryItems, { color: colors.textSecondary }]}>
+            {item.items} items
+          </Text>
+        </View>
+        <View style={styles.listItemRight}>
+          <Text style={[styles.categoryValue, { color: item.color }]}>
+            {formatCurrency(item.value)}
+          </Text>
+          <Text
+            style={[styles.categoryPercentage, { color: colors.textSecondary }]}
+          >
+            {item.percentage}%
+          </Text>
+        </View>
+        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+      </TouchableOpacity>
+    );
+  };
 
   const renderAssetDetail = ({ item }: { item: AssetItem }) => (
     <View
@@ -1180,7 +1430,7 @@ const MobileNetWorth: React.FC = () => {
       </View>
       <View style={styles.assetDetailRight}>
         <Text style={[styles.assetValue, { color: colors.text }]}>
-          ₹{(item.value / 100000).toFixed(2)}L
+          {formatCurrency(item.value)}
         </Text>
         <View style={styles.assetActions}>
           <TouchableOpacity
@@ -1212,20 +1462,558 @@ const MobileNetWorth: React.FC = () => {
     </View>
   );
 
-  // Show loading state
+  // Show skeleton loading state
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centerContent,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <Ionicons name="refresh" size={32} color={colors.textSecondary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading Net Worth Data...
-        </Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header Skeleton */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View style={styles.headerContent}>
+            <View
+              style={[
+                styles.skeletonText,
+                styles.skeletonTitle,
+                { backgroundColor: colors.border },
+              ]}
+            />
+            <View
+              style={[
+                styles.skeletonText,
+                styles.skeletonSubtitle,
+                { backgroundColor: colors.border },
+              ]}
+            />
+          </View>
+          <View
+            style={[styles.skeletonAvatar, { backgroundColor: colors.border }]}
+          />
+        </View>
+
+        <ScrollView style={styles.container}>
+          {/* Navigation Skeleton */}
+          <View style={styles.fullNavContainer}>
+            <View
+              style={[styles.skeletonNav, { backgroundColor: colors.border }]}
+            />
+          </View>
+
+          {/* Main Net Worth Card Skeleton */}
+          <View style={styles.summaryContainer}>
+            <View
+              style={[
+                styles.skeletonCard,
+                styles.skeletonMainNetWorthCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.skeletonNetWorthHeader}>
+                <View style={styles.skeletonNetWorthTitleContainer}>
+                  <View
+                    style={[
+                      styles.skeletonIcon,
+                      styles.skeletonNetWorthIcon,
+                      { backgroundColor: colors.primary + "40" },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.skeletonText,
+                      styles.skeletonNetWorthTitle,
+                      { backgroundColor: colors.border },
+                    ]}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.skeletonCircle,
+                    styles.skeletonAddButton,
+                    { backgroundColor: colors.primary + "60" },
+                  ]}
+                />
+              </View>
+              <View
+                style={[
+                  styles.skeletonText,
+                  styles.skeletonMainValue,
+                  { backgroundColor: colors.border },
+                ]}
+              />
+              <View style={styles.skeletonNetWorthFooter}>
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonChangeText,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonChip,
+                    { backgroundColor: colors.primary + "40" },
+                  ]}
+                />
+              </View>
+            </View>
+
+            {/* Assets and Liabilities Cards Skeleton */}
+            <View style={styles.summaryRow}>
+              <View
+                style={[
+                  styles.skeletonCard,
+                  styles.skeletonAssetCard,
+                  {
+                    backgroundColor: "#10B98120",
+                    borderColor: "#10B98140",
+                  },
+                ]}
+              >
+                <View style={styles.skeletonAssetHeader}>
+                  <View style={styles.skeletonAssetTitleRow}>
+                    <View
+                      style={[
+                        styles.skeletonIcon,
+                        styles.skeletonAssetIcon,
+                        { backgroundColor: "#10B98160" },
+                      ]}
+                    />
+                    <View style={styles.skeletonAssetTitleContainer}>
+                      <View
+                        style={[
+                          styles.skeletonText,
+                          styles.skeletonAssetTitle,
+                          { backgroundColor: "#10B98160" },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.skeletonText,
+                          styles.skeletonAssetSubtitle,
+                          { backgroundColor: "#10B98140" },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.skeletonCircle,
+                      styles.skeletonSmallCircle,
+                      { backgroundColor: "#10B98160" },
+                    ]}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAssetValue,
+                    { backgroundColor: "#10B98160" },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAssetPercentage,
+                    { backgroundColor: "#10B98140" },
+                  ]}
+                />
+              </View>
+              <View
+                style={[
+                  styles.skeletonCard,
+                  styles.skeletonLiabilityCard,
+                  { backgroundColor: "#EF444420", borderColor: "#EF444440" },
+                ]}
+              >
+                <View style={styles.skeletonAssetHeader}>
+                  <View style={styles.skeletonAssetTitleRow}>
+                    <View
+                      style={[
+                        styles.skeletonIcon,
+                        styles.skeletonAssetIcon,
+                        { backgroundColor: "#EF444460" },
+                      ]}
+                    />
+                    <View style={styles.skeletonAssetTitleContainer}>
+                      <View
+                        style={[
+                          styles.skeletonText,
+                          styles.skeletonAssetTitle,
+                          { backgroundColor: "#EF444460" },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.skeletonText,
+                          styles.skeletonAssetSubtitle,
+                          { backgroundColor: "#EF444440" },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.skeletonCircle,
+                      styles.skeletonSmallCircle,
+                      { backgroundColor: "#EF444460" },
+                    ]}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAssetValue,
+                    { backgroundColor: "#EF444460" },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAssetPercentage,
+                    { backgroundColor: "#EF444440" },
+                  ]}
+                />
+              </View>
+            </View>
+
+            {/* Asset Allocation Bar Skeleton */}
+            <View style={styles.skeletonAllocationContainer}>
+              <View style={styles.skeletonAllocationHeader}>
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAllocationTitle,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAllocationPercentage,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+              </View>
+              <View
+                style={[
+                  styles.skeletonProgressBar,
+                  { backgroundColor: colors.border + "40" },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.skeletonProgressFill,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+              </View>
+              <View style={styles.skeletonAllocationLabels}>
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAllocationLabel,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonAllocationLabel,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Generation Section Skeleton */}
+          <View style={styles.skeletonGenerationContainer}>
+            <View style={styles.skeletonGenerationHeader}>
+              <View
+                style={[
+                  styles.skeletonText,
+                  styles.skeletonGenerationTitle,
+                  { backgroundColor: colors.border },
+                ]}
+              />
+              <View style={styles.skeletonGenerationButtons}>
+                <View
+                  style={[
+                    styles.skeletonCircle,
+                    styles.skeletonGenerationButton,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonCircle,
+                    styles.skeletonGenerationButton,
+                    { backgroundColor: colors.primary + "40" },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonCircle,
+                    styles.skeletonGenerationButton,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Asset Breakdown Section Skeleton */}
+          <View style={styles.skeletonBreakdownContainer}>
+            <View style={styles.skeletonBreakdownHeader}>
+              <View
+                style={[
+                  styles.skeletonText,
+                  styles.skeletonBreakdownTitle,
+                  { backgroundColor: colors.border },
+                ]}
+              />
+              <View
+                style={[
+                  styles.skeletonButton,
+                  { backgroundColor: colors.primary + "40" },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Categories Grid Skeleton */}
+          <View style={styles.categoriesContainer}>
+            {[
+              { id: 1, isSystem: true, color: "#10B981" },
+              { id: 2, isSystem: false, color: "#10B981" },
+              { id: 3, isSystem: false, color: "#10B981" },
+              { id: 4, isSystem: false, color: "#EF4444" },
+              { id: 5, isSystem: false, color: "#EF4444" },
+              { id: 6, isSystem: false, color: "#EF4444" },
+            ].map((item) => (
+              <View
+                key={item.id}
+                style={[
+                  styles.skeletonGridItem,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: item.isSystem
+                      ? item.color + "40"
+                      : colors.border,
+                    borderWidth: item.isSystem ? 2 : 1,
+                  },
+                ]}
+              >
+                {item.isSystem && (
+                  <View
+                    style={[
+                      styles.skeletonShieldBadge,
+                      { backgroundColor: item.color },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.skeletonShieldIcon,
+                        { backgroundColor: "white" },
+                      ]}
+                    />
+                  </View>
+                )}
+                <View style={styles.skeletonGridContent}>
+                  <View
+                    style={[
+                      styles.skeletonIcon,
+                      { backgroundColor: item.color + "40" },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.skeletonText,
+                      styles.skeletonGridTitle,
+                      { backgroundColor: colors.border },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.skeletonText,
+                      styles.skeletonGridValue,
+                      { backgroundColor: item.color + "60" },
+                    ]}
+                  />
+                  <View style={styles.skeletonGridFooter}>
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonGridPercentage,
+                        { backgroundColor: item.color + "40" },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonGridItems,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Financial Summary Skeleton */}
+          <View
+            style={[
+              styles.skeletonFinancialSummary,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View style={styles.skeletonSummaryHeader}>
+              <View style={styles.skeletonSummaryTitleRow}>
+                <View
+                  style={[
+                    styles.skeletonEmoji,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonText,
+                    styles.skeletonSummaryTitle,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+              </View>
+              <View
+                style={[
+                  styles.skeletonButton,
+                  styles.skeletonSummaryButton,
+                  { backgroundColor: colors.primary + "40" },
+                ]}
+              />
+            </View>
+            <View style={styles.skeletonCompactGrid}>
+              <View style={styles.skeletonCompactRow}>
+                <View
+                  style={[
+                    styles.skeletonCompactItem,
+                    { backgroundColor: colors.primary + "10" },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.skeletonEmoji,
+                      { backgroundColor: colors.primary + "40" },
+                    ]}
+                  />
+                  <View style={styles.skeletonCompactText}>
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactNumber,
+                        { backgroundColor: colors.primary + "60" },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactLabel,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.skeletonCompactItem,
+                    { backgroundColor: colors.primary + "10" },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.skeletonEmoji,
+                      { backgroundColor: colors.primary + "40" },
+                    ]}
+                  />
+                  <View style={styles.skeletonCompactText}>
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactNumber,
+                        { backgroundColor: colors.primary + "60" },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactLabel,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+              <View style={styles.skeletonCompactRow}>
+                <View
+                  style={[
+                    styles.skeletonCompactItem,
+                    { backgroundColor: "#F59E0B10" },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.skeletonEmoji,
+                      { backgroundColor: "#F59E0B40" },
+                    ]}
+                  />
+                  <View style={styles.skeletonCompactText}>
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactNumber,
+                        { backgroundColor: "#F59E0B60" },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactLabel,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.skeletonCompactItem,
+                    { backgroundColor: "#8B5CF610" },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.skeletonEmoji,
+                      { backgroundColor: "#8B5CF640" },
+                    ]}
+                  />
+                  <View style={styles.skeletonCompactText}>
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactNumber,
+                        { backgroundColor: "#8B5CF660" },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.skeletonText,
+                        styles.skeletonCompactLabel,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -1345,14 +2133,6 @@ const MobileNetWorth: React.FC = () => {
                   Net Worth
                 </Text>
               </View>
-              <View
-                style={[styles.trendBadge, { backgroundColor: colors.primary }]}
-              >
-                <Ionicons name="arrow-up" size={10} color="white" />
-                <Text style={[styles.trendText, { color: "white" }]}>
-                  +8.5%
-                </Text>
-              </View>
             </View>
             <TouchableOpacity
               style={[styles.addButton, { backgroundColor: colors.primary }]}
@@ -1364,13 +2144,31 @@ const MobileNetWorth: React.FC = () => {
 
           {/* Main Value with Visual Enhancement */}
           <View style={styles.netWorthValueSection}>
-            <Text style={[styles.netWorthValue, { color: colors.text }]}>
-              ₹77,17,500
-            </Text>
+            <View style={styles.netWorthValueRow}>
+              <Text style={[styles.netWorthValue, { color: colors.text }]}>
+                ₹{netWorth.toLocaleString("en-IN")}
+              </Text>
+              <View
+                style={[
+                  styles.trendBadgeInline,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Ionicons name="arrow-up" size={10} color="white" />
+                <Text style={[styles.trendTextInline, { color: "white" }]}>
+                  {percentageGrowth > 0 ? "+" : ""}
+                  {percentageGrowth.toFixed(1)}%
+                </Text>
+              </View>
+            </View>
             <View style={styles.netWorthChangeRow}>
               <Ionicons name="trending-up" size={12} color={colors.primary} />
               <Text style={[styles.netWorthSubtext, { color: colors.primary }]}>
-                +₹6,12,000 since last month
+                {monthlyChange === 0
+                  ? "No change from last month"
+                  : `${monthlyChange > 0 ? "+" : ""}₹${Math.abs(
+                      monthlyChange
+                    ).toLocaleString("en-IN")} since last month`}
               </Text>
             </View>
           </View>
@@ -1459,17 +2257,17 @@ const MobileNetWorth: React.FC = () => {
               </View>
               <Text
                 style={[
-                  styles.assetValue,
+                  styles.cardValue,
                   {
                     color: selectedView === "assets" ? "white" : "#10B981",
                   },
                 ]}
               >
-                ₹{(totalAssets / 10000000).toFixed(1)}Cr
+                {formatCurrency(totalAssets)}
               </Text>
               <Text
                 style={[
-                  styles.assetSubtext,
+                  styles.cardSubtext,
                   {
                     color:
                       selectedView === "assets"
@@ -1478,11 +2276,12 @@ const MobileNetWorth: React.FC = () => {
                   },
                 ]}
               >
-                {(
-                  (totalAssets / (totalAssets + totalLiabilities)) *
-                  100
-                ).toFixed(1)}
-                % of portfolio
+                {totalAssets + totalLiabilities === 0
+                  ? "0.0% of portfolio"
+                  : `${(
+                      (totalAssets / (totalAssets + totalLiabilities)) *
+                      100
+                    ).toFixed(1)}% of portfolio`}
               </Text>
             </TouchableOpacity>
 
@@ -1540,8 +2339,11 @@ const MobileNetWorth: React.FC = () => {
                         selectedView === "liabilities" ? "800" : "700",
                     },
                   ]}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit={true}
+                  minimumFontScale={0.8}
                 >
-                  Total Liabilities
+                  Total{"\n"}Liabilities
                 </Text>
                 <TouchableOpacity
                   style={[
@@ -1573,17 +2375,17 @@ const MobileNetWorth: React.FC = () => {
               </View>
               <Text
                 style={[
-                  styles.liabilityValue,
+                  styles.cardValue,
                   {
                     color: selectedView === "liabilities" ? "white" : "#EF4444",
                   },
                 ]}
               >
-                ₹{(totalLiabilities / 100000).toFixed(1)}L
+                {formatCurrency(totalLiabilities)}
               </Text>
               <Text
                 style={[
-                  styles.liabilitySubtext,
+                  styles.cardSubtext,
                   {
                     color:
                       selectedView === "liabilities"
@@ -1592,11 +2394,12 @@ const MobileNetWorth: React.FC = () => {
                   },
                 ]}
               >
-                {(
-                  (totalLiabilities / (totalAssets + totalLiabilities)) *
-                  100
-                ).toFixed(1)}
-                % of portfolio
+                {totalAssets + totalLiabilities === 0
+                  ? "0.0% of portfolio"
+                  : `${(
+                      (totalLiabilities / (totalAssets + totalLiabilities)) *
+                      100
+                    ).toFixed(1)}% of portfolio`}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1612,7 +2415,7 @@ const MobileNetWorth: React.FC = () => {
               <Text
                 style={[styles.progressPercentage, { color: colors.primary }]}
               >
-                78.5%
+                {assetAllocation}%
               </Text>
             </View>
             <View
@@ -1623,7 +2426,7 @@ const MobileNetWorth: React.FC = () => {
                   styles.progressFill,
                   {
                     backgroundColor: colors.primary,
-                    width: "78.5%",
+                    width: `${assetAllocation}%` as any,
                   },
                 ]}
               />
@@ -1725,62 +2528,91 @@ const MobileNetWorth: React.FC = () => {
               </View>
             ) : (
               <View style={styles.detailedListContainer}>
-                {assetCategories.map((item, index) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.detailedListItem,
-                      { backgroundColor: colors.card },
-                    ]}
-                    onPress={() => setSelectedCategory(item)}
-                  >
-                    <View
+                {assetCategories.map((item, index) => {
+                  const isSystemCard = (item as any).isSystemCard || false;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
                       style={[
-                        styles.detailedListIcon,
-                        { backgroundColor: `${item.color}20` },
+                        styles.detailedListItem,
+                        {
+                          backgroundColor: colors.card,
+                          borderLeftWidth: isSystemCard ? 4 : 0,
+                          borderLeftColor: isSystemCard
+                            ? colors.primary
+                            : "transparent",
+                        },
                       ]}
+                      onPress={() => setSelectedCategory(item)}
                     >
-                      <Ionicons
-                        name={item.icon as any}
-                        size={20}
-                        color={item.color}
-                      />
-                    </View>
-                    <View style={styles.detailedListContent}>
-                      <Text
+                      <View
                         style={[
-                          styles.detailedListName,
-                          { color: colors.text },
+                          styles.detailedListIcon,
+                          { backgroundColor: `${item.color}20` },
                         ]}
                       >
-                        {item.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailedListCategory,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {item.items} items • {item.percentage}%
-                      </Text>
-                    </View>
-                    <View style={styles.detailedListRight}>
-                      <Text
-                        style={[
-                          styles.detailedListValue,
-                          { color: item.color },
-                        ]}
-                      >
-                        ₹{(item.value / 100000).toFixed(1)}L
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                        <Ionicons
+                          name={item.icon as any}
+                          size={20}
+                          color={item.color}
+                        />
+                        {isSystemCard && (
+                          <View
+                            style={[
+                              styles.systemCardBadge,
+                              {
+                                top: -4,
+                                right: -4,
+                                width: 16,
+                                height: 16,
+                                borderRadius: 8,
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name="shield-checkmark"
+                              size={10}
+                              color={colors.primary}
+                            />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.detailedListContent}>
+                        <Text
+                          style={[
+                            styles.detailedListName,
+                            { color: colors.text },
+                          ]}
+                        >
+                          {item.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.detailedListCategory,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {item.items} items • {item.percentage}%
+                        </Text>
+                      </View>
+                      <View style={styles.detailedListRight}>
+                        <Text
+                          style={[
+                            styles.detailedListValue,
+                            { color: item.color },
+                          ]}
+                        >
+                          {formatCurrency(item.value)}
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -1810,88 +2642,145 @@ const MobileNetWorth: React.FC = () => {
             </View>
             {viewMode === "grid" ? (
               <View style={styles.categoriesContainer}>
-                {liabilityCategories.map((item, index) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.gridItem,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setSelectedLiability(item);
-                      // Create detailed subcategory data with sample values
-                      const subcategoryData =
-                        item.subcategories?.map(
-                          (sub: string, index: number) => ({
-                            id: `${item.id}_sub_${index}`,
-                            name: sub,
-                            value: Math.floor(
-                              (item.value / item.subcategories.length) *
-                                (0.8 + Math.random() * 0.4)
-                            ), // Randomize values
-                            percentage:
-                              (100 / item.subcategories.length) *
-                              (0.8 + Math.random() * 0.4),
-                            icon: item.icon,
-                            color: item.color,
-                            bank: item.bank,
-                            emi: Math.floor(
-                              item.emi / item.subcategories.length
-                            ),
-                            remaining:
-                              Math.floor(
-                                item.remaining / item.subcategories.length
-                              ) || 1,
-                            category: item.category,
-                            notes: `Details for ${sub}`,
-                          })
-                        ) || [];
-                      setSelectedLiabilitySubcategories(subcategoryData);
-                      setShowSubcategoryModal(true);
-                    }}
-                  >
-                    <View
+                {liabilityCategories.map((item, index) => {
+                  // Check if this is a system card (credit cards)
+                  const isSystemCard = (item as any).isSystemCard || false;
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
                       style={[
-                        styles.iconContainer,
-                        { backgroundColor: `${item.color}20` },
+                        styles.gridItem,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          // Add subtle visual indicator for system cards
+                          borderWidth: isSystemCard ? 2 : 1,
+                          borderStyle: isSystemCard ? "solid" : "solid",
+                        },
                       ]}
+                      onPress={() => {
+                        setSelectedLiability(item);
+
+                        // For system cards (Credit Cards), use subcategories
+                        // For regular categories, create sample data from subcategories array
+                        let subcategoryData;
+
+                        if (isSystemCard && (item as any).subcategories) {
+                          // System card: use subcategories directly
+                          subcategoryData = (item as any).subcategories.map(
+                            (subcategory: any, index: number) => ({
+                              id: subcategory.id,
+                              name: subcategory.name,
+                              value: subcategory.value,
+                              percentage: subcategory.percentage || 0, // Use the percentage from service
+                              icon: subcategory.icon,
+                              color: subcategory.color,
+                              bank: subcategory.institution || "Various Banks",
+                              emi: subcategory.emi || 0,
+                              remaining: subcategory.remaining || 0,
+                              category: subcategory.category || item.name,
+                              notes: `Details for ${subcategory.name}`,
+                              isSystemCard: true,
+                              // Additional system card specific fields
+                              institution: subcategory.institution,
+                              account_type: subcategory.account_type,
+                              account_number: subcategory.account_number,
+                              credit_limit: subcategory.credit_limit,
+                              available_credit: subcategory.available_credit,
+                              card_number: subcategory.card_number,
+                            })
+                          );
+                        } else {
+                          // Regular category: create sample data from subcategories array
+                          subcategoryData =
+                            item.subcategories?.map(
+                              (sub: string, index: number) => ({
+                                id: `${item.id}_sub_${index}`,
+                                name: sub,
+                                value: Math.floor(
+                                  (item.value /
+                                    (item.subcategories?.length || 1)) *
+                                    (0.8 + Math.random() * 0.4)
+                                ), // Randomize values
+                                percentage:
+                                  (100 / (item.subcategories?.length || 1)) *
+                                  (0.8 + Math.random() * 0.4),
+                                icon: item.icon,
+                                color: item.color,
+                                bank: item.bank,
+                                emi: Math.floor(
+                                  (item.emi || 0) /
+                                    (item.subcategories?.length || 1)
+                                ),
+                                remaining:
+                                  Math.floor(
+                                    (item.remaining || 0) /
+                                      (item.subcategories?.length || 1)
+                                  ) || 1,
+                                category: item.category,
+                                notes: `Details for ${sub}`,
+                                isSystemCard: false,
+                              })
+                            ) || [];
+                        }
+
+                        setSelectedLiabilitySubcategories(subcategoryData);
+                        setShowSubcategoryModal(true);
+                      }}
                     >
-                      <Ionicons
-                        name={item.icon as any}
-                        size={24}
-                        color={item.color}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.categoryName, { color: colors.text }]}
-                      numberOfLines={2}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text style={[styles.categoryValue, { color: item.color }]}>
-                      ₹{(item.value / 100000).toFixed(1)}L
-                    </Text>
-                    <Text
-                      style={[
-                        styles.categoryPercentage,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {item.percentage}%
-                    </Text>
-                    <Text
-                      style={[
-                        styles.categoryItems,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {item.bank}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <View
+                        style={[
+                          styles.iconContainer,
+                          { backgroundColor: `${item.color}20` },
+                        ]}
+                      >
+                        <Ionicons
+                          name={item.icon as any}
+                          size={24}
+                          color={item.color}
+                        />
+                        {/* Add system card indicator */}
+                        {isSystemCard && (
+                          <View style={styles.systemCardBadge}>
+                            <Ionicons
+                              name="shield-checkmark"
+                              size={12}
+                              color={colors.primary}
+                            />
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[styles.categoryName, { color: colors.text }]}
+                        numberOfLines={2}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={[styles.categoryValue, { color: item.color }]}
+                      >
+                        {formatCurrency(item.value)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.categoryPercentage,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {item.percentage}%
+                      </Text>
+                      <Text
+                        style={[
+                          styles.categoryItems,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {item.items} items
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.detailedListContainer}>
@@ -1911,21 +2800,23 @@ const MobileNetWorth: React.FC = () => {
                             id: `${item.id}_sub_${index}`,
                             name: sub,
                             value: Math.floor(
-                              (item.value / item.subcategories.length) *
+                              (item.value / (item.subcategories?.length || 1)) *
                                 (0.8 + Math.random() * 0.4)
                             ), // Randomize values
                             percentage:
-                              (100 / item.subcategories.length) *
+                              (100 / (item.subcategories?.length || 1)) *
                               (0.8 + Math.random() * 0.4),
                             icon: item.icon,
                             color: item.color,
                             bank: item.bank,
                             emi: Math.floor(
-                              item.emi / item.subcategories.length
+                              (item.emi || 0) /
+                                (item.subcategories?.length || 1)
                             ),
                             remaining:
                               Math.floor(
-                                item.remaining / item.subcategories.length
+                                (item.remaining || 0) /
+                                  (item.subcategories?.length || 1)
                               ) || 1,
                             category: item.category,
                             notes: `Details for ${sub}`,
@@ -1962,7 +2853,8 @@ const MobileNetWorth: React.FC = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        {item.bank} • EMI: ₹{item.emi.toLocaleString()}
+                        {item.bank || "Various Banks"} • EMI: ₹
+                        {(item.emi || 0).toLocaleString()}
                       </Text>
                     </View>
                     <View style={styles.detailedListRight}>
@@ -1972,7 +2864,7 @@ const MobileNetWorth: React.FC = () => {
                           { color: item.color },
                         ]}
                       >
-                        ₹{(item.value / 100000).toFixed(1)}L
+                        {formatCurrency(item.value)}
                       </Text>
                       <Text
                         style={[
@@ -1990,57 +2882,146 @@ const MobileNetWorth: React.FC = () => {
           </View>
         )}
 
-        {/* Financial Summary */}
+        {/* Compact Financial Insights */}
         <View
           style={[
             styles.financialSummary,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              shadowColor: colors.text,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 3,
+            },
           ]}
         >
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>
-            Financial Summary
-          </Text>
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNumber, { color: colors.primary }]}>
-                {assetCategories.length}
-              </Text>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
-              >
-                Asset Classes
+          <View style={styles.summaryHeader}>
+            <View style={styles.summaryTitleRow}>
+              <Text style={styles.summaryEmoji}>💡</Text>
+              <Text style={[styles.summaryTitle, { color: colors.text }]}>
+                Key Insights
               </Text>
             </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNumber, { color: colors.primary }]}>
-                {assetCategories.reduce((sum, cat) => sum + cat.items, 0)}
-              </Text>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            <TouchableOpacity
+              style={[styles.summaryBadge, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.summaryBadgeText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.compactSummaryGrid}>
+            <View style={styles.compactSummaryRow}>
+              <View
+                style={[
+                  styles.compactSummaryItem,
+                  { backgroundColor: `${colors.primary}08` },
+                ]}
               >
-                Total Assets
-              </Text>
+                <View style={styles.compactItemContent}>
+                  <Text style={styles.compactIcon}>🏛️</Text>
+                  <View style={styles.compactTextContainer}>
+                    <Text
+                      style={[styles.compactNumber, { color: colors.primary }]}
+                    >
+                      {assetCategories.length}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.compactLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Categories
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.compactSummaryItem,
+                  { backgroundColor: `${colors.primary}08` },
+                ]}
+              >
+                <View style={styles.compactItemContent}>
+                  <Text style={styles.compactIcon}>📊</Text>
+                  <View style={styles.compactTextContainer}>
+                    <Text
+                      style={[styles.compactNumber, { color: colors.primary }]}
+                    >
+                      {assetCategories.reduce((sum, cat) => sum + cat.items, 0)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.compactLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Holdings
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNumber, { color: "#F59E0B" }]}>
-                ₹{Math.max(...assetCategories.map((cat) => cat.value)) / 100000}
-                L
-              </Text>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+
+            <View style={styles.compactSummaryRow}>
+              <View
+                style={[
+                  styles.compactSummaryItem,
+                  { backgroundColor: "#F59E0B08" },
+                ]}
               >
-                Largest Asset
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNumber, { color: "#8B5CF6" }]}>
-                {Math.max(...assetCategories.map((cat) => cat.percentage))}%
-              </Text>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                <View style={styles.compactItemContent}>
+                  <Text style={styles.compactIcon}>💰</Text>
+                  <View style={styles.compactTextContainer}>
+                    <Text
+                      style={[styles.compactNumber, { color: "#F59E0B" }]}
+                      numberOfLines={1}
+                    >
+                      {formatCurrency(
+                        Math.max(...assetCategories.map((cat) => cat.value))
+                      )}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.compactLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Top Asset
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.compactSummaryItem,
+                  { backgroundColor: "#8B5CF608" },
+                ]}
               >
-                Top Allocation
-              </Text>
+                <View style={styles.compactItemContent}>
+                  <Text style={styles.compactIcon}>🎯</Text>
+                  <View style={styles.compactTextContainer}>
+                    <Text style={[styles.compactNumber, { color: "#8B5CF6" }]}>
+                      {Math.max(
+                        ...assetCategories.map((cat) => cat.percentage)
+                      )}
+                      %
+                    </Text>
+                    <Text
+                      style={[
+                        styles.compactLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Allocation
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -2467,13 +3448,8 @@ const MobileNetWorth: React.FC = () => {
                       { color: selectedLiability.color },
                     ]}
                   >
-                    ₹{(selectedLiability.value / 100000).toFixed(1)}L
+                    {formatCurrency(selectedLiability.value)}
                   </Text>
-                  <Ionicons
-                    name="chevron-up"
-                    size={16}
-                    color={selectedLiability.color}
-                  />
                 </View>
               </View>
             </View>
@@ -2484,95 +3460,108 @@ const MobileNetWorth: React.FC = () => {
                 <View
                   key={subcategory.id}
                   style={[
-                    styles.subcategoryListItem,
-                    { backgroundColor: colors.card },
+                    styles.enhancedSubcategoryCard,
+                    {
+                      backgroundColor: colors.card,
+                      shadowColor: colors.text,
+                      borderLeftColor: subcategory.color,
+                    },
                   ]}
                 >
-                  <View style={styles.subcategoryListItemContent}>
+                  {/* Single Row Layout: Badge + Icon + Info + Amount + Three Dots */}
+                  <View style={styles.cardSingleRow}>
+                    <View style={styles.cardNumberBadge}>
+                      <Text
+                        style={[
+                          styles.cardNumberText,
+                          { color: subcategory.color },
+                        ]}
+                      >
+                        #{index + 1}
+                      </Text>
+                    </View>
                     <View
                       style={[
-                        styles.subcategoryListItemIcon,
-                        { backgroundColor: `${subcategory.color}20` },
+                        styles.cardIcon,
+                        {
+                          backgroundColor: `${subcategory.color}15`,
+                          borderWidth: 2,
+                          borderColor: `${subcategory.color}30`,
+                        },
                       ]}
                     >
                       <Ionicons
                         name={subcategory.icon as any}
-                        size={20}
+                        size={24}
                         color={subcategory.color}
                       />
                     </View>
-                    <View style={styles.subcategoryListItemDetails}>
+                    <View style={styles.cardInfo}>
                       <Text
-                        style={[
-                          styles.subcategoryListItemName,
-                          { color: colors.text },
-                        ]}
+                        style={[styles.cardTitle, { color: colors.text }]}
+                        numberOfLines={1}
                       >
-                        {subcategory.name}
+                        {typeof subcategory.name === "string"
+                          ? subcategory.name
+                          : "Unknown Item"}
                       </Text>
                       <Text
                         style={[
-                          styles.subcategoryListItemBank,
+                          styles.cardSubtitle,
                           { color: colors.textSecondary },
                         ]}
+                        numberOfLines={1}
                       >
-                        {subcategory.bank} • EMI: ₹
-                        {subcategory.emi.toLocaleString()}
+                        {subcategory.isSystemCard
+                          ? `${subcategory.institution || "Unknown"}`
+                          : `${subcategory.bank}`}
                       </Text>
-                    </View>
-                    <View style={styles.subcategoryListItemValue}>
                       <Text
                         style={[
-                          styles.subcategoryListItemAmount,
+                          styles.cardAccountDetails,
+                          { color: colors.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {subcategory.isSystemCard
+                          ? `${subcategory.account_type || "Account"} • ${
+                              subcategory.account_number || "****"
+                            }`
+                          : `${subcategory.percentage.toFixed(
+                              1
+                            )}% of portfolio`}
+                      </Text>
+                    </View>
+                    <View style={styles.cardAmountSection}>
+                      <Text
+                        style={[
+                          styles.cardAmount,
                           { color: subcategory.color },
                         ]}
                       >
-                        ₹{(subcategory.value / 100000).toFixed(1)}L
+                        {formatCurrency(subcategory.value)}
                       </Text>
                       <Text
                         style={[
-                          styles.subcategoryListItemPercentage,
+                          styles.cardPercentage,
                           { color: colors.textSecondary },
                         ]}
                       >
                         {subcategory.percentage.toFixed(1)}%
                       </Text>
                     </View>
-                    <View style={styles.subcategoryListItemActions}>
-                      <TouchableOpacity
-                        style={styles.subcategoryActionButton}
-                        onPress={() =>
-                          handleAddEntry(
-                            selectedLiability?.id || "",
-                            subcategory.id || "",
-                            "liability"
-                          )
-                        }
-                      >
-                        <Ionicons name="add" size={16} color={colors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.subcategoryActionButton}>
-                        <Ionicons
-                          name="eye"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.subcategoryActionButton}>
-                        <Ionicons
-                          name="pencil"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.subcategoryActionButton}>
-                        <Ionicons
-                          name="trash"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.cardThreeDotsButton}
+                      onPress={(event) =>
+                        handleThreeDotsPress(subcategory, event)
+                      }
+                    >
+                      <Ionicons
+                        name="ellipsis-vertical"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -2619,7 +3608,7 @@ const MobileNetWorth: React.FC = () => {
                       { color: colors.primary },
                     ]}
                   >
-                    ₹{(selectedLiability.value / 100000).toFixed(1)}L
+                    {formatCurrency(selectedLiability.value)}
                   </Text>
                   <Text
                     style={[
@@ -2668,6 +3657,165 @@ const MobileNetWorth: React.FC = () => {
                 </View>
               </View>
             </View>
+
+            {/* Popup Menu for Liability Subcategories - Inside Modal */}
+            {showPopupMenu && (
+              <Modal
+                transparent={true}
+                visible={showPopupMenu}
+                onRequestClose={closePopupMenu}
+              >
+                <TouchableWithoutFeedback onPress={closePopupMenu}>
+                  <View style={styles.popupOverlay}>
+                    <View
+                      style={[
+                        styles.popupMenu,
+                        styles.smallerPopupMenu, // Make it smaller
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          top: menuPosition.y,
+                          left: menuPosition.x,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("add")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: `${colors.primary}20` },
+                          ]}
+                        >
+                          <Ionicons
+                            name="add"
+                            size={14}
+                            color={colors.primary}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: colors.text, fontWeight: "600" },
+                          ]}
+                        >
+                          Add Entry
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View
+                        style={[
+                          styles.popupMenuSeparator,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("view")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: `${colors.primary}10` },
+                          ]}
+                        >
+                          <Ionicons
+                            name="eye-outline"
+                            size={14}
+                            color={colors.primary}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          View Details
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View
+                        style={[
+                          styles.popupMenuSeparator,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("edit")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: `${colors.textSecondary}10` },
+                          ]}
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Edit Entry
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View
+                        style={[
+                          styles.popupMenuSeparator,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("delete")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: "#EF444420" },
+                          ]}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={14}
+                            color="#EF4444"
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: "#EF4444" },
+                          ]}
+                        >
+                          Delete Entry
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
           </View>
         </Modal>
       )}
@@ -2770,13 +3918,8 @@ const MobileNetWorth: React.FC = () => {
                       { color: selectedLiability.color },
                     ]}
                   >
-                    ₹{(selectedLiability.value / 100000).toFixed(1)}L
+                    {formatCurrency(selectedLiability.value)}
                   </Text>
-                  <Ionicons
-                    name="chevron-up"
-                    size={16}
-                    color={selectedLiability.color}
-                  />
                 </View>
               </View>
             </View>
@@ -2787,94 +3930,106 @@ const MobileNetWorth: React.FC = () => {
                 <View
                   key={subcategory.id}
                   style={[
-                    styles.subcategoryListItem,
-                    { backgroundColor: colors.card },
+                    styles.enhancedSubcategoryCard,
+                    {
+                      backgroundColor: colors.card,
+                      shadowColor: colors.text,
+                      borderLeftColor: subcategory.color,
+                    },
                   ]}
                 >
-                  <View style={styles.subcategoryListItemContent}>
+                  {/* Single Row Layout: Badge + Icon + Info + Amount + Three Dots */}
+                  <View style={styles.cardSingleRow}>
+                    <View style={styles.cardNumberBadge}>
+                      <Text
+                        style={[
+                          styles.cardNumberText,
+                          { color: subcategory.color },
+                        ]}
+                      >
+                        #{index + 1}
+                      </Text>
+                    </View>
                     <View
                       style={[
-                        styles.subcategoryListItemIcon,
-                        { backgroundColor: `${subcategory.color}20` },
+                        styles.cardIcon,
+                        {
+                          backgroundColor: `${subcategory.color}15`,
+                          borderWidth: 2,
+                          borderColor: `${subcategory.color}30`,
+                        },
                       ]}
                     >
                       <Ionicons
                         name={subcategory.icon as any}
-                        size={20}
+                        size={24}
                         color={subcategory.color}
                       />
                     </View>
-                    <View style={styles.subcategoryListItemDetails}>
+                    <View style={styles.cardInfo}>
                       <Text
-                        style={[
-                          styles.subcategoryListItemName,
-                          { color: colors.text },
-                        ]}
+                        style={[styles.cardTitle, { color: colors.text }]}
+                        numberOfLines={1}
                       >
                         {subcategory.name}
                       </Text>
                       <Text
                         style={[
-                          styles.subcategoryListItemBank,
+                          styles.cardSubtitle,
                           { color: colors.textSecondary },
                         ]}
+                        numberOfLines={1}
                       >
-                        {subcategory.bank} • Investment
+                        {subcategory.isSystemCard
+                          ? `${subcategory.institution || "Unknown"}`
+                          : `${subcategory.bank}`}
                       </Text>
-                    </View>
-                    <View style={styles.subcategoryListItemValue}>
                       <Text
                         style={[
-                          styles.subcategoryListItemAmount,
+                          styles.cardAccountDetails,
+                          { color: colors.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {subcategory.isSystemCard
+                          ? `${subcategory.account_type || "Account"} • ${
+                              subcategory.account_number || "****"
+                            }`
+                          : `${subcategory.percentage.toFixed(
+                              1
+                            )}% of portfolio`}
+                      </Text>
+                    </View>
+                    <View style={styles.cardAmountSection}>
+                      <Text
+                        style={[
+                          styles.cardAmount,
                           { color: subcategory.color },
                         ]}
                       >
-                        ₹{(subcategory.value / 100000).toFixed(1)}L
+                        {formatCurrency(subcategory.value)}
                       </Text>
                       <Text
                         style={[
-                          styles.subcategoryListItemPercentage,
+                          styles.cardPercentage,
                           { color: colors.textSecondary },
                         ]}
                       >
                         {subcategory.percentage.toFixed(1)}%
                       </Text>
                     </View>
-                    <View style={styles.subcategoryListItemActions}>
-                      <TouchableOpacity
-                        style={styles.subcategoryActionButton}
-                        onPress={() =>
-                          handleAddEntry(
-                            selectedCategory?.id || "",
-                            subcategory.id || "",
-                            "asset"
-                          )
-                        }
-                      >
-                        <Ionicons name="add" size={16} color={colors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.subcategoryActionButton}>
-                        <Ionicons
-                          name="eye"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.subcategoryActionButton}>
-                        <Ionicons
-                          name="pencil"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.subcategoryActionButton}>
-                        <Ionicons
-                          name="trash"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.cardThreeDotsButton}
+                      onPress={(event) =>
+                        handleThreeDotsPress(subcategory, event)
+                      }
+                    >
+                      <Ionicons
+                        name="ellipsis-vertical"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -2921,7 +4076,7 @@ const MobileNetWorth: React.FC = () => {
                       { color: colors.primary },
                     ]}
                   >
-                    ₹{(selectedLiability.value / 100000).toFixed(1)}L
+                    {formatCurrency(selectedLiability.value)}
                   </Text>
                   <Text
                     style={[
@@ -2970,6 +4125,165 @@ const MobileNetWorth: React.FC = () => {
                 </View>
               </View>
             </View>
+
+            {/* Popup Menu for Asset Subcategories - Inside Modal */}
+            {showPopupMenu && (
+              <Modal
+                transparent={true}
+                visible={showPopupMenu}
+                onRequestClose={closePopupMenu}
+              >
+                <TouchableWithoutFeedback onPress={closePopupMenu}>
+                  <View style={styles.popupOverlay}>
+                    <View
+                      style={[
+                        styles.popupMenu,
+                        styles.smallerPopupMenu, // Make it smaller
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          top: menuPosition.y,
+                          left: menuPosition.x,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("add")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: `${colors.primary}20` },
+                          ]}
+                        >
+                          <Ionicons
+                            name="add"
+                            size={14}
+                            color={colors.primary}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: colors.text, fontWeight: "600" },
+                          ]}
+                        >
+                          Add Entry
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View
+                        style={[
+                          styles.popupMenuSeparator,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("view")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: `${colors.primary}10` },
+                          ]}
+                        >
+                          <Ionicons
+                            name="eye-outline"
+                            size={14}
+                            color={colors.primary}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          View Details
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View
+                        style={[
+                          styles.popupMenuSeparator,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("edit")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: `${colors.textSecondary}10` },
+                          ]}
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Edit Entry
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View
+                        style={[
+                          styles.popupMenuSeparator,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.popupMenuItem, styles.smallerMenuItem]}
+                        onPress={() => handleMenuAction("delete")}
+                      >
+                        <View
+                          style={[
+                            styles.popupMenuIcon,
+                            styles.smallerMenuIcon,
+                            { backgroundColor: "#EF444420" },
+                          ]}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={14}
+                            color="#EF4444"
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.popupMenuText,
+                            styles.smallerMenuText,
+                            { color: "#EF4444" },
+                          ]}
+                        >
+                          Delete Entry
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Modal>
+            )}
           </View>
         </Modal>
       )}
@@ -3105,7 +4419,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   netWorthTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
   },
   trendBadge: {
@@ -3137,11 +4451,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  netWorthValue: {
-    fontSize: 28,
-    fontWeight: "800",
+  netWorthValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 6,
+    gap: 12,
+  },
+  netWorthValue: {
+    fontSize: 32,
+    fontWeight: "800",
     letterSpacing: -0.5,
+    flex: 1,
+  },
+  trendBadgeInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 2,
+  },
+  trendTextInline: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   netWorthChangeRow: {
     flexDirection: "row",
@@ -3197,12 +4529,25 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     flex: 1,
+    textAlign: "left",
+    lineHeight: 14,
+  },
+  cardValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 4,
+    letterSpacing: -0.5,
   },
   assetValue: {
     fontSize: 20,
     fontWeight: "800",
     marginBottom: 4,
     letterSpacing: -0.5,
+  },
+  cardSubtext: {
+    fontSize: 11,
+    fontWeight: "600",
+    opacity: 0.9,
   },
   assetSubtext: {
     fontSize: 11,
@@ -3248,6 +4593,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     flex: 1,
+    textAlign: "left",
+    lineHeight: 14,
   },
   liabilityValue: {
     fontSize: 20,
@@ -3532,23 +4879,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: "100%",
-    width: "78%",
-    borderRadius: 4,
-  },
-  progressLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  progressLabel: {
-    fontSize: 12,
-  },
   assetsLiabilitiesCompact: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -3625,11 +4955,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 0, // Further reduced to maximize card space
     paddingBottom: 20,
   },
   gridItem: {
-    width: "32%",
+    width: "31.8%", // Optimized to use maximum available space while maintaining 3 columns
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
@@ -3653,6 +4983,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
+    position: "relative",
+  },
+  systemCardBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   categoryName: {
     fontSize: 12,
@@ -3694,8 +5041,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   summaryLabel: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13, // Slightly smaller but more refined
+    fontWeight: "600", // Bolder
+    textAlign: "center",
+    letterSpacing: 0.2,
+    opacity: 0.8,
   },
   summaryRight: {
     flexDirection: "row",
@@ -3735,11 +5085,6 @@ const styles = StyleSheet.create({
   assetDetailRight: {
     alignItems: "flex-end",
   },
-  assetValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
   assetActions: {
     flexDirection: "row",
     gap: 8,
@@ -3753,15 +5098,40 @@ const styles = StyleSheet.create({
   },
   financialSummary: {
     margin: 20,
-    marginTop: 30,
-    padding: 20,
-    borderRadius: 16,
+    marginTop: 20, // Reduced top margin
+    padding: 16, // Reduced padding for compactness
+    borderRadius: 16, // Slightly less rounded
     borderWidth: 1,
   },
-  summaryTitle: {
+  summaryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12, // Reduced margin
+  },
+  summaryTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  summaryEmoji: {
     fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 18, // Reduced font size for compactness
+    fontWeight: "700", // Slightly less bold
+    letterSpacing: -0.3,
+  },
+  summaryBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  summaryBadgeText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
   summaryGrid: {
     flexDirection: "row",
@@ -3771,12 +5141,454 @@ const styles = StyleSheet.create({
   summaryItem: {
     width: "48%",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20, // Increased margin
+    padding: 16, // Added padding
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.02)", // Subtle background
+  },
+  highlightedItem: {
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  summaryIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  summaryIcon: {
+    fontSize: 24,
   },
   summaryNumber: {
-    fontSize: 24,
+    fontSize: 28, // Increased font size
+    fontWeight: "800", // Bolder
+    marginBottom: 6,
+    letterSpacing: -0.8,
+  },
+  primaryNumber: {
+    textShadowColor: "rgba(16, 185, 129, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  goldNumber: {
+    textShadowColor: "rgba(245, 158, 11, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  purpleNumber: {
+    textShadowColor: "rgba(139, 92, 246, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  // Compact Summary Styles
+  compactSummaryGrid: {
+    gap: 8,
+  },
+  compactSummaryRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  compactSummaryItem: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  compactItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  compactIcon: {
+    fontSize: 20,
+  },
+  compactTextContainer: {
+    flex: 1,
+  },
+  compactNumber: {
+    fontSize: 16,
     fontWeight: "700",
+    marginBottom: 2,
+  },
+  compactLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  // Enhanced Skeleton Loading Styles
+  skeletonText: {
+    borderRadius: 4,
+    opacity: 0.6,
+  },
+  skeletonTitle: {
+    width: "60%",
+    height: 20,
+    marginBottom: 8,
+  },
+  skeletonSubtitle: {
+    width: "40%",
+    height: 14,
+  },
+  skeletonAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    opacity: 0.6,
+  },
+  skeletonNav: {
+    width: "100%",
+    height: 50,
+    borderRadius: 25,
+    opacity: 0.6,
+  },
+  skeletonCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+
+  // Main Net Worth Card Skeleton
+  skeletonMainNetWorthCard: {
+    height: 140,
+    justifyContent: "space-between",
+  },
+  skeletonNetWorthHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  skeletonNetWorthTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  skeletonNetWorthIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+  },
+  skeletonNetWorthTitle: {
+    width: 80,
+    height: 16,
+  },
+  skeletonAddButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  skeletonMainValue: {
+    width: "60%",
+    height: 32,
+    marginBottom: 12,
+  },
+  skeletonNetWorthFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  skeletonChangeText: {
+    width: "50%",
+    height: 14,
+  },
+  skeletonChip: {
+    width: 60,
+    height: 24,
+    borderRadius: 12,
+  },
+  skeletonCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    opacity: 0.6,
+  },
+
+  // Asset/Liability Cards Skeleton
+  skeletonAssetCard: {
+    flex: 1,
+    marginRight: 8,
+    height: 120,
+    justifyContent: "space-between",
+  },
+  skeletonLiabilityCard: {
+    flex: 1,
+    marginLeft: 8,
+    height: 120,
+    justifyContent: "space-between",
+  },
+  skeletonAssetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  skeletonAssetTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  skeletonAssetIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+  },
+  skeletonAssetTitleContainer: {
+    flex: 1,
+  },
+  skeletonAssetTitle: {
+    width: "80%",
+    height: 14,
     marginBottom: 4,
+  },
+  skeletonAssetSubtitle: {
+    width: "60%",
+    height: 12,
+  },
+  skeletonSmallCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  skeletonAssetValue: {
+    width: "50%",
+    height: 24,
+    marginBottom: 8,
+  },
+  skeletonAssetPercentage: {
+    width: "70%",
+    height: 12,
+  },
+
+  // Asset Allocation Skeleton
+  skeletonAllocationContainer: {
+    marginTop: 16,
+  },
+  skeletonAllocationHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  skeletonAllocationTitle: {
+    width: "40%",
+    height: 16,
+  },
+  skeletonAllocationPercentage: {
+    width: "20%",
+    height: 16,
+  },
+  skeletonProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  skeletonProgressFill: {
+    width: "75%",
+    height: "100%",
+    borderRadius: 4,
+  },
+  skeletonAllocationLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  skeletonAllocationLabel: {
+    width: "25%",
+    height: 12,
+  },
+
+  // Generation Section Skeleton
+  skeletonGenerationContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  skeletonGenerationHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  skeletonGenerationTitle: {
+    width: "30%",
+    height: 18,
+  },
+  skeletonGenerationButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  skeletonGenerationButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+
+  // Breakdown Section Skeleton
+  skeletonBreakdownContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  skeletonBreakdownHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  skeletonBreakdownTitle: {
+    width: "40%",
+    height: 20,
+  },
+  skeletonButton: {
+    width: 100,
+    height: 32,
+    borderRadius: 16,
+  },
+
+  // Grid Items Skeleton
+  skeletonGridItem: {
+    width: "31.8%",
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    minHeight: 120,
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  skeletonGridContent: {
+    alignItems: "center",
+    width: "100%",
+  },
+  skeletonIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginBottom: 8,
+    opacity: 0.6,
+  },
+  skeletonGridTitle: {
+    width: "80%",
+    height: 14,
+    marginBottom: 4,
+  },
+  skeletonGridValue: {
+    width: "60%",
+    height: 18,
+    marginBottom: 4,
+  },
+  skeletonGridSubtext: {
+    width: "50%",
+    height: 12,
+  },
+  skeletonGridFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+    width: "100%",
+  },
+  skeletonGridPercentage: {
+    width: "30%",
+    height: 12,
+  },
+  skeletonGridItems: {
+    width: "40%",
+    height: 12,
+  },
+  skeletonShieldBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  skeletonShieldIcon: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+
+  // Financial Summary Skeleton
+  skeletonFinancialSummary: {
+    margin: 20,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  skeletonSummaryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  skeletonSummaryTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  skeletonEmoji: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    opacity: 0.6,
+  },
+  skeletonSummaryTitle: {
+    width: 80,
+    height: 18,
+  },
+  skeletonSummaryButton: {
+    width: 70,
+    height: 28,
+    borderRadius: 14,
+  },
+
+  // Compact Grid Skeleton
+  skeletonCompactGrid: {
+    gap: 8,
+  },
+  skeletonCompactRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  skeletonCompactItem: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  skeletonCompactText: {
+    flex: 1,
+  },
+  skeletonCompactNumber: {
+    width: 30,
+    height: 16,
+    marginBottom: 4,
+  },
+  skeletonCompactLabel: {
+    width: 50,
+    height: 11,
+  },
+  summaryContainer: {
+    paddingHorizontal: 20,
   },
 
   // Modal styles
@@ -3850,14 +5662,6 @@ const styles = StyleSheet.create({
   },
   dropdownText: {
     fontSize: 16,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
   },
   toggleField: {
     flexDirection: "row",
@@ -3975,6 +5779,304 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     marginLeft: "auto",
+  },
+
+  // Clean Subcategory Card Styles
+  enhancedSubcategoryCard: {
+    marginHorizontal: 0, // Full width like header card
+    marginVertical: 8, // Good separation
+    borderRadius: 16, // Modern rounded corners
+    borderLeftWidth: 4, // Accent border
+    padding: 16, // Clean spacing
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    position: "relative",
+  },
+
+  // New single row card layout styles
+  cardSingleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+  },
+  cardAmount: {
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    textAlign: "right",
+  },
+  cardAmountSection: {
+    alignItems: "flex-end",
+    marginRight: 12,
+  },
+  cardPercentage: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 1,
+  },
+  cardThreeDotsButton: {
+    padding: 8,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
+  enhancedCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  enhancedCardIcon: {
+    width: 44, // Increased for better prominence
+    height: 44, // Increased for better prominence
+    borderRadius: 12, // Increased for modern look
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14, // Increased for better spacing
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  enhancedCardInfo: {
+    flex: 1,
+  },
+  enhancedCardTitle: {
+    fontSize: 16, // Increased for better readability
+    fontWeight: "700",
+    marginBottom: 3, // Increased for better spacing
+    letterSpacing: -0.3, // Tighter letter spacing for modern look
+  },
+  enhancedCardSubtitle: {
+    fontSize: 14, // Increased for better readability
+    fontWeight: "500",
+    opacity: 0.8, // Subtle opacity for hierarchy
+  },
+  enhancedCardRight: {
+    alignItems: "flex-end",
+  },
+  enhancedCardAmount: {
+    fontSize: 18, // Increased for better prominence
+    fontWeight: "800",
+    marginBottom: 2,
+    letterSpacing: -0.5, // Tighter spacing for numbers
+  },
+  enhancedCardPercentage: {
+    fontSize: 12,
+    fontWeight: "600",
+    opacity: 0.8, // Subtle opacity for hierarchy
+  },
+  enhancedCardDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between", // Changed from flexWrap
+    alignItems: "center",
+    marginBottom: 8, // Reduced from 16
+    paddingVertical: 6, // Reduced padding
+  },
+  enhancedCardDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4, // Reduced from 6
+  },
+  enhancedCardDetailText: {
+    fontSize: 12, // Reduced from 13
+    fontWeight: "500",
+  },
+  enhancedCardActions: {
+    flexDirection: "row",
+    justifyContent: "space-around", // Changed from space-between
+    alignItems: "center",
+    paddingTop: 8, // Reduced from 12
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+  enhancedActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8, // Reduced from 12
+    paddingVertical: 6, // Reduced from 8
+    borderRadius: 6, // Reduced from 8
+    minWidth: 32, // Reduced from 40
+  },
+  primaryAction: {
+    backgroundColor: "#10B981",
+    paddingHorizontal: 12, // Reduced from 16
+    gap: 4, // Reduced from 6
+  },
+  secondaryAction: {
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
+  enhancedActionText: {
+    color: "white",
+    fontSize: 12, // Reduced from 13
+    fontWeight: "600",
+  },
+
+  // New styles for three-dot menu and full-width cards
+  enhancedCardAmountContainer: {
+    alignItems: "flex-end",
+    marginRight: 12,
+  },
+  threeDotsButton: {
+    padding: 10, // Increased for better touch target
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.05)", // Subtle background
+    marginLeft: 8, // Add margin for spacing
+  },
+  addEntryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 6,
+  },
+  addEntryButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Updated card number badge styles - positioned relative to icon
+  cardNumberBadge: {
+    position: "absolute",
+    top: -6,
+    left: -6,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1.5,
+    borderColor: "rgba(0,0,0,0.1)",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+    zIndex: 2,
+  },
+  cardNumberText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+
+  // New card element styles
+  cardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    position: "relative", // For badge positioning
+  },
+  cardInfo: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 2,
+    letterSpacing: -0.2,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    fontWeight: "500",
+    marginBottom: 2,
+    opacity: 0.8,
+  },
+  cardAccountDetails: {
+    fontSize: 11,
+    fontWeight: "400",
+    opacity: 0.6,
+    fontStyle: "italic",
+  },
+
+  // Enhanced popup menu styles
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Darker overlay for better visibility
+  },
+  popupMenu: {
+    position: "absolute",
+    minWidth: 180,
+    maxWidth: 220,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowOffset: {
+      width: 0,
+      height: 8, // Increased shadow
+    },
+    shadowOpacity: 0.25, // Increased opacity
+    shadowRadius: 16, // Increased radius
+    elevation: 16, // Increased elevation for Android
+    paddingVertical: 12,
+    zIndex: 9999, // Ensure it's on top
+  },
+  // Smaller popup menu for subcategory modals
+  smallerPopupMenu: {
+    minWidth: 140,
+    maxWidth: 160,
+    borderRadius: 12,
+    paddingVertical: 8,
+  },
+  popupMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18, // Increased padding
+    paddingVertical: 14, // Increased padding
+    gap: 14, // Increased gap
+  },
+  // Smaller menu items
+  smallerMenuItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  primaryMenuItem: {
+    backgroundColor: "rgba(0,0,0,0.02)", // Subtle highlight for primary action
+  },
+  popupMenuIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // Smaller menu icons
+  smallerMenuIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+  },
+  popupMenuText: {
+    fontSize: 15,
+    fontWeight: "500",
+    flex: 1,
+  },
+  // Smaller menu text
+  smallerMenuText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  popupMenuSeparator: {
+    height: 1,
+    marginHorizontal: 18, // Increased margin
+    opacity: 0.3, // More subtle
   },
 });
 
