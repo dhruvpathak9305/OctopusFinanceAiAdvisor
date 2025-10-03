@@ -5,6 +5,7 @@ export default {
     name: "OctopusFinanceAiAdvisor",
     slug: "OctopusFinanceAiAdvisor",
     version: "1.0.0",
+    sdkVersion: "54.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",

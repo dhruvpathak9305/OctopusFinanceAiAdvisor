@@ -17,6 +17,15 @@ import {
   lightTheme,
 } from "../../../../contexts/ThemeContext";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useDemoMode } from "../../../../contexts/DemoModeContext";
+import {
+  fetchFormattedCategoriesForUI,
+  initializeDefaultCategories,
+  createSampleNetWorthEntries,
+} from "../../../../services/netWorthService";
+
+// Import the new Add Net Worth Entry Modal
+import AddNetWorthEntryModal from "../../components/NetWorth/AddNetWorthEntryModal";
 
 interface AssetItem {
   id: string;
@@ -46,6 +55,8 @@ const MobileNetWorth: React.FC = () => {
   const colors = isDark ? darkTheme : lightTheme;
   const navigation = useNavigation();
   const route = useRoute();
+  const { isDemo } = useDemoMode();
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] =
     useState<AssetCategory | null>(null);
@@ -55,7 +66,7 @@ const MobileNetWorth: React.FC = () => {
   >("largest");
   const [showSortModal, setShowSortModal] = useState(false);
   const [selectedView, setSelectedView] = useState<"assets" | "liabilities">(
-    "liabilities"
+    "assets"
   );
   const [selectedLiability, setSelectedLiability] = useState<any>(null);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
@@ -67,6 +78,22 @@ const MobileNetWorth: React.FC = () => {
   const [showAssetSubcategoryModal, setShowAssetSubcategoryModal] =
     useState(false);
 
+  // Add Net Worth Entry Modal state
+  const [showAddEntryModal, setShowAddEntryModal] = useState(false);
+  const [selectedEntryCategory, setSelectedEntryCategory] =
+    useState<string>("");
+  const [selectedEntrySubcategory, setSelectedEntrySubcategory] =
+    useState<string>("");
+  const [entryType, setEntryType] = useState<"asset" | "liability">("asset");
+
+  // Real data state
+  const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
+  const [liabilityCategories, setLiabilityCategories] = useState<
+    AssetCategory[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   // Handle route params to show add asset modal
   useEffect(() => {
     if (route.params && (route.params as any).showAddAssetModal) {
@@ -74,8 +101,90 @@ const MobileNetWorth: React.FC = () => {
     }
   }, [route.params]);
 
-  // Sample data - in real app this would come from context/API
-  const assetCategories: AssetCategory[] = [
+  // Fetch real data from database
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Initialize default categories if needed
+        await initializeDefaultCategories(isDemo);
+
+        // Create sample net worth entries if needed
+        await createSampleNetWorthEntries(isDemo);
+
+        // Fetch assets and liabilities
+        const [assets, liabilities] = await Promise.all([
+          fetchFormattedCategoriesForUI("asset", isDemo),
+          fetchFormattedCategoriesForUI("liability", isDemo),
+        ]);
+
+        setAssetCategories(assets);
+        setLiabilityCategories(liabilities);
+      } catch (err) {
+        console.error("Error fetching net worth data:", err);
+        setError(err instanceof Error ? err.message : "Failed to load data");
+
+        // Fallback to sample data if there's an error
+        setAssetCategories(sampleAssetCategories);
+        setLiabilityCategories(sampleLiabilityCategories);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isDemo]);
+
+  // Handler for opening Add Entry Modal
+  const handleAddEntry = (
+    categoryId: string,
+    subcategoryId: string,
+    type: "asset" | "liability"
+  ) => {
+    setSelectedEntryCategory(categoryId);
+    setSelectedEntrySubcategory(subcategoryId);
+    setEntryType(type);
+    setShowAddEntryModal(true);
+  };
+
+  const handleEntryModalSave = () => {
+    // Refresh data after adding new entry
+    setShowAddEntryModal(false);
+    // Trigger data refresh
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Initialize default categories if needed
+        await initializeDefaultCategories(isDemo);
+
+        // Create sample entries if needed
+        await createSampleNetWorthEntries(isDemo);
+
+        // Fetch formatted data for UI
+        const data = await fetchFormattedCategoriesForUI(isDemo);
+
+        // Separate assets and liabilities
+        const assets = data.filter((cat) => cat.type === "asset");
+        const liabilities = data.filter((cat) => cat.type === "liability");
+
+        setAssetCategories(assets);
+        setLiabilityCategories(liabilities);
+      } catch (error) {
+        console.error("Error fetching net worth data:", error);
+        setError("Failed to load net worth data. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  };
+
+  // Sample data - fallback if database fetch fails
+  const sampleAssetCategories: AssetCategory[] = [
     {
       id: "1",
       name: "Cash & Cash Equivalents",
@@ -561,9 +670,13 @@ const MobileNetWorth: React.FC = () => {
   ];
 
   const totalAssets = assetCategories.reduce((sum, cat) => sum + cat.value, 0);
+  const totalLiabilities = liabilityCategories.reduce(
+    (sum, cat) => sum + cat.value,
+    0
+  );
 
-  // Liabilities data
-  const liabilitiesData = [
+  // Sample liabilities data - fallback if database fetch fails
+  const sampleLiabilityCategories = [
     {
       id: "l1",
       name: "Housing Loans",
@@ -930,11 +1043,6 @@ const MobileNetWorth: React.FC = () => {
     },
   ];
 
-  const totalLiabilities = liabilitiesData.reduce(
-    (sum, liab) => sum + liab.value,
-    0
-  );
-
   const renderGridItem = ({
     item,
     index,
@@ -944,6 +1052,7 @@ const MobileNetWorth: React.FC = () => {
   }) => {
     return (
       <TouchableOpacity
+        key={item.id}
         style={[
           styles.gridItem,
           {
@@ -1102,6 +1211,52 @@ const MobileNetWorth: React.FC = () => {
       </View>
     </View>
   );
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.centerContent,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Ionicons name="refresh" size={32} color={colors.textSecondary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Loading Net Worth Data...
+        </Text>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.centerContent,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Ionicons name="alert-circle" size={32} color="#EF4444" />
+        <Text style={[styles.errorText, { color: "#EF4444" }]}>{error}</Text>
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            // Trigger data refetch by updating the dependency
+            setLoading(true);
+            setError(null);
+          }}
+        >
+          <Text style={[styles.retryButtonText, { color: colors.background }]}>
+            Retry
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -1274,6 +1429,33 @@ const MobileNetWorth: React.FC = () => {
                 >
                   Total Assets
                 </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.cardQuickAddButton,
+                    {
+                      backgroundColor:
+                        selectedView === "assets"
+                          ? "rgba(255,255,255,0.2)"
+                          : "rgba(16,185,129,0.1)",
+                      borderColor:
+                        selectedView === "assets"
+                          ? "rgba(255,255,255,0.3)"
+                          : "rgba(16,185,129,0.2)",
+                    },
+                  ]}
+                  onPress={() => {
+                    setSelectedEntryCategory("");
+                    setSelectedEntrySubcategory("");
+                    setEntryType("asset");
+                    setShowAddEntryModal(true);
+                  }}
+                >
+                  <Ionicons
+                    name="add"
+                    size={12}
+                    color={selectedView === "assets" ? "white" : "#10B981"}
+                  />
+                </TouchableOpacity>
               </View>
               <Text
                 style={[
@@ -1361,6 +1543,33 @@ const MobileNetWorth: React.FC = () => {
                 >
                   Total Liabilities
                 </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.cardQuickAddButton,
+                    {
+                      backgroundColor:
+                        selectedView === "liabilities"
+                          ? "rgba(255,255,255,0.2)"
+                          : "rgba(239,68,68,0.1)",
+                      borderColor:
+                        selectedView === "liabilities"
+                          ? "rgba(255,255,255,0.3)"
+                          : "rgba(239,68,68,0.2)",
+                    },
+                  ]}
+                  onPress={() => {
+                    setSelectedEntryCategory("");
+                    setSelectedEntrySubcategory("");
+                    setEntryType("liability");
+                    setShowAddEntryModal(true);
+                  }}
+                >
+                  <Ionicons
+                    name="add"
+                    size={12}
+                    color={selectedView === "liabilities" ? "white" : "#EF4444"}
+                  />
+                </TouchableOpacity>
               </View>
               <Text
                 style={[
@@ -1488,9 +1697,26 @@ const MobileNetWorth: React.FC = () => {
         {/* Detailed Assets/Liabilities List */}
         {selectedView === "assets" && (
           <View style={styles.detailedListSection}>
-            <Text style={[styles.detailedListTitle, { color: colors.text }]}>
-              Asset Breakdown
-            </Text>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.detailedListTitle, { color: colors.text }]}>
+                Asset Breakdown
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.sectionAddButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={() => {
+                  setSelectedEntryCategory("");
+                  setSelectedEntrySubcategory("");
+                  setEntryType("asset");
+                  setShowAddEntryModal(true);
+                }}
+              >
+                <Ionicons name="add" size={16} color="white" />
+                <Text style={styles.sectionAddButtonText}>Add Asset</Text>
+              </TouchableOpacity>
+            </View>
             {viewMode === "grid" ? (
               <View style={styles.categoriesContainer}>
                 {assetCategories.map((item, index) =>
@@ -1562,12 +1788,29 @@ const MobileNetWorth: React.FC = () => {
 
         {selectedView === "liabilities" && (
           <View style={styles.detailedListSection}>
-            <Text style={[styles.detailedListTitle, { color: colors.text }]}>
-              Liability Breakdown
-            </Text>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.detailedListTitle, { color: colors.text }]}>
+                Liability Breakdown
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.sectionAddButton,
+                  { backgroundColor: "#EF4444" },
+                ]}
+                onPress={() => {
+                  setSelectedEntryCategory("");
+                  setSelectedEntrySubcategory("");
+                  setEntryType("liability");
+                  setShowAddEntryModal(true);
+                }}
+              >
+                <Ionicons name="add" size={16} color="white" />
+                <Text style={styles.sectionAddButtonText}>Add Liability</Text>
+              </TouchableOpacity>
+            </View>
             {viewMode === "grid" ? (
               <View style={styles.categoriesContainer}>
-                {liabilitiesData.map((item, index) => (
+                {liabilityCategories.map((item, index) => (
                   <TouchableOpacity
                     key={item.id}
                     style={[
@@ -1652,7 +1895,7 @@ const MobileNetWorth: React.FC = () => {
               </View>
             ) : (
               <View style={styles.detailedListContainer}>
-                {liabilitiesData.map((item, index) => (
+                {liabilityCategories.map((item, index) => (
                   <TouchableOpacity
                     key={item.id}
                     style={[
@@ -1802,6 +2045,22 @@ const MobileNetWorth: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={[
+          styles.floatingActionButton,
+          { backgroundColor: colors.primary },
+        ]}
+        onPress={() => {
+          setSelectedEntryCategory("");
+          setSelectedEntrySubcategory("");
+          setEntryType(selectedView === "liabilities" ? "liability" : "asset");
+          setShowAddEntryModal(true);
+        }}
+      >
+        <Ionicons name="add" size={24} color="white" />
+      </TouchableOpacity>
 
       {/* Add Asset Modal */}
       {showAddAssetModal && (
@@ -2138,7 +2397,18 @@ const MobileNetWorth: React.FC = () => {
                 {selectedLiability.name}
               </Text>
               <View style={styles.subcategoryHeaderActions}>
-                <TouchableOpacity style={styles.subcategoryAddButton}>
+                <TouchableOpacity
+                  style={styles.subcategoryAddButton}
+                  onPress={() =>
+                    handleAddEntry(
+                      selectedView === "assets"
+                        ? selectedCategory?.id || ""
+                        : selectedLiability?.id || "",
+                      "",
+                      selectedView === "assets" ? "asset" : "liability"
+                    )
+                  }
+                >
                   <Ionicons name="add" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.subcategoryMoreButton}>
@@ -2269,6 +2539,18 @@ const MobileNetWorth: React.FC = () => {
                       </Text>
                     </View>
                     <View style={styles.subcategoryListItemActions}>
+                      <TouchableOpacity
+                        style={styles.subcategoryActionButton}
+                        onPress={() =>
+                          handleAddEntry(
+                            selectedLiability?.id || "",
+                            subcategory.id || "",
+                            "liability"
+                          )
+                        }
+                      >
+                        <Ionicons name="add" size={16} color={colors.primary} />
+                      </TouchableOpacity>
                       <TouchableOpacity style={styles.subcategoryActionButton}>
                         <Ionicons
                           name="eye"
@@ -2355,7 +2637,7 @@ const MobileNetWorth: React.FC = () => {
                       { color: selectedLiability.color },
                     ]}
                   >
-                    ₹{selectedLiability.emi.toLocaleString()}
+                    ₹{(selectedLiability.emi || 0).toLocaleString()}
                   </Text>
                   <Text
                     style={[
@@ -2418,7 +2700,18 @@ const MobileNetWorth: React.FC = () => {
                 {selectedLiability.name}
               </Text>
               <View style={styles.subcategoryHeaderActions}>
-                <TouchableOpacity style={styles.subcategoryAddButton}>
+                <TouchableOpacity
+                  style={styles.subcategoryAddButton}
+                  onPress={() =>
+                    handleAddEntry(
+                      selectedView === "assets"
+                        ? selectedCategory?.id || ""
+                        : selectedLiability?.id || "",
+                      "",
+                      selectedView === "assets" ? "asset" : "liability"
+                    )
+                  }
+                >
                   <Ionicons name="add" size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.subcategoryMoreButton}>
@@ -2548,6 +2841,18 @@ const MobileNetWorth: React.FC = () => {
                       </Text>
                     </View>
                     <View style={styles.subcategoryListItemActions}>
+                      <TouchableOpacity
+                        style={styles.subcategoryActionButton}
+                        onPress={() =>
+                          handleAddEntry(
+                            selectedCategory?.id || "",
+                            subcategory.id || "",
+                            "asset"
+                          )
+                        }
+                      >
+                        <Ionicons name="add" size={16} color={colors.primary} />
+                      </TouchableOpacity>
                       <TouchableOpacity style={styles.subcategoryActionButton}>
                         <Ionicons
                           name="eye"
@@ -2668,6 +2973,16 @@ const MobileNetWorth: React.FC = () => {
           </View>
         </Modal>
       )}
+
+      {/* Add Net Worth Entry Modal */}
+      <AddNetWorthEntryModal
+        visible={showAddEntryModal}
+        onClose={() => setShowAddEntryModal(false)}
+        onSave={handleEntryModalSave}
+        categoryType={entryType}
+        preSelectedCategory={selectedEntryCategory}
+        preSelectedSubcategory={selectedEntrySubcategory}
+      />
     </View>
   );
 };
@@ -2675,6 +2990,31 @@ const MobileNetWorth: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   header: {
     paddingTop: 50,
@@ -3586,6 +3926,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     textAlign: "center",
+  },
+
+  // New Add Entry Button Styles
+  floatingActionButton: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    zIndex: 1000,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionAddButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+  },
+  sectionAddButtonText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  cardQuickAddButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    marginLeft: "auto",
   },
 });
 
