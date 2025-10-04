@@ -1418,7 +1418,7 @@ const createStyles = (theme: any, isDark: boolean) =>
       borderTopRightRadius: 25,
       paddingTop: 15,
       paddingBottom: 20,
-      paddingHorizontal: 20,
+      paddingHorizontal: 5,
       zIndex: 10,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: -2 },
@@ -1464,7 +1464,7 @@ const createStyles = (theme: any, isDark: boolean) =>
       flexDirection: "row",
       alignItems: "flex-start", // Changed from "center" to prevent cutoff
       justifyContent: "space-between",
-      paddingHorizontal: 20,
+      paddingHorizontal: 8,
       marginBottom: 15,
       paddingTop: 10, // Add padding to prevent cutoff
     },
@@ -1530,7 +1530,7 @@ const createStyles = (theme: any, isDark: boolean) =>
     statsContainer: {
       flexDirection: "row",
       justifyContent: "space-around",
-      paddingHorizontal: 20,
+      paddingHorizontal: 8,
     },
     statItem: {
       alignItems: "center",

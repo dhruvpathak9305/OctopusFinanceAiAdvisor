@@ -94,7 +94,7 @@ const createStyles = (theme: any) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingHorizontal: 20,
+      paddingHorizontal: 8,
       paddingVertical: 12,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
