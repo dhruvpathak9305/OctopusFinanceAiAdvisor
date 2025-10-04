@@ -355,9 +355,10 @@ const TravelMap: React.FC<TravelMapProps> = ({
   // Zoom in function
   const zoomIn = useCallback(() => {
     try {
-      if (mapRef.current && mapState.currentRegion) {
-        // Use stored region for more reliable zoom functionality
-        const currentRegion = mapState.currentRegion;
+      if (mapRef.current) {
+        // Use stored region, fallback to initialRegion if not set yet
+        const currentRegion = mapState.currentRegion || initialRegion;
+
         const newRegion = {
           latitude: currentRegion.latitude,
           longitude: currentRegion.longitude,
@@ -372,14 +373,15 @@ const TravelMap: React.FC<TravelMapProps> = ({
     } catch (error) {
       handleError(error, "zoomIn");
     }
-  }, [mapState.currentRegion, handleError]);
+  }, [mapState.currentRegion, initialRegion, handleError]);
 
   // Zoom out function
   const zoomOut = useCallback(() => {
     try {
-      if (mapRef.current && mapState.currentRegion) {
-        // Use stored region for more reliable zoom functionality
-        const currentRegion = mapState.currentRegion;
+      if (mapRef.current) {
+        // Use stored region, fallback to initialRegion if not set yet
+        const currentRegion = mapState.currentRegion || initialRegion;
+
         const newRegion = {
           latitude: currentRegion.latitude,
           longitude: currentRegion.longitude,
@@ -394,7 +396,7 @@ const TravelMap: React.FC<TravelMapProps> = ({
     } catch (error) {
       handleError(error, "zoomOut");
     }
-  }, [mapState.currentRegion, handleError]);
+  }, [mapState.currentRegion, initialRegion, handleError]);
 
   // Reset to world view
   const resetToWorldView = useCallback(() => {
@@ -454,6 +456,14 @@ const TravelMap: React.FC<TravelMapProps> = ({
     getUserLocation();
   }, [getUserLocation]);
 
+  // Handle map ready - ensure currentRegion is set on initial load
+  const handleMapReady = useCallback(() => {
+    // If currentRegion is not set yet, use initialRegion
+    if (!mapState.currentRegion) {
+      setMapState((prev) => ({ ...prev, currentRegion: initialRegion }));
+    }
+  }, [mapState.currentRegion, initialRegion]);
+
   // Error fallback UI
   if (mapState.error) {
     return (
@@ -493,6 +503,7 @@ const TravelMap: React.FC<TravelMapProps> = ({
         showsMyLocationButton={false}
         provider={Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_GOOGLE}
         mapType={mapType}
+        onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChange}
         customMapStyle={isDark ? darkMapStyle : undefined}
       >
