@@ -81,20 +81,22 @@ const TravelFab: React.FC = () => {
                     style={styles.card}
                     onPress={() => setOpen(false)}
                   >
-                    <View
-                      style={[
-                        styles.cardIconWrap,
-                        { backgroundColor: a.color + "22" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={a.icon as any}
-                        size={28}
-                        color={a.color}
-                      />
+                    <View style={styles.cardContentCentered}>
+                      <View
+                        style={[
+                          styles.cardIconWrap,
+                          { backgroundColor: a.color + "22" },
+                        ]}
+                      >
+                        <Ionicons
+                          name={a.icon as any}
+                          size={28}
+                          color={a.color}
+                        />
+                      </View>
+                      <Text style={styles.cardLabel}>{a.label}</Text>
+                      <Text style={styles.cardSubtitle}>{a.subtitle}</Text>
                     </View>
-                    <Text style={styles.cardLabel}>{a.label}</Text>
-                    <Text style={styles.cardSubtitle}>{a.subtitle}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -174,6 +176,9 @@ const createStyles = (theme: any) =>
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.15,
       shadowRadius: 6,
+    },
+    cardContentCentered: {
+      alignItems: "center",
     },
     cardIconWrap: {
       width: 48,

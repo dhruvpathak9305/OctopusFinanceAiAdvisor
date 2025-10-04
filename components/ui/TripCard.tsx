@@ -21,6 +21,7 @@ export interface TripData {
   nights: number;
   places: number;
   isCompleted?: boolean;
+  daysUntilDeparture?: number; // Show green pill like reference when provided
   badges?: {
     icon: string;
     count: number;
@@ -31,12 +32,14 @@ interface TripCardProps {
   trip: TripData;
   onPress?: (trip: TripData) => void;
   onInvitePress?: (trip: TripData) => void;
+  index?: number; // 1-based list index for badge
 }
 
 const TripCard: React.FC<TripCardProps> = ({
   trip,
   onPress,
   onInvitePress,
+  index,
 }) => {
   const { isDark } = useTheme();
   const theme = isDark ? darkTheme : lightTheme;
@@ -64,10 +67,24 @@ const TripCard: React.FC<TripCardProps> = ({
 
       {/* Overlay Content */}
       <View style={styles.overlay}>
-        {/* Top Badges */}
-        <View style={styles.badgesContainer}>
-          {trip.badges?.map((badge, index) => (
-            <View key={index} style={styles.badge}>
+        {/* Top row: index badge + countdown + badges */}
+        <View style={styles.topRow}>
+          {typeof index === "number" && (
+            <View style={styles.indexBadge}>
+              <Text style={styles.indexText}>{index}</Text>
+            </View>
+          )}
+          {/* Top Badges / Countdown pill */}
+          {typeof trip.daysUntilDeparture === "number" && (
+            <View style={styles.countdownPill}>
+              <Ionicons name="time-outline" size={14} color="#fff" />
+              <Text style={styles.countdownText}>
+                {trip.daysUntilDeparture} days until departure
+              </Text>
+            </View>
+          )}
+          {trip.badges?.map((badge, i) => (
+            <View key={i} style={styles.badge}>
               <Ionicons name={badge.icon as any} size={14} color="#fff" />
               <Text style={styles.badgeText}>{badge.count}</Text>
             </View>
@@ -104,27 +121,33 @@ const TripCard: React.FC<TripCardProps> = ({
           <Text style={styles.dates}>{trip.dates}</Text>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton}>
+        {/* Action Buttons Bar */}
+        <View style={styles.actionsBar}>
+          <TouchableOpacity style={styles.actionsBarItem}>
             <Ionicons name="calendar-outline" size={20} color={theme.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <View style={styles.actionsDivider} />
+          <TouchableOpacity style={styles.actionsBarItem}>
             <Ionicons name="cash-outline" size={20} color="#F59E0B" />
           </TouchableOpacity>
-          {trip.isCompleted && (
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={20}
-                color="#10B981"
-              />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.actionButton}>
+          <View style={styles.actionsDivider} />
+          <TouchableOpacity style={styles.actionsBarItem}>
+            <Ionicons
+              name={
+                trip.isCompleted
+                  ? "checkmark-circle"
+                  : "checkmark-circle-outline"
+              }
+              size={20}
+              color={trip.isCompleted ? "#10B981" : theme.textSecondary}
+            />
+          </TouchableOpacity>
+          <View style={styles.actionsDivider} />
+          <TouchableOpacity style={styles.actionsBarItem}>
             <Ionicons name="camera-outline" size={20} color="#8B5CF6" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <View style={styles.actionsDivider} />
+          <TouchableOpacity style={styles.actionsBarItem}>
             <Ionicons
               name="ellipsis-horizontal"
               size={20}
@@ -141,19 +164,21 @@ const createStyles = (theme: any, isDark: boolean) =>
   StyleSheet.create({
     container: {
       backgroundColor: theme.card,
-      borderRadius: 16,
+      borderRadius: 18,
       overflow: "hidden",
-      marginHorizontal: 20,
-      marginBottom: 20,
+      marginHorizontal: 0,
+      marginBottom: 24,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: isDark ? 0.3 : 0.1,
-      shadowRadius: 8,
+      shadowOpacity: isDark ? 0.25 : 0.08,
+      shadowRadius: 10,
       elevation: 4,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: theme.border,
     },
     image: {
       width: "100%",
-      height: 200,
+      height: 220,
       resizeMode: "cover",
     },
     overlay: {
@@ -161,15 +186,31 @@ const createStyles = (theme: any, isDark: boolean) =>
       top: 0,
       left: 0,
       right: 0,
-      height: 200,
-      backgroundColor: "rgba(0, 0, 0, 0.3)",
+      height: 220,
+      backgroundColor: "rgba(0, 0, 0, 0.25)",
       justifyContent: "space-between",
       padding: 16,
     },
-    badgesContainer: {
-      flexDirection: "row",
-      gap: 8,
+    topRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+    indexBadge: {
+      backgroundColor: theme.primary,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
     },
+    indexText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+    countdownPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#10B981",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 18,
+      gap: 6,
+    },
+    countdownText: { color: "#fff", fontWeight: "700", fontSize: 12 },
     badge: {
       flexDirection: "row",
       alignItems: "center",
@@ -201,10 +242,11 @@ const createStyles = (theme: any, isDark: boolean) =>
     },
     infoSection: {
       padding: 16,
+      backgroundColor: theme.card,
     },
     title: {
-      fontSize: 18,
-      fontWeight: "bold",
+      fontSize: 20,
+      fontWeight: "800",
       color: theme.text,
       marginBottom: 8,
     },
@@ -228,18 +270,22 @@ const createStyles = (theme: any, isDark: boolean) =>
       fontSize: 14,
       color: theme.textSecondary,
     },
-    actionButtons: {
+    actionsBar: {
       flexDirection: "row",
-      justifyContent: "space-around",
-      paddingTop: 16,
+      alignItems: "center",
+      paddingVertical: 8,
       borderTopWidth: 1,
       borderTopColor: theme.border,
     },
-    actionButton: {
+    actionsBarItem: {
+      flex: 1,
       alignItems: "center",
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 8,
+      justifyContent: "center",
+    },
+    actionsDivider: {
+      width: 1,
+      height: 18,
+      backgroundColor: theme.border,
     },
   });
 

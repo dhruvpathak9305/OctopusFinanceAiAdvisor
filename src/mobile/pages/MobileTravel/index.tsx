@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -21,9 +21,11 @@ import TravelTabs from "../../../../components/travel/TravelTabs";
 import TravelFab from "../../../../components/travel/TravelFab";
 import TripCard, { TripData } from "../../../../components/ui/TripCard";
 import PlaceCard, { PlaceData } from "../../../../components/ui/PlaceCard";
+import YearSectionWithPicker from "../../../../components/travel/YearSectionWithPicker";
 import { travelMarkers } from "../../../../assets/data/travelMarkers";
 import { sampleTrips, samplePlaces } from "../../../../assets/data/travelData";
 import { TravelMarker } from "../../../../types/map";
+import { splitTripDates } from "../../../../utils/travelDate";
 import {
   useTheme,
   lightTheme,
@@ -42,6 +44,17 @@ const MobileTravel: React.FC = () => {
     "standard" | "satellite" | "hybrid" | "terrain"
   >("terrain");
   const [isScrollExpanded, setIsScrollExpanded] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null); // Start with "All Years"
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+
+  // Debug state changes
+  const handleYearChange = (year: number | null) => {
+    setSelectedYear(year);
+  };
+
+  const handleMonthChange = (month: number | null) => {
+    setSelectedMonth(month);
+  };
 
   // Theme context
   const { isDark } = useTheme();
@@ -85,8 +98,56 @@ const MobileTravel: React.FC = () => {
     // Navigate to place detail or show modal
   };
 
+  // Handle reset filters
+  const handleResetFilters = () => {
+    setSelectedMonth(null);
+    setSelectedYear(null); // Show all years
+  };
+
   // Track when the list is at the very top while expanded
   const readyToCollapseRef = useRef(false);
+
+  // Memoize filtered trips to ensure proper re-rendering
+  const filteredTrips = useMemo(() => {
+    return sampleTrips.filter((trip) => {
+      // Parse with robust parser
+      const { start, end } = splitTripDates(trip.dates);
+      const startYear = start.getFullYear();
+      const endYear = end.getFullYear();
+      const startMonth = start.getMonth();
+      const endMonth = end.getMonth();
+
+      // Year filter: show trip if selectedYear is null OR if the trip overlaps with selectedYear
+      let yearMatch = false;
+      if (selectedYear === null) {
+        yearMatch = true; // Show all years
+      } else {
+        // Trip matches if either start year or end year matches, or if selectedYear is between start and end
+        yearMatch =
+          startYear === selectedYear ||
+          endYear === selectedYear ||
+          (startYear < selectedYear && endYear > selectedYear);
+      }
+
+      // Month filter: show trip if selectedMonth is null OR if the trip overlaps with selectedMonth
+      let monthMatch = false;
+      if (selectedMonth === null) {
+        monthMatch = true; // Show all months
+      } else {
+        // For trips within the same year, check if month overlaps
+        if (startYear === endYear) {
+          monthMatch = startMonth <= selectedMonth && selectedMonth <= endMonth;
+        } else {
+          // For cross-year trips, check if selectedMonth is in start year or end year
+          monthMatch =
+            (selectedYear === startYear && startMonth <= selectedMonth) ||
+            (selectedYear === endYear && selectedMonth <= endMonth);
+        }
+      }
+
+      return yearMatch && monthMatch;
+    });
+  }, [selectedYear, selectedMonth]);
 
   // Handle scroll to expand/collapse view
   const handleScroll = (event: any) => {
@@ -356,27 +417,30 @@ const MobileTravel: React.FC = () => {
             <TravelTabs activeTab={activeTab} onChange={setActiveTab} />
           )}
 
-          {/* Year Section */}
-          <View style={styles.yearSection}>
-            <Text style={styles.yearText}>2025</Text>
-            <Text style={styles.tripCount}>
-              {activeTab === "trips"
-                ? `${sampleTrips.length} Trip${
-                    sampleTrips.length !== 1 ? "s" : ""
-                  }`
-                : `${samplePlaces.length} Places`}
-            </Text>
+          {/* Year Section with Picker */}
+          <View style={{ paddingHorizontal: 20 }}>
+            <YearSectionWithPicker
+              trips={sampleTrips}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              onYearChange={handleYearChange}
+              onMonthChange={handleMonthChange}
+            />
           </View>
 
           {/* Content based on active tab */}
           {activeTab === "trips" ? (
-            <View style={styles.tripsContainer}>
-              {sampleTrips.map((trip) => (
+            <View
+              style={styles.tripsContainer}
+              key={`trips-${selectedYear}-${selectedMonth}`}
+            >
+              {filteredTrips.map((trip, idx) => (
                 <TripCard
                   key={trip.id}
                   trip={trip}
                   onPress={handleTripPress}
                   onInvitePress={handleTripInvitePress}
+                  index={idx + 1}
                 />
               ))}
             </View>

@@ -13,16 +13,17 @@ export const sampleTrips: TripData[] = [
     isCompleted: false,
     badges: [
       { icon: "flash", count: 1 },
+      { icon: "sunny", count: 2 },
       { icon: "moon", count: 1 },
       { icon: "location", count: 5 },
       { icon: "checkmark-circle", count: 0 },
     ],
   },
   {
-    id: "paris-2024",
+    id: "paris-2025",
     title: "Paris Adventure",
     location: "France",
-    dates: "15 Dec 2024 - 22 Dec 2024",
+    dates: "15 Dec 2025 - 22 Dec 2025",
     image:
       "https://images.unsplash.com/photo-1502602898536-47ad22581b52?q=80&w=1000",
     nights: 7,
@@ -30,6 +31,7 @@ export const sampleTrips: TripData[] = [
     isCompleted: true,
     badges: [
       { icon: "flash", count: 3 },
+      { icon: "sunny", count: 8 },
       { icon: "moon", count: 7 },
       { icon: "location", count: 12 },
       { icon: "checkmark-circle", count: 12 },
@@ -47,16 +49,17 @@ export const sampleTrips: TripData[] = [
     isCompleted: false,
     badges: [
       { icon: "flash", count: 2 },
+      { icon: "sunny", count: 9 },
       { icon: "moon", count: 8 },
       { icon: "location", count: 15 },
       { icon: "checkmark-circle", count: 0 },
     ],
   },
   {
-    id: "bali-2024",
+    id: "bali-2025",
     title: "Bali Retreat",
     location: "Indonesia",
-    dates: "05 Oct 2024 - 12 Oct 2024",
+    dates: "05 Oct 2025 - 12 Oct 2025",
     image:
       "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?q=80&w=1000",
     nights: 7,
@@ -64,6 +67,7 @@ export const sampleTrips: TripData[] = [
     isCompleted: true,
     badges: [
       { icon: "flash", count: 4 },
+      { icon: "sunny", count: 8 },
       { icon: "moon", count: 7 },
       { icon: "location", count: 8 },
       { icon: "checkmark-circle", count: 8 },
@@ -81,16 +85,17 @@ export const sampleTrips: TripData[] = [
     isCompleted: false,
     badges: [
       { icon: "flash", count: 2 },
+      { icon: "sunny", count: 9 },
       { icon: "moon", count: 8 },
       { icon: "location", count: 10 },
       { icon: "checkmark-circle", count: 0 },
     ],
   },
   {
-    id: "thailand-2024",
+    id: "thailand-2025",
     title: "Thailand Beach Hopping",
     location: "Thailand",
-    dates: "08 Nov 2024 - 20 Nov 2024",
+    dates: "08 Nov 2025 - 20 Nov 2025",
     image:
       "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?q=80&w=1000",
     nights: 12,
@@ -98,9 +103,66 @@ export const sampleTrips: TripData[] = [
     isCompleted: true,
     badges: [
       { icon: "flash", count: 5 },
+      { icon: "sunny", count: 13 },
       { icon: "moon", count: 12 },
       { icon: "location", count: 6 },
       { icon: "checkmark-circle", count: 6 },
+    ],
+  },
+  // Add some 2024 trips for better filtering testing
+  {
+    id: "morocco-2024",
+    title: "Morocco Desert Safari",
+    location: "Morocco",
+    dates: "15 Mar 2024 - 25 Mar 2024",
+    image:
+      "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?q=80&w=1000",
+    nights: 10,
+    places: 8,
+    isCompleted: true,
+    badges: [
+      { icon: "flash", count: 3 },
+      { icon: "sunny", count: 11 },
+      { icon: "moon", count: 10 },
+      { icon: "location", count: 8 },
+      { icon: "checkmark-circle", count: 8 },
+    ],
+  },
+  {
+    id: "italy-2024",
+    title: "Italian Countryside",
+    location: "Italy",
+    dates: "10 Sep 2024 - 20 Sep 2024",
+    image:
+      "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?q=80&w=1000",
+    nights: 10,
+    places: 12,
+    isCompleted: true,
+    badges: [
+      { icon: "flash", count: 4 },
+      { icon: "sunny", count: 11 },
+      { icon: "moon", count: 10 },
+      { icon: "location", count: 12 },
+      { icon: "checkmark-circle", count: 12 },
+    ],
+  },
+  // Add a cross-year trip to test year filtering
+  {
+    id: "new-year-2024-2025",
+    title: "New Year in Dubai",
+    location: "UAE",
+    dates: "28 Dec 2024 - 02 Jan 2025",
+    image:
+      "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1000",
+    nights: 5,
+    places: 4,
+    isCompleted: true,
+    badges: [
+      { icon: "flash", count: 2 },
+      { icon: "sunny", count: 6 },
+      { icon: "moon", count: 5 },
+      { icon: "location", count: 4 },
+      { icon: "checkmark-circle", count: 4 },
     ],
   },
 ];
@@ -124,7 +186,7 @@ export const samplePlaces = [
       "https://images.unsplash.com/photo-1502602898536-47ad22581b52?q=80&w=1000",
     rating: 4.7,
     visited: true,
-    visitDate: "18 Dec 2024",
+    visitDate: "18 Dec 2025",
   },
   {
     id: "mount-fuji",
@@ -143,7 +205,7 @@ export const samplePlaces = [
       "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?q=80&w=1000",
     rating: 4.6,
     visited: true,
-    visitDate: "08 Oct 2024",
+    visitDate: "08 Oct 2025",
   },
   {
     id: "blue-lagoon",
@@ -162,24 +224,36 @@ export const samplePlaces = [
       "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?q=80&w=1000",
     rating: 4.7,
     visited: true,
-    visitDate: "15 Nov 2024",
+    visitDate: "15 Nov 2025",
   },
   {
-    id: "santorini",
-    name: "Santorini",
-    location: "Greece",
+    id: "sahara-desert",
+    name: "Sahara Desert",
+    location: "Morocco",
     image:
-      "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?q=80&w=1000",
-    rating: 4.8,
-    visited: false,
-  },
-  {
-    id: "machu-picchu",
-    name: "Machu Picchu",
-    location: "Peru",
-    image:
-      "https://images.unsplash.com/photo-1587595431973-160d0d94add1?q=80&w=1000",
+      "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?q=80&w=1000",
     rating: 4.9,
-    visited: false,
+    visited: true,
+    visitDate: "20 Mar 2024",
+  },
+  {
+    id: "colosseum",
+    name: "Colosseum",
+    location: "Rome, Italy",
+    image:
+      "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?q=80&w=1000",
+    rating: 4.8,
+    visited: true,
+    visitDate: "15 Sep 2024",
+  },
+  {
+    id: "burj-khalifa",
+    name: "Burj Khalifa",
+    location: "Dubai, UAE",
+    image:
+      "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1000",
+    rating: 4.7,
+    visited: true,
+    visitDate: "31 Dec 2024",
   },
 ];

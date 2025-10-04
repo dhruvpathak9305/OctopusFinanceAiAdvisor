@@ -74,7 +74,7 @@ const createStyles = (theme: any) =>
       backgroundColor: theme.card,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
-      marginBottom: 16,
+      marginBottom: 0,
       paddingHorizontal: 0,
     },
     tab: {
