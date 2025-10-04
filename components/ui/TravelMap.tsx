@@ -233,10 +233,10 @@ const TravelMap: React.FC<TravelMapProps> = ({
   const styles = createMapStyles(theme, isDark);
 
   const [mapState, setMapState] = useState<MapState>({
-    isLoading: true,
+    isLoading: false, // Don't block map render on initial load
     error: null,
     userLocation: null,
-    currentRegion: initialRegion,
+    currentRegion: initialRegion, // Set immediately so zoom works right away
   });
 
   // Error handling function
@@ -286,13 +286,9 @@ const TravelMap: React.FC<TravelMapProps> = ({
   useEffect(() => {
     const initializeMap = async () => {
       try {
-        setMapState((prev) => ({ ...prev, isLoading: true, error: null }));
-
         if (showUserLocation) {
           await getUserLocation();
         }
-
-        setMapState((prev) => ({ ...prev, isLoading: false }));
       } catch (error) {
         handleError(error, "initializeMap");
       }
@@ -456,15 +452,13 @@ const TravelMap: React.FC<TravelMapProps> = ({
     getUserLocation();
   }, [getUserLocation]);
 
-  // Handle map ready - ensure currentRegion is set on initial load
+  // Handle map ready - map is now interactive
   const handleMapReady = useCallback(() => {
-    // If currentRegion is not set yet, use initialRegion
-    if (!mapState.currentRegion) {
-      setMapState((prev) => ({ ...prev, currentRegion: initialRegion }));
-    }
-  }, [mapState.currentRegion, initialRegion]);
+    console.log("Map is ready and interactive");
+    // Region is already initialized, map is now ready for interactions
+  }, []);
 
-  // Error fallback UI
+  // Error fallback UI (only show error, no loading screen to block map)
   if (mapState.error) {
     return (
       <View style={[styles.container, styles.errorContainer, style]}>
@@ -479,16 +473,6 @@ const TravelMap: React.FC<TravelMapProps> = ({
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    );
-  }
-
-  // Loading UI
-  if (mapState.isLoading) {
-    return (
-      <View style={[styles.container, styles.loadingContainer, style]}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading map...</Text>
       </View>
     );
   }
@@ -545,14 +529,22 @@ const TravelMap: React.FC<TravelMapProps> = ({
       </MapView>
 
       {/* Map Controls */}
-      <View style={styles.controlsContainer}>
+      <View style={styles.controlsContainer} pointerEvents="box-none">
         {/* Zoom Controls */}
         <View style={styles.zoomControls}>
-          <TouchableOpacity style={styles.controlButton} onPress={zoomIn}>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={zoomIn}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
             <Ionicons name="add" size={20} color="#3B82F6" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.controlButton} onPress={zoomOut}>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={zoomOut}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
             <Ionicons name="remove" size={20} color="#3B82F6" />
           </TouchableOpacity>
         </View>
@@ -562,6 +554,7 @@ const TravelMap: React.FC<TravelMapProps> = ({
           <TouchableOpacity
             style={styles.controlButton}
             onPress={resetToWorldView}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
             <Ionicons name="globe-outline" size={20} color="#3B82F6" />
           </TouchableOpacity>
@@ -570,6 +563,7 @@ const TravelMap: React.FC<TravelMapProps> = ({
             <TouchableOpacity
               style={styles.controlButton}
               onPress={focusOnUserLocation}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
               <Ionicons name="locate" size={20} color="#3B82F6" />
             </TouchableOpacity>
@@ -579,6 +573,7 @@ const TravelMap: React.FC<TravelMapProps> = ({
             <TouchableOpacity
               style={styles.controlButton}
               onPress={focusOnAllMarkers}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
               <Ionicons name="resize" size={20} color="#3B82F6" />
             </TouchableOpacity>
@@ -643,6 +638,7 @@ const createMapStyles = (theme: any, isDark: boolean) =>
       right: 20,
       flexDirection: "column",
       gap: 15,
+      zIndex: 50,
     },
     zoomControls: {
       flexDirection: "column",

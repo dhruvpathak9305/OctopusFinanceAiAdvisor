@@ -238,7 +238,7 @@ const MobileTravel: React.FC = () => {
 
         {/* Overlay Header Buttons - Hide when expanded */}
         {!isScrollExpanded && (
-          <View style={styles.overlayHeader}>
+          <View style={styles.overlayHeader} pointerEvents="box-none">
             <View style={styles.leftHeaderButtons}>
               <TouchableOpacity
                 style={styles.scratchButton}

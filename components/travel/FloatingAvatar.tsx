@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Image, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 interface Props {
   onPress: () => void;
@@ -9,11 +10,14 @@ const FloatingAvatar: React.FC<Props> = ({ onPress }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onPress} style={styles.shadowWrap}>
-        <Image
-          source={require("../../assets/icon.png")}
-          style={styles.image as any}
-          resizeMode="cover"
-        />
+        <LinearGradient
+          colors={["#3B82F6", "#10B981", "#059669"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradient}
+        >
+          <Text style={styles.emoji}>✈️</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
@@ -36,14 +40,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 20,
+    borderRadius: 45,
   },
-  image: {
+  gradient: {
     width: 90,
     height: 90,
     borderRadius: 45,
     borderWidth: 4,
     borderColor: "#fff",
-    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emoji: {
+    fontSize: 40,
+    textAlign: "center",
   },
 });
 
