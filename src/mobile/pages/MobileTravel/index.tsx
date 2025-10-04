@@ -15,6 +15,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import TravelMap from "../../../../components/ui/TravelMap";
+import FloatingAvatar from "../../../../components/travel/FloatingAvatar";
+import TravelStickyHeader from "../../../../components/travel/TravelStickyHeader";
+import TravelTabs from "../../../../components/travel/TravelTabs";
+import TravelFab from "../../../../components/travel/TravelFab";
 import TripCard, { TripData } from "../../../../components/ui/TripCard";
 import PlaceCard, { PlaceData } from "../../../../components/ui/PlaceCard";
 import { travelMarkers } from "../../../../assets/data/travelMarkers";
@@ -257,18 +261,7 @@ const MobileTravel: React.FC = () => {
 
         {/* Floating Profile Avatar - Overlaps map and card when not expanded */}
         {!isScrollExpanded && (
-          <View style={styles.floatingAvatarContainer}>
-            <TouchableOpacity
-              style={styles.floatingProfileImageContainer}
-              onPress={() => setActiveScreen("profile")}
-            >
-              <Image
-                source={require("../../../../assets/icon.png")}
-                style={styles.floatingProfileImage as any}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-          </View>
+          <FloatingAvatar onPress={() => setActiveScreen("profile")} />
         )}
 
         {/* Bottom Profile Section */}
@@ -282,88 +275,13 @@ const MobileTravel: React.FC = () => {
           indicatorStyle={isDark ? "white" : "black"}
           stickyHeaderIndices={isScrollExpanded ? [0] : undefined}
           bounces={true}
+          contentContainerStyle={{ paddingBottom: 28 }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
           {/* Sticky header (only in full view): compact header + tabs */}
           {isScrollExpanded && (
-            <View>
-              <View style={styles.expandedHeader}>
-                <View style={styles.expandedHeaderLeft}>
-                  <Image
-                    source={require("../../../../assets/icon.png")}
-                    style={styles.headerAvatar as any}
-                  />
-                  <View>
-                    <Text style={styles.headerName}>DHRUV PATHAK</Text>
-                    <Text style={styles.headerHandle}>@dhruvpathak9305</Text>
-                  </View>
-                </View>
-                <View style={styles.expandedHeaderActions}>
-                  <TouchableOpacity style={styles.expandedHeaderButton}>
-                    <Ionicons
-                      name="search"
-                      size={20}
-                      color={theme.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Tabs (sticky with header) */}
-              <View style={styles.tabsContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.tab,
-                    activeTab === "trips" && styles.activeTab,
-                  ]}
-                  onPress={() => setActiveTab("trips")}
-                >
-                  <Ionicons
-                    name="map-outline"
-                    size={20}
-                    color={
-                      activeTab === "trips"
-                        ? theme.primary
-                        : theme.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.tabText,
-                      activeTab === "trips" && styles.activeTabText,
-                    ]}
-                  >
-                    Trips
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.tab,
-                    activeTab === "places" && styles.activeTab,
-                  ]}
-                  onPress={() => setActiveTab("places")}
-                >
-                  <Ionicons
-                    name="location-outline"
-                    size={20}
-                    color={
-                      activeTab === "places"
-                        ? theme.primary
-                        : theme.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.tabText,
-                      activeTab === "places" && styles.activeTabText,
-                    ]}
-                  >
-                    Places
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <TravelStickyHeader activeTab={activeTab} onChange={setActiveTab} />
           )}
 
           {/* Profile Section with Avatar and Icons */}
@@ -435,48 +353,7 @@ const MobileTravel: React.FC = () => {
 
           {/* Tabs (non-sticky) only when not expanded; expanded uses sticky header above */}
           {!isScrollExpanded && (
-            <View style={styles.tabsContainer}>
-              <TouchableOpacity
-                style={[styles.tab, activeTab === "trips" && styles.activeTab]}
-                onPress={() => setActiveTab("trips")}
-              >
-                <Ionicons
-                  name="map-outline"
-                  size={20}
-                  color={
-                    activeTab === "trips" ? theme.primary : theme.textSecondary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.tabText,
-                    activeTab === "trips" && styles.activeTabText,
-                  ]}
-                >
-                  Trips
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, activeTab === "places" && styles.activeTab]}
-                onPress={() => setActiveTab("places")}
-              >
-                <Ionicons
-                  name="location-outline"
-                  size={20}
-                  color={
-                    activeTab === "places" ? theme.primary : theme.textSecondary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.tabText,
-                    activeTab === "places" && styles.activeTabText,
-                  ]}
-                >
-                  Places
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TravelTabs activeTab={activeTab} onChange={setActiveTab} />
           )}
 
           {/* Year Section */}
@@ -525,36 +402,12 @@ const MobileTravel: React.FC = () => {
             </View>
           )}
 
-          {/* Add some bottom padding for the bottom navigation */}
-          <View style={styles.bottomPadding} />
+          {/* Bottom spacer minimized - list should naturally fill */}
+          <View style={{ height: 0 }} />
         </ScrollView>
 
-        {/* Bottom Navigation - Positioned at very bottom */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="person" size={24} color="#10b981" />
-            <Text style={[styles.navText, styles.activeNavText]}>You</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="compass-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>Discover</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.addButton}>
-            <Ionicons name="add" size={28} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="card-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>eSIM</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="gift-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>Rewards</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Floating Quick Actions Button */}
+        <TravelFab />
       </View>
     );
   };
@@ -696,32 +549,8 @@ const MobileTravel: React.FC = () => {
           </View>
         </TouchableOpacity>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="person" size={24} color="#10b981" />
-            <Text style={[styles.navText, styles.activeNavText]}>You</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="compass-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>Discover</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.addButton}>
-            <Ionicons name="add" size={28} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="card-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>eSIM</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="gift-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>Rewards</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Floating Quick Actions Button */}
+        <TravelFab />
       </View>
     );
   };
@@ -829,32 +658,8 @@ const MobileTravel: React.FC = () => {
           </View>
         </View>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="person" size={24} color="#10b981" />
-            <Text style={[styles.navText, styles.activeNavText]}>You</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="compass-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>Discover</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.addButton}>
-            <Ionicons name="add" size={28} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="card-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>eSIM</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="gift-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.navText}>Rewards</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Floating Quick Actions Button */}
+        <TravelFab />
       </View>
     );
   };
@@ -1029,7 +834,7 @@ const styles = StyleSheet.create({
     top: "60%", // Updated to match map height
     left: 0,
     right: 0,
-    bottom: 80, // Leave space for bottom navigation
+    bottom: 0,
     backgroundColor: "#fff",
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
@@ -1470,7 +1275,7 @@ const createStyles = (theme: any, isDark: boolean) =>
       top: "60%", // This will be overridden by animation
       left: 0,
       right: 0,
-      bottom: 80,
+      bottom: 0,
       backgroundColor: theme.card,
       borderTopLeftRadius: 25,
       borderTopRightRadius: 25,
