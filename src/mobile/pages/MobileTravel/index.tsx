@@ -12,11 +12,15 @@ import {
   Alert,
   ScrollView,
   FlatList,
+  TextInput,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import TravelMap from "../../../../components/ui/TravelMap";
 import FloatingAvatar from "../../../../components/travel/FloatingAvatar";
 import TravelStickyHeader from "../../../../components/travel/TravelStickyHeader";
+import TravelSearchHeader from "../../../../components/travel/TravelSearchHeader";
 import TravelTabs from "../../../../components/travel/TravelTabs";
 import TravelFab from "../../../../components/travel/TravelFab";
 import TripCard, { TripData } from "../../../../components/ui/TripCard";
@@ -46,6 +50,11 @@ const MobileTravel: React.FC = () => {
   const [isScrollExpanded, setIsScrollExpanded] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number | null>(null); // Start with "All Years"
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedSort, setSelectedSort] = useState<
+    "latest" | "oldest" | "alphabetical" | "longest" | "shortest"
+  >("latest");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchBar, setShowSearchBar] = useState(false);
 
   // Debug state changes
   const handleYearChange = (year: number | null) => {
@@ -107,15 +116,24 @@ const MobileTravel: React.FC = () => {
   // Track when the list is at the very top while expanded
   const readyToCollapseRef = useRef(false);
 
-  // Memoize filtered trips to ensure proper re-rendering
+  // Memoize filtered and sorted trips
   const filteredTrips = useMemo(() => {
-    return sampleTrips.filter((trip) => {
+    const filtered = sampleTrips.filter((trip) => {
       // Parse with robust parser
       const { start, end } = splitTripDates(trip.dates);
       const startYear = start.getFullYear();
       const endYear = end.getFullYear();
       const startMonth = start.getMonth();
       const endMonth = end.getMonth();
+
+      // Search filter: match trip name, location, or country
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          trip.title.toLowerCase().includes(query) ||
+          trip.location.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
 
       // Year filter: show trip if selectedYear is null OR if the trip overlaps with selectedYear
       let yearMatch = false;
@@ -147,7 +165,28 @@ const MobileTravel: React.FC = () => {
 
       return yearMatch && monthMatch;
     });
-  }, [selectedYear, selectedMonth]);
+
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      const { start: aStart } = splitTripDates(a.dates);
+      const { start: bStart } = splitTripDates(b.dates);
+
+      switch (selectedSort) {
+        case "latest":
+          return bStart.getTime() - aStart.getTime(); // Newest first
+        case "oldest":
+          return aStart.getTime() - bStart.getTime(); // Oldest first
+        case "alphabetical":
+          return a.title.localeCompare(b.title); // A-Z
+        case "longest":
+          return b.nights - a.nights; // Most nights first
+        case "shortest":
+          return a.nights - b.nights; // Fewest nights first
+        default:
+          return 0;
+      }
+    });
+  }, [selectedYear, selectedMonth, selectedSort, searchQuery]);
 
   // Handle scroll to expand/collapse view
   const handleScroll = (event: any) => {
@@ -207,7 +246,13 @@ const MobileTravel: React.FC = () => {
               >
                 <Ionicons name="globe-outline" size={18} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => {
+                  setIsScrollExpanded(true);
+                  // Focus will be on inline search bar
+                }}
+              >
                 <Ionicons name="search" size={18} color="#6B7280" />
               </TouchableOpacity>
             </View>
@@ -340,9 +385,25 @@ const MobileTravel: React.FC = () => {
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          {/* Sticky header (only in full view): compact header + tabs */}
+          {/* Sticky header (only in full view): compact header + tabs + search */}
           {isScrollExpanded && (
-            <TravelStickyHeader activeTab={activeTab} onChange={setActiveTab} />
+            <View>
+              <TravelStickyHeader
+                activeTab={activeTab}
+                onChange={setActiveTab}
+                tripsCount={filteredTrips.length}
+                placesCount={samplePlaces.length}
+                showSearchBar={showSearchBar}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onSearchToggle={() => {
+                  setShowSearchBar(!showSearchBar);
+                  if (showSearchBar) {
+                    setSearchQuery(""); // Clear search when closing
+                  }
+                }}
+              />
+            </View>
           )}
 
           {/* Profile Section with Avatar and Icons */}
@@ -367,9 +428,12 @@ const MobileTravel: React.FC = () => {
               <View
                 style={[styles.profileActions, styles.profileActionsTopRight]}
               >
-                <TouchableOpacity style={styles.settingsButton}>
+                <TouchableOpacity
+                  style={styles.settingsButton}
+                  onPress={() => setShowSearchBar(!showSearchBar)}
+                >
                   <Ionicons
-                    name="settings-outline"
+                    name="search"
                     size={20}
                     color={theme.textSecondary}
                   />
@@ -414,17 +478,26 @@ const MobileTravel: React.FC = () => {
 
           {/* Tabs (non-sticky) only when not expanded; expanded uses sticky header above */}
           {!isScrollExpanded && (
-            <TravelTabs activeTab={activeTab} onChange={setActiveTab} />
+            <View>
+              <TravelTabs
+                activeTab={activeTab}
+                onChange={setActiveTab}
+                tripsCount={filteredTrips.length}
+                placesCount={samplePlaces.length}
+              />
+            </View>
           )}
 
           {/* Year Section with Picker */}
-          <View style={{ paddingHorizontal: 20 }}>
+          <View style={{ paddingHorizontal: 8 }}>
             <YearSectionWithPicker
               trips={sampleTrips}
               selectedYear={selectedYear}
               selectedMonth={selectedMonth}
               onYearChange={handleYearChange}
               onMonthChange={handleMonthChange}
+              selectedSort={selectedSort}
+              onSortChange={setSelectedSort}
             />
           </View>
 
@@ -1644,6 +1717,7 @@ const createStyles = (theme: any, isDark: boolean) =>
     },
     tripsContainer: {
       paddingBottom: 20,
+      paddingHorizontal: 8,
     },
     placesContainer: {
       paddingHorizontal: 10,

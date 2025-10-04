@@ -63,17 +63,17 @@ const TripCard: React.FC<TripCardProps> = ({
       onPress={handlePress}
       activeOpacity={0.9}
     >
+      {typeof index === "number" && (
+        <View style={styles.indexBadgeOuter}>
+          <Text style={styles.indexOuterText}>{index}</Text>
+        </View>
+      )}
       <Image source={{ uri: trip.image }} style={styles.image} />
 
       {/* Overlay Content */}
       <View style={styles.overlay}>
         {/* Top row: index badge + countdown + badges */}
         <View style={styles.topRow}>
-          {typeof index === "number" && (
-            <View style={styles.indexBadge}>
-              <Text style={styles.indexText}>{index}</Text>
-            </View>
-          )}
           {/* Top Badges / Countdown pill */}
           {typeof trip.daysUntilDeparture === "number" && (
             <View style={styles.countdownPill}>
@@ -165,9 +165,10 @@ const createStyles = (theme: any, isDark: boolean) =>
     container: {
       backgroundColor: theme.card,
       borderRadius: 18,
-      overflow: "hidden",
+      overflow: "visible",
       marginHorizontal: 0,
       marginBottom: 24,
+      marginTop: 12,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: isDark ? 0.25 : 0.08,
@@ -176,10 +177,32 @@ const createStyles = (theme: any, isDark: boolean) =>
       borderWidth: isDark ? 1 : 0,
       borderColor: theme.border,
     },
+    indexBadgeOuter: {
+      position: "absolute",
+      top: -12,
+      left: -12,
+      zIndex: 30,
+      backgroundColor: theme.primary,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 6,
+      borderWidth: 3,
+      borderColor: theme.background,
+    },
+    indexOuterText: { color: "#fff", fontWeight: "900", fontSize: 15 },
     image: {
       width: "100%",
       height: 220,
       resizeMode: "cover",
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
     },
     overlay: {
       position: "absolute",
@@ -190,17 +213,11 @@ const createStyles = (theme: any, isDark: boolean) =>
       backgroundColor: "rgba(0, 0, 0, 0.25)",
       justifyContent: "space-between",
       padding: 16,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
     },
     topRow: { flexDirection: "row", gap: 8, alignItems: "center" },
-    indexBadge: {
-      backgroundColor: theme.primary,
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    indexText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+
     countdownPill: {
       flexDirection: "row",
       alignItems: "center",
@@ -243,6 +260,9 @@ const createStyles = (theme: any, isDark: boolean) =>
     infoSection: {
       padding: 16,
       backgroundColor: theme.card,
+      borderBottomLeftRadius: 18,
+      borderBottomRightRadius: 18,
+      overflow: "hidden",
     },
     title: {
       fontSize: 20,

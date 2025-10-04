@@ -25,7 +25,7 @@ export const sampleTrips: TripData[] = [
     location: "France",
     dates: "15 Dec 2025 - 22 Dec 2025",
     image:
-      "https://images.unsplash.com/photo-1502602898536-47ad22581b52?q=80&w=1000",
+      "https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?q=80&w=1000",
     nights: 7,
     places: 12,
     isCompleted: true,
@@ -116,7 +116,7 @@ export const sampleTrips: TripData[] = [
     location: "Morocco",
     dates: "15 Mar 2024 - 25 Mar 2024",
     image:
-      "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?q=80&w=1000",
+      "https://images.unsplash.com/photo-1489749798305-4fea3ae63d43?q=80&w=1000",
     nights: 10,
     places: 8,
     isCompleted: true,

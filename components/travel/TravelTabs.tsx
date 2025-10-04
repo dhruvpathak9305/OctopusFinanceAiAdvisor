@@ -9,12 +9,16 @@ export interface TravelTabsProps {
   activeTab: TabKey;
   onChange: (tab: TabKey) => void;
   style?: any;
+  tripsCount?: number;
+  placesCount?: number;
 }
 
 const TravelTabs: React.FC<TravelTabsProps> = ({
   activeTab,
   onChange,
   style,
+  tripsCount,
+  placesCount,
 }) => {
   const { isDark } = useTheme();
   const theme = isDark ? darkTheme : lightTheme;
@@ -40,6 +44,11 @@ const TravelTabs: React.FC<TravelTabsProps> = ({
         >
           Trips
         </Text>
+        {typeof tripsCount === "number" && (
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>{tripsCount}</Text>
+          </View>
+        )}
         {activeTab === "trips" && <View style={[styles.indicator]} />}
       </TouchableOpacity>
 
@@ -61,6 +70,11 @@ const TravelTabs: React.FC<TravelTabsProps> = ({
         >
           Places
         </Text>
+        {typeof placesCount === "number" && (
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>{placesCount}</Text>
+          </View>
+        )}
         {activeTab === "places" && <View style={[styles.indicator]} />}
       </TouchableOpacity>
     </View>
@@ -101,6 +115,20 @@ const createStyles = (theme: any) =>
       bottom: -1, // sits over the container bottom border
       height: 3,
       backgroundColor: theme.primary,
+    },
+    countBadge: {
+      backgroundColor: theme.primary,
+      borderRadius: 10,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      minWidth: 20,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    countBadgeText: {
+      color: theme.background,
+      fontSize: 11,
+      fontWeight: "800",
     },
   });
 

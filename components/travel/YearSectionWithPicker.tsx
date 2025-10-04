@@ -13,12 +13,21 @@ import { useTheme, lightTheme, darkTheme } from "../../contexts/ThemeContext";
 import { TripData } from "../ui/TripCard";
 import { splitTripDates } from "../../utils/travelDate";
 
+export type SortOption =
+  | "latest"
+  | "oldest"
+  | "alphabetical"
+  | "longest"
+  | "shortest";
+
 interface YearSectionWithPickerProps {
   trips: TripData[];
   selectedYear: number | null; // Allow null for "all years"
   selectedMonth: number | null; // null means all months
   onYearChange: (year: number | null) => void;
   onMonthChange: (month: number | null) => void;
+  selectedSort?: SortOption;
+  onSortChange?: (sort: SortOption) => void;
 }
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -29,6 +38,8 @@ const YearSectionWithPicker: React.FC<YearSectionWithPickerProps> = ({
   selectedMonth,
   onYearChange,
   onMonthChange,
+  selectedSort = "latest",
+  onSortChange,
 }) => {
   const { isDark } = useTheme();
   const theme = isDark ? darkTheme : lightTheme;
@@ -36,6 +47,7 @@ const YearSectionWithPicker: React.FC<YearSectionWithPickerProps> = ({
 
   const [showYearPicker, setShowYearPicker] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showSortPicker, setShowSortPicker] = useState(false);
 
   const months = [
     "January",
@@ -137,57 +149,63 @@ const YearSectionWithPicker: React.FC<YearSectionWithPickerProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Trip Count pill */}
-      <View style={styles.countPillRow}>
-        <View style={styles.countPill}>
-          <Ionicons name="airplane-outline" size={14} color={theme.background} />
-          <Text style={styles.countPillText}>
-            {filteredTrips.length} Trip{filteredTrips.length !== 1 ? "s" : ""}
-          </Text>
-        </View>
-      </View>
-      {/* Year/Month Selector */}
-      <View style={styles.selectorRow}>
+      {/* All Filters in One Row */}
+      <View style={styles.allFiltersRow}>
+        {/* Year Selector */}
         <TouchableOpacity
-          style={styles.selectorButton}
+          style={styles.yearButton}
           onPress={() => setShowYearPicker(true)}
         >
-          <Ionicons name="calendar-outline" size={20} color={theme.primary} />
-          <Text style={styles.selectorText}>{getDisplayText()}</Text>
-          <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
+          <Ionicons name="calendar-outline" size={18} color={theme.primary} />
+          <Text style={styles.yearButtonText}>{getDisplayText()}</Text>
+          <Ionicons name="chevron-down" size={14} color={theme.textSecondary} />
         </TouchableOpacity>
 
-        {/* Month Filter Button */}
+        {/* Month Filter */}
         <TouchableOpacity
           style={[
-            styles.filterButton,
-            selectedMonth !== null && styles.filterButtonActive,
+            styles.monthButton,
+            selectedMonth !== null && styles.monthButtonActive,
           ]}
           onPress={() => {
             if (selectedMonth !== null) {
-              // If a month is selected, reset to show all months
               onMonthChange(null);
             } else {
-              // If showing all months, open picker to select a specific month
               setShowMonthPicker(true);
             }
           }}
         >
           <Ionicons
-            name={selectedMonth !== null ? "close-outline" : "filter-outline"}
-            size={16}
+            name={selectedMonth !== null ? "close-outline" : "funnel-outline"}
+            size={14}
             color={
               selectedMonth !== null ? theme.background : theme.textSecondary
             }
           />
           <Text
             style={[
-              styles.filterText,
-              selectedMonth !== null && styles.filterTextActive,
+              styles.monthButtonText,
+              selectedMonth !== null && styles.monthButtonTextActive,
             ]}
           >
             {selectedMonth !== null ? shortMonths[selectedMonth] : "All"}
           </Text>
+        </TouchableOpacity>
+
+        {/* Sort Button */}
+        <TouchableOpacity
+          style={styles.sortButtonCompact}
+          onPress={() => setShowSortPicker(true)}
+        >
+          <Ionicons name="swap-vertical" size={16} color={theme.primary} />
+          <Text style={styles.sortButtonCompactText}>
+            {selectedSort === "latest" && "Latest"}
+            {selectedSort === "oldest" && "Oldest"}
+            {selectedSort === "alphabetical" && "A-Z"}
+            {selectedSort === "longest" && "Long"}
+            {selectedSort === "shortest" && "Short"}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={theme.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -312,6 +330,188 @@ const YearSectionWithPicker: React.FC<YearSectionWithPickerProps> = ({
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Sort Picker Modal */}
+      <Modal
+        visible={showSortPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSortPicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSortPicker(false)}
+        >
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Sort By</Text>
+              <TouchableOpacity onPress={() => setShowSortPicker(false)}>
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.pickerScrollView}>
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  selectedSort === "latest" && styles.pickerItemSelected,
+                ]}
+                onPress={() => {
+                  if (onSortChange) {
+                    onSortChange("latest");
+                    setShowSortPicker(false);
+                  }
+                }}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={
+                    selectedSort === "latest"
+                      ? theme.primary
+                      : theme.textSecondary
+                  }
+                  style={{ marginRight: 12 }}
+                />
+                <Text
+                  style={[
+                    styles.pickerItemText,
+                    selectedSort === "latest" && styles.pickerItemTextSelected,
+                  ]}
+                >
+                  Latest First
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  selectedSort === "oldest" && styles.pickerItemSelected,
+                ]}
+                onPress={() => {
+                  if (onSortChange) {
+                    onSortChange("oldest");
+                    setShowSortPicker(false);
+                  }
+                }}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={
+                    selectedSort === "oldest"
+                      ? theme.primary
+                      : theme.textSecondary
+                  }
+                  style={{ marginRight: 12 }}
+                />
+                <Text
+                  style={[
+                    styles.pickerItemText,
+                    selectedSort === "oldest" && styles.pickerItemTextSelected,
+                  ]}
+                >
+                  Oldest First
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  selectedSort === "alphabetical" && styles.pickerItemSelected,
+                ]}
+                onPress={() => {
+                  if (onSortChange) {
+                    onSortChange("alphabetical");
+                    setShowSortPicker(false);
+                  }
+                }}
+              >
+                <Ionicons
+                  name="text-outline"
+                  size={20}
+                  color={
+                    selectedSort === "alphabetical"
+                      ? theme.primary
+                      : theme.textSecondary
+                  }
+                  style={{ marginRight: 12 }}
+                />
+                <Text
+                  style={[
+                    styles.pickerItemText,
+                    selectedSort === "alphabetical" &&
+                      styles.pickerItemTextSelected,
+                  ]}
+                >
+                  Alphabetical (A-Z)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  selectedSort === "longest" && styles.pickerItemSelected,
+                ]}
+                onPress={() => {
+                  if (onSortChange) {
+                    onSortChange("longest");
+                    setShowSortPicker(false);
+                  }
+                }}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={
+                    selectedSort === "longest"
+                      ? theme.primary
+                      : theme.textSecondary
+                  }
+                  style={{ marginRight: 12 }}
+                />
+                <Text
+                  style={[
+                    styles.pickerItemText,
+                    selectedSort === "longest" && styles.pickerItemTextSelected,
+                  ]}
+                >
+                  Longest Duration
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  selectedSort === "shortest" && styles.pickerItemSelected,
+                ]}
+                onPress={() => {
+                  if (onSortChange) {
+                    onSortChange("shortest");
+                    setShowSortPicker(false);
+                  }
+                }}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={
+                    selectedSort === "shortest"
+                      ? theme.primary
+                      : theme.textSecondary
+                  }
+                  style={{ marginRight: 12 }}
+                />
+                <Text
+                  style={[
+                    styles.pickerItemText,
+                    selectedSort === "shortest" &&
+                      styles.pickerItemTextSelected,
+                  ]}
+                >
+                  Shortest Duration
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -322,83 +522,77 @@ const createStyles = (theme: any, isDark: boolean) =>
       paddingHorizontal: 0,
       paddingVertical: 4,
     },
-    selectorRow: {
+    allFiltersRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
+      gap: 8,
       marginBottom: 8,
     },
-    countPillRow: {
-      flexDirection: "row",
-      justifyContent: "flex-start",
-      marginBottom: 8,
-    },
-    countPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: theme.primary,
-      borderRadius: 16,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      gap: 6,
-    },
-    countPillText: {
-      color: theme.background,
-      fontWeight: "800",
-      fontSize: 12,
-    },
-    selectorButton: {
+    yearButton: {
+      flex: 2,
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: theme.card,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.border,
-      gap: 8,
-      flex: 1,
-      marginRight: 12,
-      minHeight: 48,
+      gap: 6,
+      minHeight: 44,
     },
-    selectorText: {
-      fontSize: 18,
+    yearButtonText: {
+      fontSize: 15,
       fontWeight: "700",
       color: theme.text,
       flex: 1,
     },
-    filterButton: {
+    monthButton: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
       backgroundColor: theme.card,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.border,
       gap: 4,
-      minHeight: 48,
-      minWidth: 80,
-      justifyContent: "center",
+      minHeight: 44,
     },
-    filterButtonActive: {
+    monthButtonActive: {
       backgroundColor: theme.primary,
       borderColor: theme.primary,
     },
-    filterText: {
+    monthButtonText: {
       fontSize: 12,
       fontWeight: "600",
       color: theme.textSecondary,
     },
-    filterTextActive: {
+    monthButtonTextActive: {
       color: theme.background,
     },
-    tripCount: {
-      fontSize: 14,
-      fontWeight: "500",
-      color: theme.textSecondary,
-      textAlign: "center",
+    sortButtonCompact: {
+      flex: 1.5,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.card,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      gap: 4,
+      minHeight: 44,
     },
+    sortButtonCompactText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: theme.text,
+    },
+    tripCount: { display: "none" },
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -429,6 +623,8 @@ const createStyles = (theme: any, isDark: boolean) =>
       maxHeight: 300,
     },
     pickerItem: {
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderBottomWidth: 1,
