@@ -208,7 +208,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onTransactionUpdate,
 }) => {
   const { isDemo } = useDemoMode();
-  const [activeTab, setActiveTab] = useState("Manual Entry");
+  const [activeTab, setActiveTab] = useState("Manual");
   // Toast notification state
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -289,7 +289,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyTransactionData, setCopyTransactionData] = useState<any>(null);
 
-  const tabs = ["Manual Entry", "Paste SMS", "Upload Image"];
+  const tabs = ["Manual", "SMS", "Image"];
 
   const transactionTypes = [
     { id: "expense", label: "Expense", icon: "arrow-up", color: "#EF4444" },
@@ -1008,7 +1008,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case "Manual Entry":
+      case "Manual":
         return (
           <ScrollView
             style={styles.formContainer}
@@ -2938,7 +2938,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           </ScrollView>
         );
 
-      case "Paste SMS":
+      case "SMS":
         return (
           <View style={styles.smsContainer}>
             <Text style={[styles.smsTitle, { color: colors.text }]}>
@@ -3062,7 +3062,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           </View>
         );
 
-      case "Upload Image":
+      case "Image":
         return (
           <View style={styles.imageContainer}>
             <Text style={[styles.imageTitle, { color: colors.text }]}>
@@ -7068,7 +7068,7 @@ const styles = StyleSheet.create({
   },
   groupedTabContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
   },
   tabGroup: {
     flexDirection: "row",
@@ -7077,7 +7077,7 @@ const styles = StyleSheet.create({
   },
   groupedTab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
     alignItems: "center",
@@ -7091,19 +7091,19 @@ const styles = StyleSheet.create({
   formContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 12,
   },
   typeContainer: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   typeButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
     gap: 6,
