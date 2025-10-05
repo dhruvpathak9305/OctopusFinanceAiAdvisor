@@ -9,14 +9,19 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LineChart, PieChart } from "react-native-chart-kit";
+import { LineChart } from "react-native-chart-kit";
 import {
   useTheme,
   darkTheme,
   lightTheme,
 } from "../../../../contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
-import { MonthlyChart } from "../../components/charts";
+import {
+  MonthlyChart,
+  LineChart as ReusableLineChart,
+  ChartTooltip,
+  PolarChart,
+} from "../../components/charts";
 import {
   DAILY_CHART_DATA,
   MONTHLY_CHART_DATA,
@@ -24,6 +29,8 @@ import {
   FILTER_OPTIONS,
   CHART_COLORS,
   formatBankAmount,
+  ACCOUNT_BALANCE_TREND,
+  ACCOUNT_BALANCE_LABELS,
 } from "./utils";
 import { BankAccount, ChartDataPoint } from "./types";
 
@@ -42,12 +49,29 @@ const MobileAccounts: React.FC = () => {
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [chartPeriod, setChartPeriod] = useState<"daily" | "monthly">("daily");
+  const [accountChartDataPoint, setAccountChartDataPoint] = useState<
+    number | null
+  >(null);
+  const [accountChartTooltipPos, setAccountChartTooltipPos] = useState({
+    x: 0,
+    y: 0,
+  });
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
   const screenWidth = Dimensions.get("window").width;
 
   // Use imported data
   const accounts = ACCOUNTS_DATA;
   const filters = FILTER_OPTIONS;
+
+  // Sort accounts based on sort order
+  const sortedAccounts = [...accounts].sort((a, b) => {
+    if (sortOrder === "desc") {
+      return b.balance - a.balance; // Highest to lowest
+    } else {
+      return a.balance - b.balance; // Lowest to highest
+    }
+  });
 
   const getCurrentChartData = () => {
     return chartPeriod === "daily" ? DAILY_CHART_DATA : MONTHLY_CHART_DATA;
@@ -287,696 +311,429 @@ const MobileAccounts: React.FC = () => {
 
         {/* Combined Balance and Distribution Card */}
         <View style={[styles.combinedCard, { backgroundColor: colors.card }]}>
-          {/* Dashboard style Total Balance Header */}
-          <View>
-            <View style={styles.balanceTitleRow}>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+          <View style={styles.balanceTitleRow}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            >
+              <Ionicons name="tv-outline" size={16} color={colors.text} />
+              <Text style={[styles.balanceTitle, { color: colors.text }]}>
+                Accounts ({accounts.length})
+              </Text>
+            </View>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+            >
+              <TouchableOpacity
+                onPress={() =>
+                  setIsDistributionExpanded(!isDistributionExpanded)
+                }
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingVertical: 4,
+                  paddingHorizontal: 8,
+                  borderRadius: 6,
+                  backgroundColor: `${colors.primary}15`,
+                }}
               >
-                <Ionicons name="tv-outline" size={16} color={colors.text} />
-                <Text style={[styles.balanceTitle, { color: colors.text }]}>
-                  Accounts ({accounts.length})
+                <Ionicons name="pie-chart" size={14} color={colors.primary} />
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  Distribution
                 </Text>
-              </View>
-              <TouchableOpacity>
-                <Ionicons name="add-outline" size={16} color={colors.primary} />
+                <Ionicons
+                  name={isDistributionExpanded ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="add" size={18} color="white" />
               </TouchableOpacity>
             </View>
+          </View>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-end",
+              marginTop: 2,
+            }}
+          >
+            <Text
+              style={[
+                styles.balanceAmount,
+                { color: colors.text, fontSize: 28, marginRight: 6 },
+              ]}
+            >
+              ₹{(totalBalance / 100000).toFixed(0)}L
+            </Text>
 
             <View
               style={{
                 flexDirection: "row",
-                alignItems: "flex-end",
-                marginTop: 2,
-              }}
-            >
-              <Text
-                style={[
-                  styles.balanceAmount,
-                  { color: colors.text, fontSize: 28, marginRight: 6 },
-                ]}
-              >
-                ₹{(totalBalance / 100000).toFixed(0)}L
-              </Text>
-
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginBottom: 4,
-                }}
-              >
-                <Ionicons
-                  name="trending-up"
-                  size={12}
-                  color="#22C55E"
-                  style={{ marginRight: 2 }}
-                />
-                <Text
-                  style={{ color: "#22C55E", fontSize: 12, fontWeight: "500" }}
-                >
-                  +2.8% from last month
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ marginTop: 4, marginBottom: 10 }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-                Last updated: Today at 4:57 PM
-              </Text>
-            </View>
-
-            {/* Full-width chart - Custom implementation */}
-            <View
-              style={{
-                marginTop: 0,
+                alignItems: "center",
                 marginBottom: 4,
-                height: 150,
-                overflow: "hidden",
-                backgroundColor: colors.card,
               }}
             >
-              {/* Custom chart implementation for better control */}
-              <View
-                style={{
-                  flex: 1,
-                  paddingTop: 8,
-                  paddingBottom: 16,
-                  paddingLeft: 30,
-                  paddingRight: 5,
-                }}
+              <Ionicons
+                name="trending-up"
+                size={12}
+                color="#22C55E"
+                style={{ marginRight: 2 }}
+              />
+              <Text
+                style={{ color: "#22C55E", fontSize: 12, fontWeight: "500" }}
               >
-                {/* Horizontal grid lines */}
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 30,
-                    right: 5,
-                    top: 15,
-                    height: 1,
-                    backgroundColor: `${colors.border}30`,
-                  }}
-                />
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 30,
-                    right: 5,
-                    top: 45,
-                    height: 1,
-                    backgroundColor: `${colors.border}30`,
-                  }}
-                />
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 30,
-                    right: 5,
-                    top: 75,
-                    height: 1,
-                    backgroundColor: `${colors.border}30`,
-                  }}
-                />
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 30,
-                    right: 5,
-                    top: 105,
-                    height: 1,
-                    backgroundColor: `${colors.border}30`,
-                  }}
-                />
-
-                {/* Y-axis labels */}
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 8,
-                    bottom: 16,
-                    left: 0,
-                    width: 30,
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 7,
-                      color: colors.textSecondary,
-                      textAlign: "right",
-                      paddingRight: 3,
-                    }}
-                  >
-                    ₹5.5L
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 7,
-                      color: colors.textSecondary,
-                      textAlign: "right",
-                      paddingRight: 3,
-                    }}
-                  >
-                    ₹5.0L
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 7,
-                      color: colors.textSecondary,
-                      textAlign: "right",
-                      paddingRight: 3,
-                    }}
-                  >
-                    ₹4.5L
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 7,
-                      color: colors.textSecondary,
-                      textAlign: "right",
-                      paddingRight: 3,
-                    }}
-                  >
-                    ₹4.0L
-                  </Text>
-                </View>
-
-                {/* X-axis month labels */}
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 30,
-                    right: 5,
-                    bottom: 0,
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Text style={{ fontSize: 7, color: colors.textSecondary }}>
-                    Feb
-                  </Text>
-                  <Text style={{ fontSize: 7, color: colors.textSecondary }}>
-                    Apr
-                  </Text>
-                  <Text style={{ fontSize: 7, color: colors.textSecondary }}>
-                    Jun
-                  </Text>
-                  <Text style={{ fontSize: 7, color: colors.textSecondary }}>
-                    Aug
-                  </Text>
-                  <Text style={{ fontSize: 7, color: colors.textSecondary }}>
-                    Oct
-                  </Text>
-                  <Text style={{ fontSize: 7, color: colors.textSecondary }}>
-                    Dec
-                  </Text>
-                </View>
-
-                {/* The green curved line */}
-                <View
-                  style={{
-                    position: "absolute",
-                    width: "90%",
-                    height: 2,
-                    backgroundColor: "#22C55E",
-                    top: 60,
-                    left: 30,
-                    borderRadius: 1,
-                  }}
-                />
-
-                {/* Custom curve path simulation with varying heights */}
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 30,
-                    right: 5,
-                    top: 8,
-                    bottom: 16,
-                    flexDirection: "row",
-                  }}
-                >
-                  <View style={{ flex: 1, position: "relative" }}>
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "0%",
-                        top: 100,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "10%",
-                        top: 90,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "20%",
-                        top: 70,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "30%",
-                        top: 40,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "40%",
-                        top: 60,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: 50,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "60%",
-                        top: 80,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "70%",
-                        top: 65,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "80%",
-                        top: 40,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: "90%",
-                        top: 25,
-                        width: 4,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: "#22C55E",
-                      }}
-                    />
-                  </View>
-                </View>
-              </View>
+                +2.8% from last month
+              </Text>
             </View>
+          </View>
+
+          <View style={{ marginTop: 4, marginBottom: 10 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+              Last updated: Today at 4:57 PM
+            </Text>
+          </View>
+
+          {/* Account Balance Trend Chart */}
+          <View
+            style={{
+              marginTop: 0,
+              marginBottom: 4,
+              height: 180,
+              backgroundColor: colors.card,
+              position: "relative",
+            }}
+          >
+            <ReusableLineChart
+              data={ACCOUNT_BALANCE_TREND}
+              labels={ACCOUNT_BALANCE_LABELS}
+              width={screenWidth - 72}
+              height={150}
+              color="#22C55E"
+              backgroundColor={colors.card}
+              textColor={colors.text}
+              secondaryTextColor={colors.textSecondary}
+              borderColor={colors.border}
+              showYAxisLabels={true}
+              showXAxisLabels={true}
+              formatYLabel={(v) => `₹${v}L`}
+              dotRadius={3}
+              lineThickness={2}
+              gridOpacity={0.2}
+              onPointClick={(index, x, y) => {
+                setAccountChartDataPoint(index);
+                setAccountChartTooltipPos({ x, y });
+              }}
+            />
+
+            {/* Tooltip for Account Chart */}
+            {accountChartDataPoint !== null && accountChartDataPoint >= 0 && (
+              <ChartTooltip
+                x={accountChartTooltipPos.x}
+                y={accountChartTooltipPos.y}
+                value={ACCOUNT_BALANCE_TREND[accountChartDataPoint]}
+                label={ACCOUNT_BALANCE_LABELS[accountChartDataPoint]}
+                color="#22C55E"
+                backgroundColor={colors.card}
+                textColor={colors.text}
+                borderColor={colors.border}
+                prefix="₹"
+                suffix="L"
+              />
+            )}
           </View>
 
           {/* Account Distribution Section - Dashboard Style */}
-          <View
-            style={{
-              paddingTop: 2,
-              paddingBottom: 0,
-              borderTopWidth: 1,
-              borderTopColor: `${colors.border}50`,
-              marginTop: 2,
-            }}
-          >
-            <TouchableOpacity
-              style={[styles.distributionHeader, { paddingVertical: 4 }]}
-              onPress={() => setIsDistributionExpanded(!isDistributionExpanded)}
-            >
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-              >
-                <View style={styles.iconContainer}>
-                  <Ionicons name="pie-chart" size={14} color="white" />
-                </View>
-                <Text
-                  style={[styles.distributionTitle, { color: colors.text }]}
-                >
-                  Account Distribution
-                </Text>
-              </View>
-              <Ionicons
-                name={isDistributionExpanded ? "chevron-up" : "chevron-down"}
-                size={18}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
           {isDistributionExpanded && (
-            <View style={styles.distributionContent}>
-              {/* Interactive Donut Chart with Animation */}
-              <View style={styles.donutContainer}>
-                <View style={styles.chartLegend}>
-                  <Text
-                    style={[styles.chartLegendTitle, { color: colors.text }]}
-                  >
-                    Total Balance
-                  </Text>
-                  <Text
-                    style={[styles.chartLegendValue, { color: colors.text }]}
-                  >
-                    ₹{(totalBalance / 100000).toFixed(1)}L
-                  </Text>
-                </View>
-                <PieChart
-                  data={[
-                    {
-                      name: "HDFC",
-                      population: 60,
-                      color: "#F59E0B",
-                      legendFontColor: colors.textSecondary,
-                      legendFontSize: 12,
-                      gradientCenterColor: "#FCD34D",
-                    },
-                    {
-                      name: "Axis",
-                      population: 20,
-                      color: "#8B5CF6",
-                      legendFontColor: colors.textSecondary,
-                      legendFontSize: 12,
-                      gradientCenterColor: "#A78BFA",
-                    },
-                    {
-                      name: "ICICI",
-                      population: 20,
-                      color: "#EF4444",
-                      legendFontColor: colors.textSecondary,
-                      legendFontSize: 12,
-                      gradientCenterColor: "#FCA5A5",
-                    },
-                  ]}
-                  width={screenWidth - 50}
-                  height={120}
-                  chartConfig={{
-                    backgroundGradientFrom: colors.card,
-                    backgroundGradientTo: colors.card,
-                    color: () => colors.text,
-                    labelColor: () => colors.text,
-                    strokeWidth: 2,
-                    decimalPlaces: 0,
-                    propsForLabels: {
-                      fontSize: "10",
-                    },
-                  }}
-                  accessor="population"
-                  backgroundColor="transparent"
-                  paddingLeft="10"
-                  hasLegend={false}
-                  center={[0, 0]}
-                  absolute
-                  avoidFalseZero
-                />
-              </View>
-
-              {/* Interactive Account List with Percentage Bars */}
-              <View style={styles.accountsList}>
-                <View style={styles.accountListHeader}>
-                  <Text
-                    style={[
-                      styles.accountListHeaderText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Account
-                  </Text>
-                  <Text
-                    style={[
-                      styles.accountListHeaderText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Balance
-                  </Text>
-                  <Text
-                    style={[
-                      styles.accountListHeaderText,
-                      { color: colors.textSecondary, textAlign: "right" },
-                    ]}
-                  >
-                    Share
-                  </Text>
+            <View
+              style={{
+                paddingTop: 12,
+                borderTopWidth: 1,
+                borderTopColor: `${colors.border}50`,
+                marginTop: 8,
+              }}
+            >
+              <View style={styles.distributionContent}>
+                {/* Polar Chart */}
+                <View style={styles.donutContainer}>
+                  <PolarChart
+                    data={sortedAccounts.map((account) => ({
+                      name: account.name.replace(" Bank", ""),
+                      value: account.balance,
+                      color: account.color,
+                      percentage: account.percentage,
+                    }))}
+                    size={screenWidth - 40}
+                    innerRadius={75}
+                    outerRadius={125}
+                    centerText={`${(totalBalance / 100000).toFixed(1)}L`}
+                    centerSubtext="Total"
+                    textColor={colors.text}
+                    backgroundColor={colors.card}
+                  />
                 </View>
 
-                {accounts.length === 0 ? (
-                  <View style={styles.emptyStateContainer}>
-                    <View style={styles.emptyStateIcon}>
-                      <Ionicons
-                        name="wallet-outline"
-                        size={32}
-                        color={`${colors.primary}80`}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.emptyStateTitle, { color: colors.text }]}
-                    >
-                      No accounts yet
-                    </Text>
+                {/* Interactive Account List with Percentage Bars */}
+                <View style={styles.accountsList}>
+                  <View style={styles.accountListHeader}>
                     <Text
                       style={[
-                        styles.emptyStateMessage,
+                        styles.accountListHeaderText,
                         { color: colors.textSecondary },
                       ]}
                     >
-                      Add your first bank account to start tracking your
-                      finances
+                      Account
                     </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.emptyStateButton,
-                        { backgroundColor: colors.primary },
-                      ]}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="add" size={16} color="white" />
-                      <Text style={styles.emptyStateButtonText}>
-                        Add Account
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  accounts.map((account) => (
-                    <TouchableOpacity
-                      key={account.id}
-                      style={[
-                        styles.enhancedAccountItem,
-                        selectedBank === account.name &&
-                          styles.selectedAccountItem,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() =>
-                        setSelectedBank(
-                          selectedBank === account.name ? null : account.name
-                        )
-                      }
-                    >
-                      <View style={styles.accountItemHeader}>
-                        <View style={styles.accountNameSection}>
-                          <View
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 12,
-                              backgroundColor: account.color,
-                              justifyContent: "center",
-                              alignItems: "center",
-                              marginRight: 6,
-                            }}
-                          >
-                            <Ionicons
-                              name={account.icon as any}
-                              size={14}
-                              color="white"
-                            />
-                          </View>
-                          <Text
-                            style={[styles.accountName, { color: colors.text }]}
-                            numberOfLines={1}
-                          >
-                            {account.name}
-                          </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.accountBalance,
-                            { color: colors.text },
-                          ]}
-                        >
-                          ₹{(account.balance / 1000).toFixed(1)}K
-                        </Text>
-                        <View style={styles.accountPercentage}>
-                          <Text
-                            style={[
-                              styles.percentageText,
-                              { color: account.color },
-                            ]}
-                          >
-                            {account.percentage}%
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.percentageBarContainer}>
-                        <View
-                          style={[
-                            styles.percentageBar,
-                            {
-                              width: `${account.percentage}%`,
-                              backgroundColor: account.color,
-                              opacity: selectedBank === account.name ? 1 : 0.7,
-                            },
-                          ]}
-                        />
-                      </View>
-
-                      {selectedBank === account.name && (
-                        <View style={styles.quickActions}>
-                          <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons
-                              name="eye-outline"
-                              size={16}
-                              color={colors.primary}
-                            />
-                            <Text
-                              style={[
-                                styles.actionText,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              View
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons
-                              name="arrow-up-outline"
-                              size={16}
-                              color={colors.primary}
-                            />
-                            <Text
-                              style={[
-                                styles.actionText,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              Transfer
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons
-                              name="pencil-outline"
-                              size={16}
-                              color={colors.primary}
-                            />
-                            <Text
-                              style={[
-                                styles.actionText,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              Edit
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  ))
-                )}
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.addAccountButton,
-                  { borderColor: `${colors.primary}40` },
-                ]}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle" size={18} color={colors.primary} />
-                <Text
-                  style={[styles.addAccountText, { color: colors.primary }]}
-                >
-                  Add New Account
-                </Text>
-              </TouchableOpacity>
-
-              <View style={styles.distributionFooter}>
-                <TouchableOpacity style={styles.footerButton}>
-                  <Ionicons
-                    name="arrow-down-circle-outline"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.footerButtonText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Export
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={styles.sortContainer}>
-                  <Text
-                    style={[styles.sortLabel, { color: colors.textSecondary }]}
-                  >
-                    Sort by:
-                  </Text>
-                  <TouchableOpacity style={styles.sortButton}>
                     <Text
-                      style={[styles.sortButtonText, { color: colors.text }]}
+                      style={[
+                        styles.accountListHeaderText,
+                        { color: colors.textSecondary },
+                      ]}
                     >
                       Balance
                     </Text>
+                    <Text
+                      style={[
+                        styles.accountListHeaderText,
+                        { color: colors.textSecondary, textAlign: "right" },
+                      ]}
+                    >
+                      Share
+                    </Text>
+                  </View>
+
+                  {accounts.length === 0 ? (
+                    <View style={styles.emptyStateContainer}>
+                      <View style={styles.emptyStateIcon}>
+                        <Ionicons
+                          name="wallet-outline"
+                          size={32}
+                          color={`${colors.primary}80`}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.emptyStateTitle, { color: colors.text }]}
+                      >
+                        No accounts yet
+                      </Text>
+                      <Text
+                        style={[
+                          styles.emptyStateMessage,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Add your first bank account to start tracking your
+                        finances
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.emptyStateButton,
+                          { backgroundColor: colors.primary },
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="add" size={16} color="white" />
+                        <Text style={styles.emptyStateButtonText}>
+                          Add Account
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    sortedAccounts.map((account) => (
+                      <TouchableOpacity
+                        key={account.id}
+                        style={[
+                          styles.enhancedAccountItem,
+                          selectedBank === account.name &&
+                            styles.selectedAccountItem,
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          setSelectedBank(
+                            selectedBank === account.name ? null : account.name
+                          )
+                        }
+                      >
+                        <View style={styles.accountItemHeader}>
+                          <View style={styles.accountNameSection}>
+                            <View
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                backgroundColor: account.color,
+                                justifyContent: "center",
+                                alignItems: "center",
+                                marginRight: 6,
+                              }}
+                            >
+                              <Ionicons
+                                name={account.icon as any}
+                                size={14}
+                                color="white"
+                              />
+                            </View>
+                            <Text
+                              style={[
+                                styles.accountName,
+                                { color: colors.text },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {account.name}
+                            </Text>
+                          </View>
+                          <Text
+                            style={[
+                              styles.accountBalance,
+                              { color: colors.text },
+                            ]}
+                          >
+                            ₹{(account.balance / 1000).toFixed(1)}K
+                          </Text>
+                          <View style={styles.accountPercentage}>
+                            <Text
+                              style={[
+                                styles.percentageText,
+                                { color: account.color },
+                              ]}
+                            >
+                              {account.percentage}%
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.percentageBarContainer}>
+                          <View
+                            style={[
+                              styles.percentageBar,
+                              {
+                                width: `${account.percentage}%`,
+                                backgroundColor: account.color,
+                                opacity:
+                                  selectedBank === account.name ? 1 : 0.7,
+                              },
+                            ]}
+                          />
+                        </View>
+
+                        {selectedBank === account.name && (
+                          <View style={styles.quickActions}>
+                            <TouchableOpacity style={styles.actionButton}>
+                              <Ionicons
+                                name="eye-outline"
+                                size={16}
+                                color={colors.primary}
+                              />
+                              <Text
+                                style={[
+                                  styles.actionText,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                View
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.actionButton}>
+                              <Ionicons
+                                name="arrow-up-outline"
+                                size={16}
+                                color={colors.primary}
+                              />
+                              <Text
+                                style={[
+                                  styles.actionText,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                Transfer
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.actionButton}>
+                              <Ionicons
+                                name="pencil-outline"
+                                size={16}
+                                color={colors.primary}
+                              />
+                              <Text
+                                style={[
+                                  styles.actionText,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                Edit
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+
+                <View style={styles.distributionFooter}>
+                  <TouchableOpacity style={styles.footerButton}>
                     <Ionicons
-                      name="chevron-down"
-                      size={14}
+                      name="arrow-down-circle-outline"
+                      size={16}
                       color={colors.textSecondary}
                     />
+                    <Text
+                      style={[
+                        styles.footerButtonText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Export
+                    </Text>
                   </TouchableOpacity>
+
+                  <View style={styles.sortContainer}>
+                    <Text
+                      style={[
+                        styles.sortLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Sort by:
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.sortButton}
+                      onPress={() =>
+                        setSortOrder(sortOrder === "desc" ? "asc" : "desc")
+                      }
+                    >
+                      <Text
+                        style={[styles.sortButtonText, { color: colors.text }]}
+                      >
+                        Balance
+                      </Text>
+                      <Ionicons
+                        name={
+                          sortOrder === "desc" ? "chevron-down" : "chevron-up"
+                        }
+                        size={14}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>

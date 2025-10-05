@@ -8,6 +8,7 @@ export { default as MonthlyChart } from "./MonthlyChart";
 export { default as LineChart } from "./LineChart";
 export { default as ChartTooltip } from "./ChartTooltip";
 export { default as ChartSummary } from "./ChartSummary";
+export { PolarChart } from "./PolarChart";
 
 // Export chart controls
 export { MonthHeader, ChartTypeSelector, PeriodToggle } from "./ChartControls";

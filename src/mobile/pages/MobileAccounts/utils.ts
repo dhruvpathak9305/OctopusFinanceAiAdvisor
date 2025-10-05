@@ -1,11 +1,25 @@
 import { useState } from "react";
 import { Dimensions } from "react-native";
 import { BankAccount, ChartDataPoint, ChartPeriod, ChartType } from "./types";
+import { generateColorShade } from "../../../../utils/colors/SubcategoryColorGenerator";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 /**
- * Sample bank accounts data
+ * Application theme colors for charts
+ * Using green, teal, and golden shades
+ */
+export const THEME_COLORS = {
+  green: "#10B981", // Primary green
+  teal: "#14B8A6", // Teal/cyan
+  golden: "#F59E0B", // Golden/amber
+  emerald: "#059669", // Darker green
+  cyan: "#06B6D4", // Lighter cyan
+  amber: "#FBBF24", // Lighter golden
+};
+
+/**
+ * Sample bank accounts data with theme colors
  */
 export const ACCOUNTS_DATA: BankAccount[] = [
   {
@@ -13,7 +27,7 @@ export const ACCOUNTS_DATA: BankAccount[] = [
     name: "Axis Bank",
     balance: 100000,
     percentage: 20,
-    color: "#8B5CF6",
+    color: THEME_COLORS.teal, // Teal for first bank
     icon: "trending-up",
   },
   {
@@ -21,7 +35,7 @@ export const ACCOUNTS_DATA: BankAccount[] = [
     name: "HDFC Bank",
     balance: 300000,
     percentage: 60,
-    color: "#F59E0B",
+    color: THEME_COLORS.golden, // Golden for second bank
     icon: "add",
   },
   {
@@ -29,7 +43,7 @@ export const ACCOUNTS_DATA: BankAccount[] = [
     name: "ICICI Bank",
     balance: 100000,
     percentage: 20,
-    color: "#EF4444",
+    color: THEME_COLORS.green, // Green for third bank
     icon: "information",
   },
 ];
@@ -55,68 +69,45 @@ export const CHART_COLORS = {
 };
 
 /**
- * 30 days of daily chart data
+ * Daily chart data (30 days)
  */
-export const DAILY_CHART_DATA: ChartDataPoint[] = [
-  { date: "1", spend: 2700, invested: 900, income: 0 },
-  { date: "2", spend: 1800, invested: 1200, income: 0 },
-  { date: "3", spend: 3200, invested: 3600, income: 50000 },
-  { date: "4", spend: 2100, invested: 800, income: 0 },
-  { date: "5", spend: 2500, invested: 900, income: 0 },
-  { date: "6", spend: 3800, invested: 1500, income: 0 },
-  { date: "7", spend: 4200, invested: 2700, income: 0 },
-  { date: "8", spend: 1900, invested: 1100, income: 0 },
-  { date: "9", spend: 3800, invested: 2400, income: 0 },
-  { date: "10", spend: 2200, invested: 1800, income: 0 },
-  { date: "11", spend: 1500, invested: 3200, income: 0 },
-  { date: "12", spend: 3400, invested: 1600, income: 0 },
-  { date: "13", spend: 4500, invested: 900, income: 0 },
-  { date: "14", spend: 2800, invested: 2100, income: 0 },
-  { date: "15", spend: 1200, invested: 1400, income: 0 },
-  { date: "16", spend: 3600, invested: 1900, income: 0 },
-  { date: "17", spend: 5200, invested: 3600, income: 0 },
-  { date: "18", spend: 2900, invested: 1300, income: 0 },
-  { date: "19", spend: 4800, invested: 2900, income: 0 },
-  { date: "20", spend: 2100, invested: 1700, income: 0 },
-  { date: "21", spend: 3300, invested: 2200, income: 0 },
-  { date: "22", spend: 3000, invested: 1800, income: 0 },
-  { date: "23", spend: 4100, invested: 2500, income: 0 },
-  { date: "24", spend: 1700, invested: 1000, income: 0 },
-  { date: "25", spend: 2400, invested: 2700, income: 0 },
-  { date: "26", spend: 3900, invested: 1400, income: 0 },
-  { date: "27", spend: 2600, invested: 1900, income: 0 },
-  { date: "28", spend: 4200, invested: 3100, income: 0 },
-  { date: "29", spend: 3100, invested: 2300, income: 0 },
-  { date: "30", spend: 1800, invested: 3000, income: 0 },
-];
+export const DAILY_CHART_DATA: ChartDataPoint[] = Array.from(
+  { length: 30 },
+  (_, i) => ({
+    date: `${i + 1}`,
+    spend: Math.random() * 5000 + 2000,
+    invested: Math.random() * 3000 + 1000,
+    income: Math.random() * 6000 + 3000,
+  })
+);
 
 /**
- * 12 months of monthly chart data
+ * Monthly chart data (12 months)
  */
 export const MONTHLY_CHART_DATA: ChartDataPoint[] = [
-  { date: "Oct", spend: 62000, invested: 55000, income: 0 },
-  { date: "Nov", spend: 45000, invested: 48000, income: 0 },
-  { date: "Dec", spend: 52000, invested: 42000, income: 0 },
-  { date: "Jan", spend: 48000, invested: 51000, income: 0 },
-  { date: "Feb", spend: 35000, invested: 63000, income: 0 },
-  { date: "Mar", spend: 58000, invested: 39000, income: 0 },
-  { date: "Apr", spend: 41000, invested: 67000, income: 0 },
-  { date: "May", spend: 55000, invested: 44000, income: 0 },
-  { date: "Jun", spend: 73000, invested: 71000, income: 0 },
-  { date: "Jul", spend: 67000, invested: 52000, income: 0 },
-  { date: "Aug", spend: 62000, invested: 64000, income: 68100 },
-  { date: "Sep", spend: 42000, invested: 64000, income: 68100 },
+  { date: "Feb", spend: 3200, invested: 1500, income: 4500 },
+  { date: "Mar", spend: 2800, invested: 2000, income: 5000 },
+  { date: "Apr", spend: 3500, invested: 1800, income: 4800 },
+  { date: "May", spend: 4000, invested: 2200, income: 5200 },
+  { date: "Jun", spend: 3800, invested: 1900, income: 4900 },
+  { date: "Jul", spend: 3300, invested: 2100, income: 5100 },
+  { date: "Aug", spend: 3600, invested: 2300, income: 5300 },
+  { date: "Sep", spend: 3900, invested: 2000, income: 5000 },
+  { date: "Oct", spend: 3400, invested: 2400, income: 5400 },
+  { date: "Nov", spend: 3700, invested: 2200, income: 5200 },
+  { date: "Dec", spend: 4200, invested: 2500, income: 5500 },
+  { date: "Jan", spend: 3100, invested: 1700, income: 4700 },
 ];
 
 /**
- * Account balance trend data for the line chart
+ * Account balance trend data for line chart (in lakhs)
  */
 export const ACCOUNT_BALANCE_TREND = [
-  4.5, 4.6, 4.7, 4.8, 4.9, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.0,
+  3.2, 3.5, 3.3, 3.8, 4.0, 4.2, 4.5, 4.3, 4.7, 4.9, 5.0, 5.0,
 ];
 
 /**
- * X-axis labels for the account balance trend chart
+ * Account balance trend labels (months)
  */
 export const ACCOUNT_BALANCE_LABELS = [
   "Feb",
@@ -254,4 +245,48 @@ export const formatBankAmount = (amount: number): string => {
     return `${(amount / 1000).toFixed(1)}K`;
   }
   return `${amount}`;
+};
+
+/**
+ * Generate theme-appropriate colors for accounts dynamically
+ * Uses green, teal, and golden base colors with variations
+ *
+ * @param count - Number of colors needed
+ * @returns Array of color hex strings
+ */
+export const generateAccountColors = (count: number): string[] => {
+  const baseColors = [
+    THEME_COLORS.teal,
+    THEME_COLORS.golden,
+    THEME_COLORS.green,
+  ];
+  const colors: string[] = [];
+
+  // For 2 banks: use teal and golden
+  if (count === 2) {
+    return [THEME_COLORS.teal, THEME_COLORS.golden];
+  }
+
+  // For 3 banks: use teal, golden, and green
+  if (count === 3) {
+    return [THEME_COLORS.teal, THEME_COLORS.golden, THEME_COLORS.green];
+  }
+
+  // For more banks: generate variations using the color generator
+  for (let i = 0; i < count; i++) {
+    const baseColorIndex = i % baseColors.length;
+    const baseColor = baseColors[baseColorIndex];
+
+    if (i < baseColors.length) {
+      // Use base colors for first few
+      colors.push(baseColor);
+    } else {
+      // Generate variations for additional banks
+      const variation = Math.floor(i / baseColors.length);
+      const intensity = 15 + variation * 10;
+      colors.push(generateColorShade(baseColor, variation % 4, intensity));
+    }
+  }
+
+  return colors;
 };
