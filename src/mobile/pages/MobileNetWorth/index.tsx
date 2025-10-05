@@ -135,6 +135,7 @@ const MobileNetWorth: React.FC = () => {
     0
   );
   const netWorth = totalAssets - totalLiabilities;
+  // TODO enhancement: include bank accounts balances and credit card balances in the displayed total for full portfolio parity
   const assetAllocation =
     totalAssets + totalLiabilities > 0
       ? ((totalAssets / (totalAssets + totalLiabilities)) * 100).toFixed(1)

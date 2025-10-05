@@ -8,6 +8,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { DemoModeProvider } from "../contexts/DemoModeContext";
 import { AccountsProvider } from "../contexts/AccountsContext";
 import { BalanceProvider } from "../contexts/BalanceContext";
+import { NetWorthProvider } from "../contexts/NetWorthContext";
 import ErrorBoundary from "../components/common/ErrorBoundary";
 
 export default function HomePage() {
@@ -19,11 +20,13 @@ export default function HomePage() {
           <DemoModeProvider>
             <AccountsProvider>
               <BalanceProvider>
-                <UnifiedAuthProvider>
-                  <WebPageLayout>
-                    <WebHomeContent />
-                  </WebPageLayout>
-                </UnifiedAuthProvider>
+                <NetWorthProvider>
+                  <UnifiedAuthProvider>
+                    <WebPageLayout>
+                      <WebHomeContent />
+                    </WebPageLayout>
+                  </UnifiedAuthProvider>
+                </NetWorthProvider>
               </BalanceProvider>
             </AccountsProvider>
           </DemoModeProvider>
@@ -39,9 +42,11 @@ export default function HomePage() {
         <DemoModeProvider>
           <AccountsProvider>
             <BalanceProvider>
-              <UnifiedAuthProvider>
-                <MobileApp />
-              </UnifiedAuthProvider>
+              <NetWorthProvider>
+                <UnifiedAuthProvider>
+                  <MobileApp />
+                </UnifiedAuthProvider>
+              </NetWorthProvider>
             </BalanceProvider>
           </AccountsProvider>
         </DemoModeProvider>

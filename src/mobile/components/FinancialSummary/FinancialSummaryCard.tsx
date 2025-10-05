@@ -8,6 +8,8 @@ import {
   Dimensions,
 } from "react-native";
 import { useTheme } from "../../../../contexts/ThemeContext";
+import { Ionicons } from "@expo/vector-icons";
+import { formatCurrency as formatINR } from "../../../../utils/currencyFormatter";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -22,6 +24,7 @@ interface FinancialSummaryCardProps {
   error: string | null;
   onViewAll: () => void;
   onAddNew?: () => void;
+  onInfoPress?: () => void;
   backgroundImage?: string;
 }
 
@@ -36,6 +39,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   error,
   onViewAll,
   onAddNew,
+  onInfoPress,
   backgroundImage,
 }) => {
   const { isDark } = useTheme();
@@ -90,11 +94,12 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
+    return formatINR(value, {
+      currency: "INR",
+      locale: "en-IN",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   };
 
   const renderChart = () => {
@@ -155,6 +160,23 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
             </Text>
           </View>
           <View style={styles.actionsContainer}>
+            {onInfoPress && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Card information"
+                onPress={onInfoPress}
+                style={[
+                  styles.infoButton,
+                  {
+                    borderColor: themeColor,
+                    backgroundColor: `${themeColor}20`,
+                  },
+                ]}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="information" size={14} color={themeColor} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={onViewAll} style={styles.viewAllButton}>
               <Text style={[styles.viewAllText, { color: themeColor }]}>
                 View All
@@ -251,6 +273,15 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  infoButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
   },
   viewAllButton: {
     marginRight: 8,
