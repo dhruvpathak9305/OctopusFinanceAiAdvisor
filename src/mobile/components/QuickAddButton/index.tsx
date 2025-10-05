@@ -15,6 +15,7 @@ import {
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
@@ -1095,7 +1096,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                     $
                   </Text>
                   <TextInput
-                    style={[styles.amountInput, { color: colors.text }]}
+                    style={[
+                      styles.amountInput,
+                      { color: colors.text, fontSize: 14 },
+                    ]}
                     placeholder="0.00"
                     placeholderTextColor={colors.textSecondary}
                     value={amount}
@@ -5646,17 +5650,53 @@ const QuickAddButton: React.FC<QuickAddButtonProps> = ({
     <>
       {/* Main Quick Add Button - Hide in edit mode */}
       {!isEditMode && (
-        <TouchableOpacity
-          style={[
-            styles.quickAddButton,
-            { backgroundColor: colors.primary },
-            style,
-          ]}
-          onPress={() => setIsModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <>
+          {/* New plus FAB just above the grid FAB (same size and style) */}
+          <TouchableOpacity
+            style={[
+              styles.quickAddButtonSecondary,
+              { backgroundColor: "transparent" },
+              style,
+            ]}
+            onPress={() => {
+              // Direct to Add Transaction screen
+              setSelectedAction("transaction");
+              setIsModalVisible(true);
+            }}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Add transaction"
+            accessibilityHint="Opens the add transaction screen directly"
+          >
+            <BlurView
+              tint="dark"
+              intensity={20}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <Ionicons name="add" size={20} color="white" />
+          </TouchableOpacity>
+
+          {/* Existing grid FAB */}
+          <TouchableOpacity
+            style={[
+              styles.quickAddButton,
+              { backgroundColor: "transparent" },
+              style,
+            ]}
+            onPress={() => setIsModalVisible(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Open quick actions"
+            accessibilityHint="Opens the quick actions menu"
+          >
+            <BlurView
+              tint="dark"
+              intensity={10}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <Ionicons name="grid" size={20} color="white" />
+          </TouchableOpacity>
+        </>
       )}
 
       {/* Quick Actions Modal */}
@@ -5748,9 +5788,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 30,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
     elevation: 8,
@@ -5758,6 +5798,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D4AF37", // sleek golden border
+    overflow: "hidden", // Important for BlurView to be contained
+  },
+  quickAddButtonSecondary: {
+    position: "absolute",
+    bottom: 90, // placed above the grid FAB
+    right: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D4AF37", // sleek golden border
+    overflow: "hidden", // Important for BlurView to be contained
   },
   modalContainer: {
     flex: 1,
@@ -7082,7 +7143,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    height: 48, // Match date field height
   },
   dateButton: {
     flexDirection: "row",

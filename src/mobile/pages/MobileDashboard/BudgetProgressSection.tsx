@@ -985,7 +985,7 @@ const styles = StyleSheet.create({
     width: "100%", // Ensure full width
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     flex: 1, // Allow title to take available space
   },
