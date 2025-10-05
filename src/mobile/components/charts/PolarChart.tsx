@@ -149,7 +149,11 @@ export const PolarChart: React.FC<PolarChartProps> = ({
           />
 
           {data.map((item, index) => {
-            const segmentAngle = (item.percentage / 100) * 360;
+            // For single segment with 100%, make it slightly less than 360 to render properly
+            const segmentAngle =
+              data.length === 1 && item.percentage === 100
+                ? 359.9
+                : (item.percentage / 100) * 360;
             const startAngle = currentAngle;
             const endAngle = currentAngle + segmentAngle;
 

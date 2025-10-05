@@ -25,7 +25,6 @@ import {
 import {
   DAILY_CHART_DATA,
   MONTHLY_CHART_DATA,
-  ACCOUNTS_DATA,
   FILTER_OPTIONS,
   CHART_COLORS,
   formatBankAmount,
@@ -33,13 +32,14 @@ import {
   ACCOUNT_BALANCE_LABELS,
 } from "./utils";
 import { BankAccount, ChartDataPoint } from "./types";
+import { useRealAccountsData } from "./useRealAccountsData";
 
 const MobileAccounts: React.FC = () => {
   const { isDark } = useTheme();
   const colors = isDark ? darkTheme : lightTheme;
   const navigation = useNavigation();
   const [selectedFilter, setSelectedFilter] = useState("All");
-  const [isDistributionExpanded, setIsDistributionExpanded] = useState(true);
+  const [isDistributionExpanded, setIsDistributionExpanded] = useState(false);
   const [activeChart, setActiveChart] = useState<
     "spend" | "invested" | "income"
   >("spend");
@@ -60,11 +60,37 @@ const MobileAccounts: React.FC = () => {
 
   const screenWidth = Dimensions.get("window").width;
 
-  // Use imported data
-  const accounts = ACCOUNTS_DATA;
-  const filters = FILTER_OPTIONS;
+  // Fetch real accounts data from Supabase
+  const {
+    accounts: realAccounts,
+    loading: accountsLoading,
+    error: accountsError,
+    totalBalance: realTotalBalance,
+    refreshAccounts,
+  } = useRealAccountsData();
 
-  // Sort accounts based on sort order
+  // Use real data if available, fallback to static data
+  const accounts = realAccounts.length > 0 ? realAccounts : [];
+
+  // Sort accounts by balance (descending - highest first) for chips
+  const accountsSortedByBalance = [...accounts].sort(
+    (a, b) => b.balance - a.balance
+  );
+
+  // Calculate displayed balance based on selected filter
+  const displayedBalance =
+    selectedFilter === "All"
+      ? realTotalBalance || 0
+      : accounts.find((acc) => acc.name === selectedFilter)?.balance || 0;
+
+  // Create filter options dynamically from sorted accounts
+  const filters = [
+    "All",
+    ...accountsSortedByBalance.map((acc) => acc.name),
+    "Add Account",
+  ];
+
+  // Sort accounts based on sort order for distribution section
   const sortedAccounts = [...accounts].sort((a, b) => {
     if (sortOrder === "desc") {
       return b.balance - a.balance; // Highest to lowest
@@ -76,8 +102,6 @@ const MobileAccounts: React.FC = () => {
   const getCurrentChartData = () => {
     return chartPeriod === "daily" ? DAILY_CHART_DATA : MONTHLY_CHART_DATA;
   };
-
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
 
   const getChartColor = () => CHART_COLORS[activeChart];
 
@@ -323,36 +347,41 @@ const MobileAccounts: React.FC = () => {
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
             >
-              <TouchableOpacity
-                onPress={() =>
-                  setIsDistributionExpanded(!isDistributionExpanded)
-                }
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingVertical: 4,
-                  paddingHorizontal: 8,
-                  borderRadius: 6,
-                  backgroundColor: `${colors.primary}15`,
-                }}
-              >
-                <Ionicons name="pie-chart" size={14} color={colors.primary} />
-                <Text
+              {/* Only show distribution button when "All" is selected and there are multiple accounts */}
+              {selectedFilter === "All" && accounts.length > 1 && (
+                <TouchableOpacity
+                  onPress={() =>
+                    setIsDistributionExpanded(!isDistributionExpanded)
+                  }
                   style={{
-                    color: colors.primary,
-                    fontSize: 12,
-                    fontWeight: "600",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    paddingVertical: 4,
+                    paddingHorizontal: 8,
+                    borderRadius: 6,
+                    backgroundColor: `${colors.primary}15`,
                   }}
                 >
-                  Distribution
-                </Text>
-                <Ionicons
-                  name={isDistributionExpanded ? "chevron-up" : "chevron-down"}
-                  size={14}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
+                  <Ionicons name="pie-chart" size={14} color={colors.primary} />
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Distribution
+                  </Text>
+                  <Ionicons
+                    name={
+                      isDistributionExpanded ? "chevron-up" : "chevron-down"
+                    }
+                    size={14}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={{
                   width: 28,
@@ -378,10 +407,14 @@ const MobileAccounts: React.FC = () => {
             <Text
               style={[
                 styles.balanceAmount,
-                { color: colors.text, fontSize: 28, marginRight: 6 },
+                { color: colors.text, fontSize: 28, marginRight: 8 },
               ]}
             >
-              ₹{(totalBalance / 100000).toFixed(0)}L
+              ₹
+              {displayedBalance.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </Text>
 
             <View
@@ -389,18 +422,22 @@ const MobileAccounts: React.FC = () => {
                 flexDirection: "row",
                 alignItems: "center",
                 marginBottom: 4,
+                backgroundColor: "#10B98120",
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 12,
               }}
             >
               <Ionicons
                 name="trending-up"
-                size={12}
-                color="#22C55E"
-                style={{ marginRight: 2 }}
+                size={11}
+                color="#10B981"
+                style={{ marginRight: 3 }}
               />
               <Text
-                style={{ color: "#22C55E", fontSize: 12, fontWeight: "500" }}
+                style={{ color: "#10B981", fontSize: 11, fontWeight: "600" }}
               >
-                +2.8% from last month
+                +2.8%
               </Text>
             </View>
           </View>
@@ -461,283 +498,296 @@ const MobileAccounts: React.FC = () => {
           </View>
 
           {/* Account Distribution Section - Dashboard Style */}
-          {isDistributionExpanded && (
-            <View
-              style={{
-                paddingTop: 12,
-                borderTopWidth: 1,
-                borderTopColor: `${colors.border}50`,
-                marginTop: 8,
-              }}
-            >
-              <View style={styles.distributionContent}>
-                {/* Polar Chart */}
-                <View style={styles.donutContainer}>
-                  <PolarChart
-                    data={sortedAccounts.map((account) => ({
-                      name: account.name.replace(" Bank", ""),
-                      value: account.balance,
-                      color: account.color,
-                      percentage: account.percentage,
-                    }))}
-                    size={screenWidth - 40}
-                    innerRadius={75}
-                    outerRadius={125}
-                    centerText={`${(totalBalance / 100000).toFixed(1)}L`}
-                    centerSubtext="Total"
-                    textColor={colors.text}
-                    backgroundColor={colors.card}
-                  />
-                </View>
-
-                {/* Interactive Account List with Percentage Bars */}
-                <View style={styles.accountsList}>
-                  <View style={styles.accountListHeader}>
-                    <Text
-                      style={[
-                        styles.accountListHeaderText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Account
-                    </Text>
-                    <Text
-                      style={[
-                        styles.accountListHeaderText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Balance
-                    </Text>
-                    <Text
-                      style={[
-                        styles.accountListHeaderText,
-                        { color: colors.textSecondary, textAlign: "right" },
-                      ]}
-                    >
-                      Share
-                    </Text>
+          {/* Only show distribution when "All" is selected, there are multiple accounts, and it's expanded */}
+          {selectedFilter === "All" &&
+            accounts.length > 1 &&
+            isDistributionExpanded && (
+              <View
+                style={{
+                  paddingTop: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: `${colors.border}50`,
+                  marginTop: 8,
+                }}
+              >
+                <View style={styles.distributionContent}>
+                  {/* Polar Chart */}
+                  <View style={styles.donutContainer}>
+                    <PolarChart
+                      data={sortedAccounts
+                        .filter((account) => account.balance > 0)
+                        .map((account) => ({
+                          name: account.name.replace(" Bank", ""),
+                          value: account.balance,
+                          color: account.color,
+                          percentage: account.percentage,
+                        }))}
+                      size={screenWidth - 40}
+                      innerRadius={75}
+                      outerRadius={125}
+                      centerText={`${(realTotalBalance / 100000).toFixed(1)}L`}
+                      centerSubtext="Total"
+                      textColor={colors.text}
+                      backgroundColor={colors.card}
+                    />
                   </View>
 
-                  {accounts.length === 0 ? (
-                    <View style={styles.emptyStateContainer}>
-                      <View style={styles.emptyStateIcon}>
-                        <Ionicons
-                          name="wallet-outline"
-                          size={32}
-                          color={`${colors.primary}80`}
-                        />
-                      </View>
-                      <Text
-                        style={[styles.emptyStateTitle, { color: colors.text }]}
-                      >
-                        No accounts yet
-                      </Text>
+                  {/* Interactive Account List with Percentage Bars */}
+                  <View style={styles.accountsList}>
+                    <View style={styles.accountListHeader}>
                       <Text
                         style={[
-                          styles.emptyStateMessage,
+                          styles.accountListHeaderText,
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Add your first bank account to start tracking your
-                        finances
+                        Account
                       </Text>
-                      <TouchableOpacity
-                        style={[
-                          styles.emptyStateButton,
-                          { backgroundColor: colors.primary },
-                        ]}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="add" size={16} color="white" />
-                        <Text style={styles.emptyStateButtonText}>
-                          Add Account
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    sortedAccounts.map((account) => (
-                      <TouchableOpacity
-                        key={account.id}
-                        style={[
-                          styles.enhancedAccountItem,
-                          selectedBank === account.name &&
-                            styles.selectedAccountItem,
-                        ]}
-                        activeOpacity={0.7}
-                        onPress={() =>
-                          setSelectedBank(
-                            selectedBank === account.name ? null : account.name
-                          )
-                        }
-                      >
-                        <View style={styles.accountItemHeader}>
-                          <View style={styles.accountNameSection}>
-                            <View
-                              style={{
-                                width: 24,
-                                height: 24,
-                                borderRadius: 12,
-                                backgroundColor: account.color,
-                                justifyContent: "center",
-                                alignItems: "center",
-                                marginRight: 6,
-                              }}
-                            >
-                              <Ionicons
-                                name={account.icon as any}
-                                size={14}
-                                color="white"
-                              />
-                            </View>
-                            <Text
-                              style={[
-                                styles.accountName,
-                                { color: colors.text },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {account.name}
-                            </Text>
-                          </View>
-                          <Text
-                            style={[
-                              styles.accountBalance,
-                              { color: colors.text },
-                            ]}
-                          >
-                            ₹{(account.balance / 1000).toFixed(1)}K
-                          </Text>
-                          <View style={styles.accountPercentage}>
-                            <Text
-                              style={[
-                                styles.percentageText,
-                                { color: account.color },
-                              ]}
-                            >
-                              {account.percentage}%
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View style={styles.percentageBarContainer}>
-                          <View
-                            style={[
-                              styles.percentageBar,
-                              {
-                                width: `${account.percentage}%`,
-                                backgroundColor: account.color,
-                                opacity:
-                                  selectedBank === account.name ? 1 : 0.7,
-                              },
-                            ]}
-                          />
-                        </View>
-
-                        {selectedBank === account.name && (
-                          <View style={styles.quickActions}>
-                            <TouchableOpacity style={styles.actionButton}>
-                              <Ionicons
-                                name="eye-outline"
-                                size={16}
-                                color={colors.primary}
-                              />
-                              <Text
-                                style={[
-                                  styles.actionText,
-                                  { color: colors.primary },
-                                ]}
-                              >
-                                View
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionButton}>
-                              <Ionicons
-                                name="arrow-up-outline"
-                                size={16}
-                                color={colors.primary}
-                              />
-                              <Text
-                                style={[
-                                  styles.actionText,
-                                  { color: colors.primary },
-                                ]}
-                              >
-                                Transfer
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionButton}>
-                              <Ionicons
-                                name="pencil-outline"
-                                size={16}
-                                color={colors.primary}
-                              />
-                              <Text
-                                style={[
-                                  styles.actionText,
-                                  { color: colors.primary },
-                                ]}
-                              >
-                                Edit
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-
-                <View style={styles.distributionFooter}>
-                  <TouchableOpacity style={styles.footerButton}>
-                    <Ionicons
-                      name="arrow-down-circle-outline"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text
-                      style={[
-                        styles.footerButtonText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Export
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.sortContainer}>
-                    <Text
-                      style={[
-                        styles.sortLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Sort by:
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.sortButton}
-                      onPress={() =>
-                        setSortOrder(sortOrder === "desc" ? "asc" : "desc")
-                      }
-                    >
                       <Text
-                        style={[styles.sortButtonText, { color: colors.text }]}
+                        style={[
+                          styles.accountListHeaderText,
+                          { color: colors.textSecondary },
+                        ]}
                       >
                         Balance
                       </Text>
+                      <Text
+                        style={[
+                          styles.accountListHeaderText,
+                          { color: colors.textSecondary, textAlign: "right" },
+                        ]}
+                      >
+                        Share
+                      </Text>
+                    </View>
+
+                    {accounts.length === 0 ? (
+                      <View style={styles.emptyStateContainer}>
+                        <View style={styles.emptyStateIcon}>
+                          <Ionicons
+                            name="wallet-outline"
+                            size={32}
+                            color={`${colors.primary}80`}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.emptyStateTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          No accounts yet
+                        </Text>
+                        <Text
+                          style={[
+                            styles.emptyStateMessage,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Add your first bank account to start tracking your
+                          finances
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.emptyStateButton,
+                            { backgroundColor: colors.primary },
+                          ]}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="add" size={16} color="white" />
+                          <Text style={styles.emptyStateButtonText}>
+                            Add Account
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      sortedAccounts.map((account) => (
+                        <TouchableOpacity
+                          key={account.id}
+                          style={[
+                            styles.enhancedAccountItem,
+                            selectedBank === account.name &&
+                              styles.selectedAccountItem,
+                          ]}
+                          activeOpacity={0.7}
+                          onPress={() =>
+                            setSelectedBank(
+                              selectedBank === account.name
+                                ? null
+                                : account.name
+                            )
+                          }
+                        >
+                          <View style={styles.accountItemHeader}>
+                            <View style={styles.accountNameSection}>
+                              <View
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: 12,
+                                  backgroundColor: account.color,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  marginRight: 6,
+                                }}
+                              >
+                                <Ionicons
+                                  name={account.icon as any}
+                                  size={14}
+                                  color="white"
+                                />
+                              </View>
+                              <Text
+                                style={[
+                                  styles.accountName,
+                                  { color: colors.text },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {account.name}
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.accountBalance,
+                                { color: colors.text },
+                              ]}
+                            >
+                              ₹{(account.balance / 1000).toFixed(1)}K
+                            </Text>
+                            <View style={styles.accountPercentage}>
+                              <Text
+                                style={[
+                                  styles.percentageText,
+                                  { color: account.color },
+                                ]}
+                              >
+                                {account.percentage}%
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.percentageBarContainer}>
+                            <View
+                              style={[
+                                styles.percentageBar,
+                                {
+                                  width: `${account.percentage}%`,
+                                  backgroundColor: account.color,
+                                  opacity:
+                                    selectedBank === account.name ? 1 : 0.7,
+                                },
+                              ]}
+                            />
+                          </View>
+
+                          {selectedBank === account.name && (
+                            <View style={styles.quickActions}>
+                              <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons
+                                  name="eye-outline"
+                                  size={16}
+                                  color={colors.primary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.actionText,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  View
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons
+                                  name="arrow-up-outline"
+                                  size={16}
+                                  color={colors.primary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.actionText,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  Transfer
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons
+                                  name="pencil-outline"
+                                  size={16}
+                                  color={colors.primary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.actionText,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  Edit
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </View>
+
+                  <View style={styles.distributionFooter}>
+                    <TouchableOpacity style={styles.footerButton}>
                       <Ionicons
-                        name={
-                          sortOrder === "desc" ? "chevron-down" : "chevron-up"
-                        }
-                        size={14}
-                        color={colors.primary}
+                        name="arrow-down-circle-outline"
+                        size={16}
+                        color={colors.textSecondary}
                       />
+                      <Text
+                        style={[
+                          styles.footerButtonText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Export
+                      </Text>
                     </TouchableOpacity>
+
+                    <View style={styles.sortContainer}>
+                      <Text
+                        style={[
+                          styles.sortLabel,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Sort by:
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.sortButton}
+                        onPress={() =>
+                          setSortOrder(sortOrder === "desc" ? "asc" : "desc")
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.sortButtonText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Balance
+                        </Text>
+                        <Ionicons
+                          name={
+                            sortOrder === "desc" ? "chevron-down" : "chevron-up"
+                          }
+                          size={14}
+                          color={colors.primary}
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          )}
+            )}
         </View>
 
         {/* Month Navigation - Using MonthlyChart Component */}
