@@ -12,6 +12,8 @@
     "test:csv-parser-simple": "ts-node scripts/testCSVParser.ts"
   },
   "dependencies": {
+    "@expo/metro-runtime": "^6.1.2",
+    "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5.2.1",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
@@ -27,17 +29,18 @@
     "csv-parser": "^3.2.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
-    "expo": "54.0.12",
+    "expo": "54.0.13",
     "expo-blur": "^15.0.7",
-    "expo-constants": "~18.0.0",
-    "expo-document-picker": "~14.0.0",
-    "expo-file-system": "~19.0.0",
-    "expo-image-picker": "~17.0.0",
+    "expo-constants": "~18.0.9",
+    "expo-document-picker": "~14.0.7",
+    "expo-file-system": "~19.0.17",
+    "expo-font": "~14.0.9",
+    "expo-image-picker": "~17.0.8",
     "expo-linear-gradient": "~15.0.7",
-    "expo-linking": "~8.0.0",
+    "expo-linking": "~8.0.8",
     "expo-location": "~19.0.7",
-    "expo-router": "~6.0.0",
-    "expo-secure-store": "~15.0.0",
+    "expo-router": "~6.0.12",
+    "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~3.0.8",
     "lucide-react-native": "^0.535.0",
     "openai": "^5.12.2",
@@ -62,18 +65,38 @@
     "react-native-tab-view": "^4.1.3",
     "react-native-toast-message": "^2.3.3",
     "react-native-web": "^0.21.0",
-    "typescript": "^5.8.3",
+    "react-native-worklets": "0.5.1",
+    "typescript": "~5.9.2",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@types/jest": "^30.0.0",
+    "@types/jest": "29.5.14",
     "ansi-regex": "^5.0.1",
     "babel-plugin-module-resolver": "^5.0.2",
     "strip-ansi": "^6.0.1",
     "ts-node": "^10.9.2",
     "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "react-native": "0.81.4",
+      "@tamagui/config>react-native": "0.81.4",
+      "@tamagui/animations-css>react-native": "0.81.4",
+      "@tamagui/helpers>react-native": "0.81.4",
+      "@tamagui/use-element-layout>react-native": "0.81.4",
+      "@tamagui/use-event>react-native": "0.81.4"
+    }
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-fs"
+        ]
+      }
+    }
   },
   "private": true
 }
