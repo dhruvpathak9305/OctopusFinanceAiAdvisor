@@ -10,7 +10,7 @@
 SELECT * FROM validate_bulk_transactions('
 [
   {
-    "user_id": "YOUR_USER_UUID",
+    "user_id": "6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
     "name": "Test Transaction",
     "amount": 100.00,
     "type": "expense",
@@ -29,7 +29,7 @@ SELECT * FROM validate_bulk_transactions('
 SELECT * FROM detect_duplicate_transactions('
 [
   {
-    "user_id": "YOUR_USER_UUID",
+    "user_id": "6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
     "name": "Amazon Purchase",
     "description": "UPI/Amazon/Payment",
     "amount": 1549.00,
@@ -37,7 +37,7 @@ SELECT * FROM detect_duplicate_transactions('
     "type": "expense",
     "source_account_type": "bank"
   }
-]'::jsonb, 'YOUR_USER_UUID'::uuid);
+]'::jsonb, '6679ae58-a6fb-4d2f-8f23-dd7fafe973d9'::uuid);
 
 -- Expected output:
 -- duplicate_count | duplicates
@@ -50,7 +50,7 @@ SELECT * FROM detect_duplicate_transactions('
 SELECT * FROM bulk_insert_transactions('
 [
   {
-    "user_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "user_id": "6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
     "name": "Amazon Purchase",
     "description": "UPI/Amazon/401234567890/Payment",
     "amount": 1549.00,
@@ -82,7 +82,7 @@ SELECT * FROM bulk_insert_transactions('
     }
   },
   {
-    "user_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "user_id": "6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
     "name": "Salary Credit",
     "description": "NEFT CR-HDFC0003861-Company Name-Salary for Sep",
     "amount": 75000.00,

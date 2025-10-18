@@ -16,7 +16,7 @@ Each transaction object should have the following structure:
 
 ```json
 {
-  "user_id": "YOUR_USER_UUID_HERE",
+  "user_id": "6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
   "name": "Transaction Name/Title",
   "description": "Full bank narration/details (optional)",
   "amount": 1549.00,
@@ -56,7 +56,7 @@ Each transaction object should have the following structure:
 
 | Field                  | Type    | Description                                                     | Example Values                       |
 | ---------------------- | ------- | --------------------------------------------------------------- | ------------------------------------ |
-| `user_id`              | UUID    | My user ID (I'll provide this)                                  | `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"` |
+| `user_id`              | UUID    | My user ID (already set)                                        | `"6679ae58-a6fb-4d2f-8f23-dd7fafe973d9"` |
 | `name`                 | String  | Short transaction title (max 50 chars recommended)              | `"Amazon Purchase"`, `"Salary Credit"` |
 | `amount`               | Number  | **Always positive** (type determines debit/credit)              | `1549.00`, `75000.00`                |
 | `type`                 | String  | Transaction type (see below)                                    | `"expense"`, `"income"`, `"transfer"` |

@@ -1,11 +1,12 @@
 {
-  "user_id": "YOUR_USER_UUID_HERE",
+  "user_id": "6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
   "accounts": [
     {
       "bank_name": "ICICI",
-      "account_id": "ACCOUNT_UUID_1",
+      "account_id": "fd551095-58a9-4f12-b00e-2fd182e68403",
       "account_name": "ICICI Savings Account",
-      "account_number_last_4": "1234",
+      "account_number": "388101502899",
+      "account_number_last_4": "2899",
       "account_type": "bank",
       "default_source_account_type": "bank",
       "notes": "Primary salary account"
@@ -85,18 +86,18 @@
   },
   "instructions": {
     "how_to_use": [
-      "1. Replace YOUR_USER_UUID_HERE with your actual Supabase user UUID",
-      "2. Get your user UUID from Supabase Auth dashboard or by running: SELECT id FROM auth.users WHERE email = 'your@email.com'",
-      "3. For each bank account, create an entry in accounts_real table first",
-      "4. Get the account UUIDs from Supabase: SELECT id, name FROM accounts_real WHERE user_id = 'YOUR_USER_UUID'",
-      "5. Update the account_id fields in this mapping file",
+      "1. ✅ User UUID is already set: 6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
+      "2. ✅ ICICI account ID is already set: fd551095-58a9-4f12-b00e-2fd182e68403",
+      "3. For additional bank accounts, create entries in accounts_real table first",
+      "4. Get the account UUIDs from Supabase: SELECT id, name FROM accounts_real WHERE user_id = '6679ae58-a6fb-4d2f-8f23-dd7fafe973d9'",
+      "5. Update the account_id fields in this mapping file for other banks (HDFC, AXIS, SBI)",
       "6. Optionally, get category/subcategory UUIDs for auto-categorization",
       "7. Use this mapping when preparing the ChatGPT prompt"
     ],
     "sql_to_get_user_id": "SELECT id FROM auth.users WHERE email = 'your@email.com';",
-    "sql_to_get_accounts": "SELECT id, name, type FROM accounts_real WHERE user_id = 'YOUR_USER_UUID';",
-    "sql_to_get_categories": "SELECT id, name FROM budget_categories_real WHERE user_id = 'YOUR_USER_UUID';",
-    "sql_to_get_subcategories": "SELECT id, name, category_id FROM budget_subcategories_real WHERE user_id = 'YOUR_USER_UUID';"
+    "sql_to_get_accounts": "SELECT id, name, type FROM accounts_real WHERE user_id = '6679ae58-a6fb-4d2f-8f23-dd7fafe973d9';",
+    "sql_to_get_categories": "SELECT id, name FROM budget_categories_real WHERE user_id = '6679ae58-a6fb-4d2f-8f23-dd7fafe973d9';",
+    "sql_to_get_subcategories": "SELECT id, name, category_id FROM budget_subcategories_real WHERE user_id = '6679ae58-a6fb-4d2f-8f23-dd7fafe973d9';"
   }
 }
 
