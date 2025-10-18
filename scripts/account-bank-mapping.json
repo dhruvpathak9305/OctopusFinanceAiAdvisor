@@ -1,0 +1,102 @@
+{
+  "user_id": "YOUR_USER_UUID_HERE",
+  "accounts": [
+    {
+      "bank_name": "ICICI",
+      "account_id": "ACCOUNT_UUID_1",
+      "account_name": "ICICI Savings Account",
+      "account_number_last_4": "1234",
+      "account_type": "bank",
+      "default_source_account_type": "bank",
+      "notes": "Primary salary account"
+    },
+    {
+      "bank_name": "HDFC",
+      "account_id": "ACCOUNT_UUID_2",
+      "account_name": "HDFC Current Account",
+      "account_number_last_4": "5678",
+      "account_type": "bank",
+      "default_source_account_type": "bank",
+      "notes": "Business transactions"
+    },
+    {
+      "bank_name": "AXIS",
+      "account_id": "ACCOUNT_UUID_3",
+      "account_name": "AXIS Joint Account",
+      "account_number_last_4": "9012",
+      "account_type": "bank",
+      "default_source_account_type": "bank",
+      "notes": "Joint account with spouse"
+    },
+    {
+      "bank_name": "SBI",
+      "account_id": "ACCOUNT_UUID_4",
+      "account_name": "SBI Savings Account",
+      "account_number_last_4": "3456",
+      "account_type": "bank",
+      "default_source_account_type": "bank",
+      "notes": "Emergency fund account"
+    },
+    {
+      "bank_name": "ICICI Credit Card",
+      "account_id": "ACCOUNT_UUID_5",
+      "account_name": "ICICI Amazon Pay Credit Card",
+      "account_number_last_4": "7890",
+      "account_type": "credit_card",
+      "default_source_account_type": "credit_card",
+      "notes": "Primary credit card"
+    },
+    {
+      "bank_name": "HDFC Credit Card",
+      "account_id": "ACCOUNT_UUID_6",
+      "account_name": "HDFC Regalia Credit Card",
+      "account_number_last_4": "2345",
+      "account_type": "credit_card",
+      "default_source_account_type": "credit_card",
+      "notes": "Travel and dining"
+    }
+  ],
+  "category_mapping": {
+    "Salary": {
+      "category_id": "CATEGORY_UUID_INCOME",
+      "subcategory_id": "SUBCATEGORY_UUID_SALARY",
+      "keywords": ["NEFT", "SALARY", "IMPS", "RTGS", "CREDIT"]
+    },
+    "Shopping": {
+      "category_id": "CATEGORY_UUID_SHOPPING",
+      "subcategory_id": "SUBCATEGORY_UUID_ONLINE",
+      "keywords": ["AMAZON", "FLIPKART", "MYNTRA", "AJIO"]
+    },
+    "Food & Dining": {
+      "category_id": "CATEGORY_UUID_FOOD",
+      "subcategory_id": "SUBCATEGORY_UUID_RESTAURANTS",
+      "keywords": ["SWIGGY", "ZOMATO", "RESTAURANT", "CAFE"]
+    },
+    "Bills & Utilities": {
+      "category_id": "CATEGORY_UUID_BILLS",
+      "subcategory_id": "SUBCATEGORY_UUID_ELECTRICITY",
+      "keywords": ["ELECTRICITY", "WATER", "GAS", "BROADBAND", "MOBILE"]
+    },
+    "UPI Payments": {
+      "category_id": "CATEGORY_UUID_MISC",
+      "subcategory_id": "SUBCATEGORY_UUID_UPI",
+      "keywords": ["UPI", "PAYTM", "GPAY", "PHONEPE"]
+    }
+  },
+  "instructions": {
+    "how_to_use": [
+      "1. Replace YOUR_USER_UUID_HERE with your actual Supabase user UUID",
+      "2. Get your user UUID from Supabase Auth dashboard or by running: SELECT id FROM auth.users WHERE email = 'your@email.com'",
+      "3. For each bank account, create an entry in accounts_real table first",
+      "4. Get the account UUIDs from Supabase: SELECT id, name FROM accounts_real WHERE user_id = 'YOUR_USER_UUID'",
+      "5. Update the account_id fields in this mapping file",
+      "6. Optionally, get category/subcategory UUIDs for auto-categorization",
+      "7. Use this mapping when preparing the ChatGPT prompt"
+    ],
+    "sql_to_get_user_id": "SELECT id FROM auth.users WHERE email = 'your@email.com';",
+    "sql_to_get_accounts": "SELECT id, name, type FROM accounts_real WHERE user_id = 'YOUR_USER_UUID';",
+    "sql_to_get_categories": "SELECT id, name FROM budget_categories_real WHERE user_id = 'YOUR_USER_UUID';",
+    "sql_to_get_subcategories": "SELECT id, name, category_id FROM budget_subcategories_real WHERE user_id = 'YOUR_USER_UUID';"
+  }
+}
+
