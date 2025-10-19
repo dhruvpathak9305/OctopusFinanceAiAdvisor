@@ -1,0 +1,42 @@
+[
+  {
+    "user_id": "6679ae58-a6fb-4d2f-8f23-dd7fafe973d9",
+    "account_id": "fd551095-58a9-4f12-b00e-2fd182e68403",
+    "deposit_number": "388113E+11",
+    "deposit_name": "ICICI Fixed Deposit - 15 Months",
+    "principal_amount": 500000.00,
+    "interest_rate": 7.25,
+    "interest_type": "simple",
+    "interest_payout_frequency": "quarterly",
+    "period_months": 15,
+    "opening_date": "2024-08-09",
+    "maturity_date": "2025-08-12",
+    "maturity_amount": 546985.00,
+    "current_value": 520714.00,
+    "interest_accrued": 20714.00,
+    "status": "active",
+    "auto_renewal": false,
+    "nomination_status": "registered",
+    "nominee_name": null,
+    "nominee_relationship": null,
+    "institution": "ICICI Bank",
+    "branch_name": "Lucknow, Uttar Pradesh",
+    "linked_account_number": "XXXXXXXXX2899",
+    "premature_withdrawal_penalty": 1.00,
+    "tds_applicable": true,
+    "tds_deducted": 0,
+    "metadata": {
+      "statement_period": "September 2025",
+      "customer_id": "XXXXXX7947",
+      "customer_name": "MR.DHRUV PATHAK",
+      "address": "E - 146 NEAR INDIRA PARKSECTOR -B ALIGANJ, LUCKNOW, UTTAR PRADESH-INDIA - 226024",
+      "linked_payback_number": "My Savings REWARD",
+      "ifsc_code": "ICIC0003881",
+      "micr_code": "700229137",
+      "account_relationship_manager": "",
+      "upload_source": "chatgpt_bulk_upload",
+      "upload_date": "2025-10-18"
+    }
+  }
+]
+
