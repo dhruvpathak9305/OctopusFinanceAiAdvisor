@@ -35,11 +35,28 @@ npm run web
 
 ## 📖 Documentation
 
-- **[Setup Guide](SETUP.md)** - Complete installation and configuration
-- **[Features](FEATURES.md)** - Detailed feature overview
-- **[Bank Statement Guide](BANK_STATEMENT_FORMATS_GUIDE.md)** - Supported CSV formats
-- **[Styling Guide](STYLING_GUIDE.md)** - UI theming and components
-- **[Balance System Guide](BALANCE_SYSTEM_MASTER_GUIDE.md)** - Database balance calculations
+### 🚀 Quick Access
+- **[📚 Complete Documentation Index](docs/README.md)** - All documentation organized by category
+- **[📊 Transaction Upload Guide](docs/guides/TRANSACTION_UPLOAD_MASTER_GUIDE.md)** - Upload any bank statement
+- **[🏦 Account Mapping](ACCOUNT_MAPPING.json)** - Bank account IDs reference
+- **[📈 Upload Status](docs/reference/UPLOAD_STATUS.md)** - Current upload status
+
+### 📁 Documentation Structure
+```
+docs/
+├── guides/              # Step-by-step tutorials (setup, uploads, features)
+├── uploads/             # Monthly upload documentation
+├── verification/        # Upload verification reports
+├── archives/            # Completed sessions and summaries
+├── reference/           # Schemas, features, and references
+└── README.md           # Complete documentation index
+```
+
+### 🎯 Essential Guides
+- **[Setup Guide](SETUP.md)** - Initial installation and configuration
+- **[Database Setup](docs/guides/DATABASE_SETUP_GUIDE.md)** - Database configuration
+- **[Features Overview](docs/reference/FEATURES.md)** - Complete feature list
+- **[Execution Guide](docs/guides/COMPLETE_EXECUTION_GUIDE.md)** - System deployment
 
 ## 🛠️ Tech Stack
 

@@ -35,6 +35,18 @@ yarn-error.*
 # .env
 # config/database.env
 # config/secrets.env
+# README_CREDENTIALS.md
+
+# # Database connection scripts with credentials
+# scripts/db-connect.sh
+# scripts/quick-connect.sh
+
+# # Sensitive data files (keep .example versions)
+# *_ENHANCED.json
+# transactions_*.json
+# account_statement_*.json
+# fixed_deposits_*.json
+# merchants_*.json
 
 # typescript
 *.tsbuildinfo
