@@ -8,13 +8,13 @@
 
 ## 📊 Upload Summary
 
-| Month | Transactions | Amount | Status | Documentation |
-|-------|--------------|--------|--------|---------------|
-| _No uploads yet_ | - | - | ⏳ | - |
+| Month | Transactions | Income | Expense | Net | Status | Documentation |
+|-------|--------------|--------|---------|-----|--------|---------------|
+| **2025-09 (September)** | 44 | ₹114,604.00 | ₹58,187.14 | +₹56,416.86 | ✅ | [View](2025-09-September/) |
 
-**Total Uploads:** 0  
-**Last Upload:** N/A  
-**Next Expected:** When statement available
+**Total Uploads:** 1 month (44 transactions)  
+**Last Upload:** October 20, 2025 (September 2025)  
+**Current Balance:** ₹61,061.82 (as of Sep 30, 2025)
 
 ---
 
@@ -29,13 +29,14 @@ YYYY-MM-MonthName/
 ```
 
 ### Available Uploads
-No uploads yet. Ready for first statement upload.
+- ✅ **2025-09-September/** - 44 transactions (Complete month)
 
 ---
 
 ## 🎯 Next Upload
 
-**Status:** ⏳ Awaiting bank statement  
+**Status:** ✅ 1 month uploaded  
+**Next Expected:** October 2025 or other months  
 **When Ready:** Follow `TRANSACTION_UPLOAD_MASTER_GUIDE.md`  
 **Templates:** Available in `../_templates/`
 
@@ -44,16 +45,20 @@ No uploads yet. Ready for first statement upload.
 ## 📝 Account Details
 
 **Bank:** IDFC FIRST Bank  
-**Account Number:** ****[Last 4]  
+**Account Number:** 10167677504 (last 4: 7504)  
 **Account ID:** `328c756a-b05e-4925-a9ae-852f7fb18b4e`  
+**Customer ID:** 5734305184  
 **Currency:** INR  
-**Branch:** [Branch Name]
+**Branch:** LUCKNOW - MUNSHIPULIA BRANCH  
+**IFSC:** I0FB0001335  
+**MICR:** 226607001  
+**Nominee:** Pushpa Pathak (Registered)
 
 ---
 
-## 🚀 First Upload Instructions
+## 🚀 Upload New Month Instructions
 
-When ready to upload your first IDFC FIRST Bank statement:
+When ready to upload another IDFC FIRST Bank statement:
 
 1. **Create month folder:**
    ```bash
@@ -79,6 +84,14 @@ When ready to upload your first IDFC FIRST Bank statement:
 
 ---
 
+## 📈 Balance History
+
+| Month | Opening | Closing | Change |
+|-------|---------|---------|--------|
+| Sept 2025 | ₹8,333.85 | ₹61,061.82 | +₹52,727.97 |
+
+---
+
 **Last Updated:** October 20, 2025  
-**Status:** ✅ Ready for first upload
+**Status:** ✅ September 2025 uploaded, ready for more
 
