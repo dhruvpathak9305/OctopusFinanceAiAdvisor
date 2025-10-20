@@ -877,3 +877,164 @@ export const deleteTransaction = async (
     throw error;
   }
 };
+
+/**
+ * Fetch transactions for a specific account with single-entry transfer system support.
+ * This handles both:
+ * - Transactions where the account is the SOURCE (outgoing: expenses, transfers out, income)
+ * - Transfers where the account is the DESTINATION (incoming transfers)
+ * 
+ * @param accountId - The account ID to fetch transactions for
+ * @param isDemo - Whether to use demo tables
+ * @returns Combined array of transactions with direction indicator
+ */
+export const fetchAccountTransactions = async (
+  accountId: string,
+  isDemo: boolean = false
+): Promise<(Transaction & { direction: 'outgoing' | 'incoming' })[]> => {
+  try {
+    const tableMap = getTableMapping(isDemo);
+    const selectQuery = buildTransactionSelectQuery(tableMap);
+
+    // 1. Get transactions where account is SOURCE (all types)
+    const { data: sourceTransactions, error: sourceError } = await (supabase as any)
+      .from(tableMap.transactions)
+      .select(selectQuery)
+      .eq("source_account_id", accountId)
+      .order("date", { ascending: false });
+
+    if (sourceError) {
+      console.error("Error fetching source transactions:", sourceError);
+      throw sourceError;
+    }
+
+    // 2. Get transfers where account is DESTINATION (incoming only)
+    const { data: destinationTransfers, error: destError } = await (supabase as any)
+      .from(tableMap.transactions)
+      .select(selectQuery)
+      .eq("destination_account_id", accountId)
+      .eq("type", "transfer")  // Only transfers have destination accounts
+      .order("date", { ascending: false });
+
+    if (destError) {
+      console.error("Error fetching destination transfers:", destError);
+      throw destError;
+    }
+
+    // 3. Combine and mark direction
+    const sourceWithDirection = (sourceTransactions || []).map((tx: any) => ({
+      ...transformTransactionResponse(tx),
+      direction: 'outgoing' as const
+    }));
+
+    const destinationWithDirection = (destinationTransfers || []).map((tx: any) => ({
+      ...transformTransactionResponse(tx),
+      direction: 'incoming' as const
+    }));
+
+    // 4. Combine and sort by date
+    const allTransactions = [...sourceWithDirection, ...destinationWithDirection].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    console.log(
+      `✅ fetchAccountTransactions: Found ${sourceWithDirection.length} outgoing + ${destinationWithDirection.length} incoming = ${allTransactions.length} total transactions`
+    );
+
+    return allTransactions;
+  } catch (error) {
+    console.error("Error in fetchAccountTransactions:", error);
+    throw error;
+  }
+};
+
+/**
+ * Calculate the current balance for an account using single-entry transfer system.
+ * Formula:
+ * Balance = initial_balance 
+ *           + income (source)
+ *           - expenses (source)
+ *           - transfers OUT (source)
+ *           + transfers IN (destination)
+ * 
+ * @param accountId - The account ID to calculate balance for
+ * @param isDemo - Whether to use demo tables
+ * @returns The calculated current balance
+ */
+export const calculateAccountBalance = async (
+  accountId: string,
+  isDemo: boolean = false
+): Promise<number> => {
+  try {
+    const tableMap = getTableMapping(isDemo);
+
+    // 1. Get account's initial balance
+    const { data: account, error: accountError } = await (supabase as any)
+      .from(tableMap.accounts)
+      .select("initial_balance, current_balance")
+      .eq("id", accountId)
+      .single();
+
+    if (accountError) {
+      console.error("Error fetching account:", accountError);
+      throw accountError;
+    }
+
+    let calculatedBalance = parseFloat(account?.initial_balance || 0);
+
+    // 2. Get all transactions where this account is SOURCE
+    const { data: sourceTransactions, error: sourceError } = await (supabase as any)
+      .from(tableMap.transactions)
+      .select("type, amount")
+      .eq("source_account_id", accountId);
+
+    if (sourceError) {
+      console.error("Error fetching source transactions:", sourceError);
+      throw sourceError;
+    }
+
+    // 3. Apply source transactions
+    (sourceTransactions || []).forEach((tx: any) => {
+      const amount = parseFloat(tx.amount);
+      if (tx.type === "income") {
+        calculatedBalance += amount;  // Add income
+      } else {
+        calculatedBalance -= amount;  // Subtract expenses/transfers
+      }
+    });
+
+    // 4. Get all transfers where this account is DESTINATION
+    const { data: incomingTransfers, error: destError } = await (supabase as any)
+      .from(tableMap.transactions)
+      .select("amount")
+      .eq("destination_account_id", accountId)
+      .eq("type", "transfer");
+
+    if (destError) {
+      console.error("Error fetching incoming transfers:", destError);
+      throw destError;
+    }
+
+    // 5. Add incoming transfers
+    (incomingTransfers || []).forEach((tx: any) => {
+      const amount = parseFloat(tx.amount);
+      calculatedBalance += amount;  // Add incoming transfers
+    });
+
+    console.log(
+      `💰 Balance calculation for ${accountId}:`,
+      {
+        initial: account?.initial_balance,
+        calculated: calculatedBalance,
+        stored: account?.current_balance,
+        sourceCount: sourceTransactions?.length || 0,
+        incomingCount: incomingTransfers?.length || 0
+      }
+    );
+
+    return calculatedBalance;
+  } catch (error) {
+    console.error("Error in calculateAccountBalance:", error);
+    throw error;
+  }
+};

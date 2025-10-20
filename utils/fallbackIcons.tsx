@@ -50,7 +50,7 @@ export const getFallbackIconConfig = (
   switch (normalizedType) {
     case "income":
       return {
-        icon: <ArrowUpRight size={22} color="#FFFFFF" strokeWidth={2.5} />, // White arrow up-right with thicker stroke
+        icon: <ArrowDownLeft size={22} color="#FFFFFF" strokeWidth={2.5} />, // White arrow down-left (money coming IN)
         emoji: "💰", // Money bag emoji for income
         borderColor: baseColor, // Green border
         backgroundColor: baseColor, // Green background for icon
@@ -59,7 +59,7 @@ export const getFallbackIconConfig = (
 
     case "expense":
       return {
-        icon: <ArrowDownLeft size={22} color="#FFFFFF" strokeWidth={2.5} />, // White arrow down-left with thicker stroke
+        icon: <ArrowUpRight size={22} color="#FFFFFF" strokeWidth={2.5} />, // White arrow up-right (money going OUT)
         emoji: "💸", // Money with wings emoji for expenses
         borderColor: baseColor, // Red border
         backgroundColor: baseColor, // Red background for icon
@@ -78,7 +78,7 @@ export const getFallbackIconConfig = (
     default:
       // Default to expense for unknown types
       return {
-        icon: <ArrowDownLeft size={22} color="#FFFFFF" strokeWidth={2.5} />,
+        icon: <ArrowUpRight size={22} color="#FFFFFF" strokeWidth={2.5} />, // Arrow up-right for expense
         emoji: "💸",
         borderColor: baseColors.expense,
         backgroundColor: baseColors.expense,
