@@ -550,43 +550,91 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
       let startDate = new Date();
       let endDate = new Date();
 
-      // Parse the filter (e.g., "Jun 2025" -> June 2025)
-      const filterMatch = selectedFilter.match(/(\w+)\s+(\d{4})/);
-      if (filterMatch) {
-        const monthName = filterMatch[1];
-        const year = parseInt(filterMatch[2]);
+      // Handle month name parsing
+      const monthNames = [
+        "jan",
+        "feb",
+        "mar",
+        "apr",
+        "may",
+        "jun",
+        "jul",
+        "aug",
+        "sep",
+        "oct",
+        "nov",
+        "dec",
+      ];
 
-        // Handle month name parsing more robustly
-        const monthNames = [
-          "jan",
-          "feb",
-          "mar",
-          "apr",
-          "may",
-          "jun",
-          "jul",
-          "aug",
-          "sep",
-          "oct",
-          "nov",
-          "dec",
-        ];
+      // Parse the filter - handle three formats:
+      // - "Oct 8 2025" (specific date, 3 parts)
+      // - "Oct 2025" (month range, 2 parts)
+      // - "2025" (entire year, 1 part)
+      const specificDateMatch = selectedFilter.match(/(\w+)\s+(\d{1,2})\s+(\d{4})/);
+      const monthRangeMatch = selectedFilter.match(/(\w+)\s+(\d{4})/);
+      const yearOnlyMatch = selectedFilter.match(/^(\d{4})$/);
+      
+      if (specificDateMatch) {
+        // Format: "Oct 8 2025" - filter to specific date
+        const monthName = specificDateMatch[1];
+        const day = parseInt(specificDateMatch[2]);
+        const year = parseInt(specificDateMatch[3]);
         const monthIndex = monthNames.indexOf(monthName.toLowerCase());
 
         if (monthIndex !== -1) {
-          startDate = new Date(year, monthIndex, 1);
-          endDate = new Date(year, monthIndex + 1, 0);
+          // Set both start and end to the same specific date
+          startDate = new Date(year, monthIndex, day, 0, 0, 0, 0);
+          endDate = new Date(year, monthIndex, day, 23, 59, 59, 999);
+          
+          console.log(
+            "📅 Filtering by specific date:",
+            `${monthName} ${day}, ${year}`
+          );
+        } else {
+          // Fallback to current day if parsing fails
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        }
+      } else if (monthRangeMatch) {
+        // Format: "Oct 2025" - filter to entire month
+        const monthName = monthRangeMatch[1];
+        const year = parseInt(monthRangeMatch[2]);
+        const monthIndex = monthNames.indexOf(monthName.toLowerCase());
+
+        if (monthIndex !== -1) {
+          startDate = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+          endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+          
+          console.log(
+            "📅 Filtering by month range:",
+            `${monthName} ${year}`
+          );
         } else {
           // Fallback to current month if month parsing fails
-          startDate.setMonth(now.getMonth());
-          startDate.setDate(1);
-          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        }
+      } else if (yearOnlyMatch) {
+        // Format: "2025" - filter to entire year
+        const year = parseInt(yearOnlyMatch[1]);
+        
+        if (!isNaN(year)) {
+          startDate = new Date(year, 0, 1, 0, 0, 0, 0); // January 1st
+          endDate = new Date(year, 11, 31, 23, 59, 59, 999); // December 31st
+          
+          console.log(
+            "📅 Filtering by entire year:",
+            `${year}`
+          );
+        } else {
+          // Fallback to current year
+          startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
         }
       } else {
         // Fallback to current month if filter parsing fails
-        startDate.setMonth(now.getMonth());
-        startDate.setDate(1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       }
 
       // Debug: Log the date range being used
