@@ -9,7 +9,8 @@
 -- TRANSACTION DATA
 -- ================================================
 
-SELECT * FROM bulk_insert_transactions_with_duplicate_check('[
+-- Using ENHANCED function with transfer duplicate prevention
+SELECT * FROM enhanced_bulk_insert_with_transfer_check('[
   {
     "user_id": "[USER_ID]",
     "name": "[TRANSACTION NAME]",

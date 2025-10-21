@@ -23,6 +23,7 @@ import DateSelectorWithNavigation from "../../components/DateSelectorWithNavigat
 import SearchModal from "../../components/SearchModal";
 import QuickAddButton from "../../components/QuickAddButton";
 import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
+import { useRealAccountsData } from "../MobileAccounts/useRealAccountsData";
 
 interface MobileTransactionsProps {
   className?: string;
@@ -55,6 +56,11 @@ interface Transaction {
   category_ring_color?: string | null;
   category_bg_color?: string | null;
   subcategory_color?: string | null;
+  // Account linking fields for filtering
+  source_account_id?: string | null;
+  source_account_name?: string | null;
+  destination_account_id?: string | null;
+  destination_account_name?: string | null;
 }
 
 // Define grouped transactions type
@@ -323,7 +329,12 @@ const transformSupabaseTransaction = (
       category_bg_color: categoryBgColor,
       subcategory_color: subcategoryColor,
       date: supabaseTransaction.date || new Date().toISOString().split("T")[0],
-    };
+      // CRITICAL: Preserve account IDs for account filtering
+      source_account_id: supabaseTransaction.source_account_id,
+      source_account_name: supabaseTransaction.source_account_name,
+      destination_account_id: supabaseTransaction.destination_account_id,
+      destination_account_name: supabaseTransaction.destination_account_name,
+    } as Transaction;
   } catch (error) {
     console.error(
       "Error transforming transaction:",
@@ -449,6 +460,10 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const { isDemo } = useDemoMode();
+  
+  // Fetch accounts data for filtering
+  const { accounts: realAccounts } = useRealAccountsData();
+  
   // Set default to current month
   const getCurrentMonthFilter = () => {
     const now = new Date();
@@ -471,6 +486,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
 
   const [selectedFilter, setSelectedFilter] = useState(getCurrentMonthFilter());
   const [selectedSort, setSelectedSort] = useState("Oldest First");
+  const [selectedAccount, setSelectedAccount] = useState("All Accounts");
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -597,8 +613,50 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         transformSupabaseTransaction
       );
 
-      // Apply sorting
-      let sortedTransactions = [...transformedTransactions];
+      // Apply account filtering first (if account is selected)
+      let accountFilteredTransactions = [...transformedTransactions];
+      if (selectedAccount && selectedAccount !== "All Accounts") {
+        // Find the selected account ID from realAccounts
+        const selectedAccountData = realAccounts.find(
+          (acc) => acc.name === selectedAccount
+        );
+        
+        if (selectedAccountData) {
+          console.log(
+            `🏦 Filtering by account: ${selectedAccount} (ID: ${selectedAccountData.id})`
+          );
+          
+          accountFilteredTransactions = transformedTransactions.filter((t) => {
+            // Match transactions where this account is the SOURCE (outgoing)
+            if (t.source_account_id === selectedAccountData.id) {
+              return true;
+            }
+            
+            // Match transactions where this account is the DESTINATION (incoming transfers only)
+            if (t.type === "transfer" && t.destination_account_id === selectedAccountData.id) {
+              return true;
+            }
+            
+            // Fallback: Match by account name or institution name
+            const transactionSource = t.source_account_name || t.source || "";
+            const accountNameMatch = 
+              transactionSource === selectedAccount ||
+              transactionSource.includes(selectedAccount) ||
+              selectedAccount.includes(transactionSource);
+            
+            return accountNameMatch;
+          });
+          
+          console.log(
+            `🏦 Account filter applied: ${transformedTransactions.length} → ${accountFilteredTransactions.length} transactions (including incoming transfers)`
+          );
+        } else {
+          console.warn(`⚠️ Account not found: ${selectedAccount}`);
+        }
+      }
+
+      // Apply sorting and type filtering
+      let sortedTransactions = [...accountFilteredTransactions];
       switch (selectedSort) {
         case "Newest First":
           sortedTransactions.sort(
@@ -650,7 +708,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedFilter, selectedSort, isDemo]);
+  }, [selectedFilter, selectedSort, selectedAccount, isDemo, realAccounts]);
 
   // Load transactions when component mounts or filters change
   useEffect(() => {
@@ -776,18 +834,27 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
     };
   }, [isConfirmationMode, fetchTransactionsData]);
 
-  // Calculate summary data
-  const summaryData = {
-    income: transactions
+  // Calculate summary data (excluding transfers)
+  const summaryData = (() => {
+    const income = transactions
       .filter((t) => t && t.type === "income")
-      .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0),
-    expenses: transactions
+      .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+    
+    const expenses = transactions
       .filter((t) => t && t.type === "expense")
-      .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0),
-    net: transactions
-      .filter((t) => t)
-      .reduce((sum, t) => sum + (t.amount || 0), 0),
-  };
+      .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+    
+    // Net = Income - Expenses (transfers are excluded)
+    const net = income - expenses;
+    
+    const transfersCount = transactions.filter((t) => t && t.type === "transfer").length;
+    
+    if (transfersCount > 0) {
+      console.log(`💰 Summary: Income=₹${income.toFixed(2)}, Expenses=₹${expenses.toFixed(2)}, Net=₹${net.toFixed(2)} (${transfersCount} transfers excluded)`);
+    }
+    
+    return { income, expenses, net };
+  })();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -1297,29 +1364,43 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
             </Text>
           </View>
         ) : (
-          <View style={styles.filtersRow}>
-            <DateSelectorWithNavigation
-              value={selectedFilter}
-              onValueChange={handleFilterChange}
-              placeholder="Select month"
-              showNavigationButtons={true}
-            />
-            <Dropdown
-              value={selectedSort}
-              options={[
-                "Oldest First",
-                "Newest First",
-                "Largest Amount",
-                "Smallest Amount",
-                "Transfer",
-                "Income",
-                "Expense",
-                "ALL",
-              ]}
-              onValueChange={handleSortChange}
-              placeholder="Sort by"
-            />
-          </View>
+          <>
+            <View style={styles.filtersRow}>
+              <DateSelectorWithNavigation
+                value={selectedFilter}
+                onValueChange={handleFilterChange}
+                placeholder="Select month"
+                showNavigationButtons={true}
+              />
+              <Dropdown
+                value={selectedSort}
+                options={[
+                  "Oldest First",
+                  "Newest First",
+                  "Largest Amount",
+                  "Smallest Amount",
+                  "Transfer",
+                  "Income",
+                  "Expense",
+                  "ALL",
+                ]}
+                onValueChange={handleSortChange}
+                placeholder="Sort by"
+              />
+            </View>
+            {/* Account Filter Row */}
+            <View style={styles.accountFilterRow}>
+              <Dropdown
+                value={selectedAccount}
+                options={[
+                  "All Accounts",
+                  ...realAccounts.map((acc) => acc.name),
+                ]}
+                onValueChange={setSelectedAccount}
+                placeholder="Filter by account"
+              />
+            </View>
+          </>
         )}
       </View>
 
@@ -1369,6 +1450,12 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
             </Text>
           </View>
         </View>
+        {/* Transfer exclusion note */}
+        {transactions.filter((t) => t.type === "transfer").length > 0 && (
+          <Text style={[styles.transferNote, { color: colors.textSecondary }]}>
+            🔄 {transactions.filter((t) => t.type === "transfer").length} transfer(s) excluded from totals
+          </Text>
+        )}
       </View>
 
       {/* Transactions List */}
@@ -1514,6 +1601,12 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
                           ? styles.transactionItemSelected
                           : undefined
                       }
+                      selectedAccountId={
+                        selectedAccount !== "All Accounts"
+                          ? realAccounts.find((acc) => acc.name === selectedAccount)?.id
+                          : null
+                      }
+                      isAllAccounts={selectedAccount === "All Accounts"}
                     />
                   </View>
                 );
@@ -1684,6 +1777,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
+  accountFilterRow: {
+    flexDirection: "row",
+    marginTop: 8,
+  },
   dropdownContainer: {
     flex: 1,
     position: "relative",
@@ -1775,6 +1872,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     textAlign: "center",
+  },
+  transferNote: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 8,
+    opacity: 0.8,
   },
   transactionsContainer: {
     flex: 1,

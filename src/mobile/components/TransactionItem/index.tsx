@@ -35,6 +35,9 @@ interface TransactionItemProps {
     subcategory_color?: string | null;
     category_ring_color?: string | null;
     category_bg_color?: string | null;
+    // Account linking fields for transfer direction
+    source_account_id?: string | null;
+    destination_account_id?: string | null;
   };
 
   /**
@@ -72,6 +75,16 @@ interface TransactionItemProps {
    * Optional style overrides
    */
   style?: any;
+
+  /**
+   * Selected account ID (for transfer direction)
+   */
+  selectedAccountId?: string | null;
+
+  /**
+   * Whether "All Accounts" is selected
+   */
+  isAllAccounts?: boolean;
 }
 
 /**
@@ -85,6 +98,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   isSelected = false,
   colors,
   style,
+  selectedAccountId,
+  isAllAccounts = false,
 }) => {
   // Format helpers
   const formatCurrency = (value: number | string) => {
@@ -120,6 +135,39 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
       subcategory,
       transaction.is_recurring ? "Recurring" : undefined,
     ].filter(Boolean) as string[]);
+
+  // Determine sign for amount display
+  const getAmountSign = () => {
+    // For "All Accounts", don't show any sign
+    if (isAllAccounts) {
+      return "";
+    }
+
+    // For expenses, always negative
+    if (transaction.type === "expense") {
+      return "-";
+    }
+
+    // For income, always positive
+    if (transaction.type === "income") {
+      return "+";
+    }
+
+    // For transfers, determine direction based on selected account
+    if (transaction.type === "transfer" && selectedAccountId) {
+      // Outgoing transfer (this account is source)
+      if (transaction.source_account_id === selectedAccountId) {
+        return "-";
+      }
+      // Incoming transfer (this account is destination)
+      if (transaction.destination_account_id === selectedAccountId) {
+        return "+";
+      }
+    }
+
+    // Default: positive for other cases
+    return "+";
+  };
 
   // Transaction color based on type
   const getTransactionColor = (type: string) => {
@@ -370,7 +418,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             { color: getTransactionColor(transaction.type) },
           ]}
         >
-          {transaction.type === "expense" ? "-" : "+"}
+          {getAmountSign()}
           {formatCurrency(transaction.amount)}
         </Text>
 
