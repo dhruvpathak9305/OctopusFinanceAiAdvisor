@@ -693,6 +693,11 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
             (t) => t.type === "transfer"
           );
           break;
+        case "Recurring":
+          sortedTransactions = sortedTransactions.filter(
+            (t) => t.tags && t.tags.includes("Recurring")
+          );
+          break;
         // 'ALL' case - no filtering needed
       }
 
@@ -1365,40 +1370,46 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
           </View>
         ) : (
           <>
-            <View style={styles.filtersRow}>
+            {/* Date Filter Row - Full Width */}
+            <View style={styles.dateFilterRow}>
               <DateSelectorWithNavigation
                 value={selectedFilter}
                 onValueChange={handleFilterChange}
                 placeholder="Select month"
                 showNavigationButtons={true}
               />
-              <Dropdown
-                value={selectedSort}
-                options={[
-                  "Oldest First",
-                  "Newest First",
-                  "Largest Amount",
-                  "Smallest Amount",
-                  "Transfer",
-                  "Income",
-                  "Expense",
-                  "ALL",
-                ]}
-                onValueChange={handleSortChange}
-                placeholder="Sort by"
-              />
             </View>
-            {/* Account Filter Row */}
-            <View style={styles.accountFilterRow}>
-              <Dropdown
-                value={selectedAccount}
-                options={[
-                  "All Accounts",
-                  ...realAccounts.map((acc) => acc.name),
-                ]}
-                onValueChange={setSelectedAccount}
-                placeholder="Filter by account"
-              />
+            {/* Account and Sort Filter Row - Split 50/50 */}
+            <View style={styles.splitFiltersRow}>
+              <View style={styles.filterHalf}>
+                <Dropdown
+                  value={selectedAccount}
+                  options={[
+                    "All Accounts",
+                    ...realAccounts.map((acc) => acc.name),
+                  ]}
+                  onValueChange={setSelectedAccount}
+                  placeholder="Filter by account"
+                />
+              </View>
+              <View style={styles.filterHalf}>
+                <Dropdown
+                  value={selectedSort}
+                  options={[
+                    "Oldest First",
+                    "Newest First",
+                    "Largest Amount",
+                    "Smallest Amount",
+                    "Transfer",
+                    "Income",
+                    "Expense",
+                    "Recurring",
+                    "ALL",
+                  ]}
+                  onValueChange={handleSortChange}
+                  placeholder="Sort by"
+                />
+              </View>
             </View>
           </>
         )}
@@ -1771,15 +1782,23 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 22, // Increased bottom padding to prevent overlap with summary cards
   },
-  filtersRow: {
+  dateFilterRow: {
+    flexDirection: "row",
+    width: "100%",
+    marginBottom: 8,
+  },
+  splitFiltersRow: {
     flexDirection: "row",
     gap: 12,
+    width: "100%",
+    marginBottom: 20, // Increased space below the filter row to prevent overlap
   },
-  accountFilterRow: {
-    flexDirection: "row",
-    marginTop: 8,
+  filterHalf: {
+    flex: 1,
+    minWidth: 0, // Prevent overflow
   },
   dropdownContainer: {
     flex: 1,
@@ -1850,7 +1869,8 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 0, // No top padding (filter row already has bottom margin)
+    paddingBottom: 12,
   },
   summaryRow: {
     flexDirection: "row",

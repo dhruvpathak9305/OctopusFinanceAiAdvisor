@@ -18,7 +18,7 @@ interface TransactionItemProps {
     name?: string;
     account?: string;
     source?: string;
-    source_account_name?: string;
+    source_account_name?: string | null;
     type: "income" | "expense" | "transfer";
     amount: number | string;
     category?: string;
@@ -138,11 +138,6 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
   // Determine sign for amount display
   const getAmountSign = () => {
-    // For "All Accounts", don't show any sign
-    if (isAllAccounts) {
-      return "";
-    }
-
     // For expenses, always negative
     if (transaction.type === "expense") {
       return "-";
@@ -153,15 +148,23 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
       return "+";
     }
 
-    // For transfers, determine direction based on selected account
-    if (transaction.type === "transfer" && selectedAccountId) {
-      // Outgoing transfer (this account is source)
-      if (transaction.source_account_id === selectedAccountId) {
-        return "-";
+    // For transfers:
+    if (transaction.type === "transfer") {
+      // When "All Accounts" is selected, don't show any sign for transfers
+      if (isAllAccounts) {
+        return "";
       }
-      // Incoming transfer (this account is destination)
-      if (transaction.destination_account_id === selectedAccountId) {
-        return "+";
+      
+      // When a specific account is selected, determine direction
+      if (selectedAccountId) {
+        // Outgoing transfer (this account is source)
+        if (transaction.source_account_id === selectedAccountId) {
+          return "-";
+        }
+        // Incoming transfer (this account is destination)
+        if (transaction.destination_account_id === selectedAccountId) {
+          return "+";
+        }
       }
     }
 
@@ -185,6 +188,14 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
   // Get tag color based on category
   const getTagColor = (tag: string) => {
+    // Special handling for "Recurring" tag - ensure visibility in both themes
+    if (tag?.toLowerCase() === "recurring") {
+      return {
+        background: isDark ? "#8B5CF630" : "#8B5CF650", // Purple with more opacity for light mode
+        text: isDark ? "#A78BFA" : "#6B21A8", // Light purple for dark mode, dark purple for light mode
+      };
+    }
+
     // First check if we have database colors available
     if (
       tag?.toLowerCase() === category?.toLowerCase() &&
@@ -275,6 +286,10 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
     transaction.icon
   );
 
+  // Determine if we're in dark mode based on the colors
+  // Dark mode typically has dark backgrounds and light text
+  const isDark = colors.text === "#FFFFFF" || colors.card === "#1F2937" || colors.card === "#0B1426";
+
   return (
     <TouchableOpacity
       style={[
@@ -294,10 +309,10 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             useFallback
               ? {
                   borderWidth: 2,
-                  borderColor: getFallbackIconConfig(transaction.type)
+                  borderColor: getFallbackIconConfig(transaction.type, isDark)
                     .borderColor,
                   backgroundColor: generateLighterBackground(
-                    getFallbackIconConfig(transaction.type).borderColor,
+                    getFallbackIconConfig(transaction.type, isDark).borderColor,
                     20
                   ),
                 }
@@ -313,7 +328,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         >
           {useFallback ? (
             // Use fallback icons based on transaction type
-            getFallbackIconConfig(transaction.type).icon
+            getFallbackIconConfig(transaction.type, isDark).icon
           ) : transaction.icon && typeof transaction.icon === "string" ? (
             // Check if it's a string that could be a Lucide icon name
             // This handles both capitalized and lowercase icon names
