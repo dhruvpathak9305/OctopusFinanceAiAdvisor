@@ -149,6 +149,7 @@ const MobileNetWorth: React.FC = () => {
   >([]);
   const [showAssetSubcategoryModal, setShowAssetSubcategoryModal] =
     useState(false);
+  const [subcategoryViewMode, setSubcategoryViewMode] = useState<"list" | "grid">("list");
 
   // Add Net Worth Entry Modal state
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
@@ -3923,6 +3924,25 @@ const MobileNetWorth: React.FC = () => {
                 {selectedLiability.name}
               </Text>
               <View style={styles.subcategoryHeaderActions}>
+                {/* View Toggle Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.viewToggleButton,
+                    { backgroundColor: `${colors.primary}20` },
+                  ]}
+                  onPress={() =>
+                    setSubcategoryViewMode((prev) =>
+                      prev === "list" ? "grid" : "list"
+                    )
+                  }
+                >
+                  <Ionicons
+                    name={subcategoryViewMode === "list" ? "grid" : "list"}
+                    size={18}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.subcategoryAddButton}
                   onPress={() =>
@@ -3999,115 +4019,225 @@ const MobileNetWorth: React.FC = () => {
               </View>
             </View>
 
-            {/* Subcategory List */}
+            {/* Subcategory List or Grid */}
             <ScrollView style={styles.subcategoryListContainer}>
-              {selectedAssetSubcategories.map((subcategory, index) => (
-                <View
-                  key={subcategory.id}
-                  style={[
-                    styles.enhancedSubcategoryCard,
-                    {
-                      backgroundColor: colors.card,
-                      shadowColor: colors.text,
-                      borderLeftColor: subcategory.color,
-                    },
-                  ]}
-                >
-                  {/* Single Row Layout: Badge + Icon + Info + Amount + Three Dots */}
-                  <View style={styles.cardSingleRow}>
-                    <View style={styles.cardNumberBadge}>
-                      <Text
-                        style={[
-                          styles.cardNumberText,
-                          { color: subcategory.color },
-                        ]}
-                      >
-                        #{index + 1}
-                      </Text>
-                    </View>
+              {subcategoryViewMode === "list" ? (
+                // LIST VIEW
+                <>
+                  {selectedAssetSubcategories.map((subcategory, index) => (
                     <View
+                      key={subcategory.id}
                       style={[
-                        styles.cardIcon,
+                        styles.enhancedSubcategoryCard,
                         {
-                          backgroundColor: `${subcategory.color}15`,
-                          borderWidth: 2,
-                          borderColor: `${subcategory.color}30`,
+                          backgroundColor: colors.card,
+                          shadowColor: colors.text,
+                          borderLeftColor: subcategory.color,
                         },
                       ]}
                     >
-                      <Ionicons
-                        name={subcategory.icon as any}
-                        size={24}
-                        color={subcategory.color}
-                      />
+                      {/* Single Row Layout: Badge + Icon + Info + Amount + Three Dots */}
+                      <View style={styles.cardSingleRow}>
+                        <View style={styles.cardNumberBadge}>
+                          <Text
+                            style={[
+                              styles.cardNumberText,
+                              { color: subcategory.color },
+                            ]}
+                          >
+                            #{index + 1}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.cardIcon,
+                            {
+                              backgroundColor: `${subcategory.color}15`,
+                              borderWidth: 2,
+                              borderColor: `${subcategory.color}30`,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={subcategory.icon as any}
+                            size={24}
+                            color={subcategory.color}
+                          />
+                        </View>
+                        <View style={styles.cardInfo}>
+                          <Text
+                            style={[styles.cardTitle, { color: colors.text }]}
+                            numberOfLines={1}
+                          >
+                            {subcategory.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.cardSubtitle,
+                              { color: colors.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {subcategory.isSystemCard
+                              ? `${subcategory.institution || "Unknown"}`
+                              : `${subcategory.bank}`}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.cardAccountDetails,
+                              { color: colors.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {subcategory.isSystemCard
+                              ? `${subcategory.account_type || "Account"} • ${
+                                  subcategory.account_number || "****"
+                                }`
+                              : `${subcategory.percentage.toFixed(
+                                  1
+                                )}% of portfolio`}
+                          </Text>
+                        </View>
+                        <View style={styles.cardAmountSection}>
+                          <Text
+                            style={[
+                              styles.cardAmount,
+                              { color: subcategory.color },
+                            ]}
+                          >
+                            {formatCurrency(subcategory.value)}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.cardPercentage,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {subcategory.percentage.toFixed(1)}%
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.cardThreeDotsButton}
+                          onPress={(event) =>
+                            handleThreeDotsPress(subcategory, event)
+                          }
+                        >
+                          <Ionicons
+                            name="ellipsis-vertical"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.cardInfo}>
-                      <Text
-                        style={[styles.cardTitle, { color: colors.text }]}
-                        numberOfLines={1}
-                      >
-                        {subcategory.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.cardSubtitle,
-                          { color: colors.textSecondary },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {subcategory.isSystemCard
-                          ? `${subcategory.institution || "Unknown"}`
-                          : `${subcategory.bank}`}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.cardAccountDetails,
-                          { color: colors.textSecondary },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {subcategory.isSystemCard
-                          ? `${subcategory.account_type || "Account"} • ${
-                              subcategory.account_number || "****"
-                            }`
-                          : `${subcategory.percentage.toFixed(
-                              1
-                            )}% of portfolio`}
-                      </Text>
-                    </View>
-                    <View style={styles.cardAmountSection}>
-                      <Text
-                        style={[
-                          styles.cardAmount,
-                          { color: subcategory.color },
-                        ]}
-                      >
-                        {formatCurrency(subcategory.value)}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.cardPercentage,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {subcategory.percentage.toFixed(1)}%
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.cardThreeDotsButton}
-                      onPress={(event) =>
-                        handleThreeDotsPress(subcategory, event)
-                      }
+                  ))}
+                </>
+              ) : (
+                // GRID VIEW
+                <View style={styles.gridContainer}>
+                  {selectedAssetSubcategories.map((subcategory, index) => (
+                    <View
+                      key={subcategory.id}
+                      style={[
+                        styles.gridCard,
+                        {
+                          backgroundColor: colors.card,
+                          shadowColor: colors.text,
+                        },
+                      ]}
                     >
-                      <Ionicons
-                        name="ellipsis-vertical"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
+                      {/* Header with Badge and Three Dots */}
+                      <View style={styles.gridCardHeader}>
+                        <View
+                          style={[
+                            styles.gridCardBadge,
+                            { backgroundColor: `${subcategory.color}20` },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.gridCardBadgeText,
+                              { color: subcategory.color },
+                            ]}
+                          >
+                            #{index + 1}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.gridCardMenuButton}
+                          onPress={(event) =>
+                            handleThreeDotsPress(subcategory, event)
+                          }
+                        >
+                          <Ionicons
+                            name="ellipsis-vertical"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Icon */}
+                      <View
+                        style={[
+                          styles.gridCardIcon,
+                          {
+                            backgroundColor: `${subcategory.color}15`,
+                            borderColor: `${subcategory.color}30`,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={subcategory.icon as any}
+                          size={24}
+                          color={subcategory.color}
+                        />
+                      </View>
+
+                      {/* Content */}
+                      <View style={{ flex: 1, justifyContent: "center" }}>
+                        <Text
+                          style={[styles.gridCardTitle, { color: colors.text }]}
+                          numberOfLines={2}
+                        >
+                          {subcategory.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.gridCardBank,
+                            { color: colors.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {subcategory.isSystemCard
+                            ? `${subcategory.institution || "Unknown"}`
+                            : `${subcategory.bank}`}
+                        </Text>
+                      </View>
+
+                      {/* Amount */}
+                      <View>
+                        <Text
+                          style={[
+                            styles.gridCardAmount,
+                            { color: subcategory.color },
+                          ]}
+                        >
+                          {formatCurrency(subcategory.value)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.gridCardPercentage,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {subcategory.percentage.toFixed(1)}%
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
-              ))}
+              )}
             </ScrollView>
 
             {/* Financial Summary */}
@@ -4800,6 +4930,14 @@ const styles = StyleSheet.create({
   subcategoryHeaderActions: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+  },
+  viewToggleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   subcategoryAddButton: {
     padding: 8,
@@ -4853,6 +4991,80 @@ const styles = StyleSheet.create({
   subcategoryListContainer: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  // Grid View Styles - Matching Asset Breakdown card sizes
+  gridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 0,
+  },
+  gridCard: {
+    width: "31.5%", // 3 columns like Asset Breakdown
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    minHeight: 140,
+    justifyContent: "space-between",
+    elevation: 1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  gridCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  gridCardBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  gridCardBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  gridCardMenuButton: {
+    padding: 2,
+    marginTop: -2,
+    marginRight: -4,
+  },
+  gridCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 8,
+    borderWidth: 2,
+  },
+  gridCardTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 4,
+    minHeight: 32,
+    lineHeight: 16,
+  },
+  gridCardBank: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  gridCardAmount: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  gridCardPercentage: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
   },
   subcategoryListItem: {
     borderRadius: 12,
