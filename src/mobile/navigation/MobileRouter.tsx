@@ -174,7 +174,7 @@ const MainTabNavigator: React.FC = () => {
 };
 
 // Root Stack Navigator
-const MobileRouter: React.FC = () => {
+const RootStackNavigator: React.FC = () => {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -235,6 +235,11 @@ const MobileRouter: React.FC = () => {
       />
     </Stack.Navigator>
   );
+};
+
+// Mobile Router - Expo Router already provides NavigationContainer
+const MobileRouter: React.FC = () => {
+  return <RootStackNavigator />;
 };
 
 export default MobileRouter;

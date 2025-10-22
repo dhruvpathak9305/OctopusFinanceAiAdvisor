@@ -44,6 +44,7 @@ import {
 } from "../utils/tableMapping";
 import { fetchAccountsWithBalances } from "./optimizedAccountsService";
 import { fetchCreditCards } from "./creditCardService";
+import { fetchFixedDepositsForNetWorth, getAggregatedFDSummary } from "./fixedDepositsService";
 
 // =============================================================================
 // TABLE MAPPING HELPER
@@ -1099,6 +1100,74 @@ export const fetchFormattedCategoriesForUI = async (
     });
 
     const categoriesWithEntries = await Promise.all(entriesPromises);
+
+    // Special handling for Fixed Deposits - auto-sync from fixed_deposits_real table
+    try {
+      console.log("💰 Checking for Fixed Deposits integration...");
+      const fdData = await fetchFixedDepositsForNetWorth(isDemo);
+      console.log("💰 FD data fetched:", fdData);
+      
+      if (fdData.length > 0) {
+        // Find "Debt & Fixed Income" or similar category
+        const fixedIncomeCategory = categoriesWithEntries.find((cat) =>
+          cat.category.name.toLowerCase().includes("debt") ||
+          cat.category.name.toLowerCase().includes("fixed income") ||
+          cat.category.name.toLowerCase().includes("fixed")
+        );
+
+        if (fixedIncomeCategory) {
+          console.log("💰 Found Fixed Income category:", fixedIncomeCategory.category.name);
+          
+          // Find "Fixed Deposits" subcategory
+          const fdSubcategory = fixedIncomeCategory.category.subcategories?.find(
+            (sub: any) => sub.name.toLowerCase().includes("fixed deposit")
+          );
+
+          if (fdSubcategory) {
+            console.log("💰 Found Fixed Deposits subcategory, adding FD data");
+            
+            // Add FD entries to this subcategory
+            // Calculate total FD value
+            const totalFDValue = fdData.reduce((sum, bank) => sum + bank.value, 0);
+            
+            // Update the entries for this category to include FDs
+            fixedIncomeCategory.entries = [
+              ...fixedIncomeCategory.entries,
+              ...fdData.flatMap((bank) =>
+                bank.subcategories.map((fd) => ({
+                  id: fd.id,
+                  user_id: "", // Will be filled by system
+                  asset_name: fd.name,
+                  category_id: fixedIncomeCategory.category.id,
+                  subcategory_id: fdSubcategory.id,
+                  value: fd.value,
+                  quantity: 1,
+                  market_price: fd.principal,
+                  notes: `${fd.institution} | ${fd.interest_rate}% | Matures: ${fd.maturity_date}`,
+                  date: new Date().toISOString().split("T")[0],
+                  is_active: true,
+                  is_included_in_net_worth: true,
+                  linked_source_type: "fixed_deposit" as any,
+                  linked_source_id: fd.id,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  category_name: fixedIncomeCategory.category.name,
+                  category_type: type,
+                  category_icon: fixedIncomeCategory.category.icon,
+                  category_color: fixedIncomeCategory.category.color,
+                  subcategory_name: fdSubcategory.name,
+                }))
+              ),
+            ];
+            
+            console.log("💰 FD entries added to category:", fixedIncomeCategory.entries.length);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("💰 Error integrating Fixed Deposits:", error);
+      // Continue without FD data if there's an error
+    }
 
     // Get accounts and credit cards data
     let systemCards = [];

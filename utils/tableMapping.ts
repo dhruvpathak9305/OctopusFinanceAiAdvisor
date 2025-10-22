@@ -33,6 +33,9 @@ export interface TableMap {
   net_worth_entry_metadata: string;
   net_worth_snapshots: string;
 
+  // Fixed Deposits
+  fixed_deposits: string;
+
   // Additional tables as needed
   budget_periods?: string;
   budget_category_snapshots?: string;
@@ -73,6 +76,7 @@ export const getTableMap = (isDemo: boolean): TableMap => {
       net_worth_entries: "net_worth_entries",
       net_worth_entry_metadata: "net_worth_entry_metadata",
       net_worth_snapshots: "net_worth_snapshots",
+      fixed_deposits: "fixed_deposits",
       budget_periods: "budget_periods",
       budget_category_snapshots: "budget_category_snapshots",
       budget_subcategory_snapshots: "budget_subcategory_snapshots",
@@ -94,6 +98,7 @@ export const getTableMap = (isDemo: boolean): TableMap => {
       net_worth_entries: "net_worth_entries_real",
       net_worth_entry_metadata: "net_worth_entry_metadata_real",
       net_worth_snapshots: "net_worth_snapshots_real",
+      fixed_deposits: "fixed_deposits_real",
       budget_periods: "budget_periods_real",
       budget_category_snapshots: "budget_category_snapshots_real",
       budget_subcategory_snapshots: "budget_subcategory_snapshots_real",

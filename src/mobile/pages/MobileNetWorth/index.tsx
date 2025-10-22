@@ -18,8 +18,10 @@ import {
   darkTheme,
   lightTheme,
 } from "../../../../contexts/ThemeContext";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, CommonActions } from "@react-navigation/native";
+import type { StackNavigationProp } from "@react-navigation/stack";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
+import FixedDepositsModal from "../../components/modals/FixedDepositsModal";
 import {
   fetchFormattedCategoriesForUI,
   initializeDefaultCategories,
@@ -85,6 +87,47 @@ const MobileNetWorth: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { isDemo } = useDemoMode();
+  
+  // Fixed Deposits Modal state
+  const [showFixedDepositsModal, setShowFixedDepositsModal] = useState(false);
+  // Track which overlay was open before FD modal, so we can restore it on close
+  const [previousOverlay, setPreviousOverlay] = useState<
+    "asset_subcategory" | "liability_subcategory" | null
+  >(null);
+
+  const openFixedDepositsModal = () => {
+    // Record current overlay
+    if (showAssetSubcategoryModal) {
+      setPreviousOverlay("asset_subcategory");
+    } else if (showSubcategoryModal) {
+      setPreviousOverlay("liability_subcategory");
+    } else {
+      setPreviousOverlay(null);
+    }
+
+    // Close any other overlays first
+    setShowAssetSubcategoryModal(false);
+    setShowSubcategoryModal(false);
+    setShowPopupMenu(false);
+
+    // Open FD modal after overlays are closed
+    setTimeout(() => setShowFixedDepositsModal(true), 150);
+  };
+
+  const handleCloseFixedDepositsModal = () => {
+    setShowFixedDepositsModal(false);
+    // Restore the overlay that was previously open
+    if (previousOverlay) {
+      setTimeout(() => {
+        if (previousOverlay === "asset_subcategory") {
+          setShowAssetSubcategoryModal(true);
+        } else if (previousOverlay === "liability_subcategory") {
+          setShowSubcategoryModal(true);
+        }
+        setPreviousOverlay(null);
+      }, 120);
+    }
+  };
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] =
@@ -299,11 +342,10 @@ const MobileNetWorth: React.FC = () => {
   };
 
   const handleMenuAction = (action: "add" | "view" | "edit" | "delete") => {
-    setShowPopupMenu(false);
-
     switch (action) {
       case "add":
         console.log("Add entry for:", selectedItemForMenu);
+        setShowPopupMenu(false);
         // Trigger add entry modal
         if (selectedItemForMenu) {
           const categoryId =
@@ -314,20 +356,37 @@ const MobileNetWorth: React.FC = () => {
         }
         break;
       case "view":
-        console.log("View item:", selectedItemForMenu);
-        // Add view logic here - could open a detailed view modal
+        console.log("🏦 View item:", selectedItemForMenu);
+        // Check if this is Fixed Deposits
+        const itemName = selectedItemForMenu?.name?.toLowerCase() || "";
+        const categoryName = selectedItemForMenu?.category?.toLowerCase() || "";
+        console.log("🏦 Checking names:", { itemName, categoryName });
+        
+        if (itemName.includes("fixed deposit") || categoryName.includes("fixed deposit")) {
+          console.log("🏦 Opening Fixed Deposits modal from View Details");
+          setSelectedItemForMenu(null);
+          openFixedDepositsModal();
+        } else {
+          console.log("🏦 Not a Fixed Deposit item, showing default view");
+          setShowPopupMenu(false);
+          // Add view logic here - could open a detailed view modal for other items
+        }
         break;
       case "edit":
         console.log("Edit item:", selectedItemForMenu);
+        setShowPopupMenu(false);
         // Add edit logic here - could open edit modal
         break;
       case "delete":
         console.log("Delete item:", selectedItemForMenu);
+        setShowPopupMenu(false);
         // Add delete logic here - could show confirmation dialog
         break;
     }
 
-    setSelectedItemForMenu(null);
+    if (action !== "view" || !selectedItemForMenu?.name?.toLowerCase().includes("fixed deposit")) {
+      setSelectedItemForMenu(null);
+    }
   };
 
   const closePopupMenu = () => {
@@ -1213,6 +1272,13 @@ const MobileNetWorth: React.FC = () => {
           },
         ]}
         onPress={() => {
+          // Check if this is Fixed Deposits - open modal
+          if (item.name?.toLowerCase().includes("fixed deposit")) {
+            console.log("🏦 Opening Fixed Deposits modal from grid");
+            openFixedDepositsModal();
+            return;
+          }
+
           setSelectedLiability(item);
 
           // For system cards (Bank Accounts, Credit Cards), use subcategories
@@ -2544,7 +2610,15 @@ const MobileNetWorth: React.FC = () => {
                             : "transparent",
                         },
                       ]}
-                      onPress={() => setSelectedCategory(item)}
+                      onPress={() => {
+                        // Check if this is Fixed Deposits - open modal
+                        if (item.name?.toLowerCase().includes("fixed deposit")) {
+                          console.log("🏦 Opening Fixed Deposits modal from list");
+                          openFixedDepositsModal();
+                          return;
+                        }
+                        setSelectedCategory(item);
+                      }}
                     >
                       <View
                         style={[
@@ -4297,6 +4371,12 @@ const MobileNetWorth: React.FC = () => {
         categoryType={entryType}
         preSelectedCategory={selectedEntryCategory}
         preSelectedSubcategory={selectedEntrySubcategory}
+      />
+
+      {/* Fixed Deposits Modal */}
+      <FixedDepositsModal
+        visible={showFixedDepositsModal}
+        onClose={() => setShowFixedDepositsModal(false)}
       />
     </View>
   );
