@@ -306,70 +306,45 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         <View
           style={[
             styles.transactionIcon,
-            useFallback
-              ? {
-                  borderWidth: 2,
-                  borderColor: getFallbackIconConfig(transaction.type, isDark)
-                    .borderColor,
-                  backgroundColor: generateLighterBackground(
-                    getFallbackIconConfig(transaction.type, isDark).borderColor,
-                    20
-                  ),
-                }
-              : {
-                  backgroundColor: generateLighterBackground(
-                    transaction.subcategory_color ||
-                      transaction.category_ring_color ||
-                      getTransactionColor(transaction.type),
-                    20
-                  ),
-                },
+            {
+              borderWidth: 2,
+              borderColor: getTransactionColor(transaction.type),
+              backgroundColor: generateLighterBackground(
+                getTransactionColor(transaction.type),
+                15 // Lighter background for better contrast
+              ),
+            },
           ]}
         >
           {useFallback ? (
-            // Use fallback icons based on transaction type
+            // Use original fallback icons based on transaction type - keeps the existing icon style
             getFallbackIconConfig(transaction.type, isDark).icon
           ) : transaction.icon && typeof transaction.icon === "string" ? (
             // Check if it's a string that could be a Lucide icon name
             // This handles both capitalized and lowercase icon names
             /^[a-zA-Z][a-zA-Z0-9]*$/.test(transaction.icon) ? (
-              // Render the Lucide icon component - capitalize first letter if needed
+              // Render the Lucide icon component with WHITE color for consistency
               renderIconFromName(
                 // Ensure first letter is capitalized for component lookup
                 transaction.icon.charAt(0).toUpperCase() +
                   transaction.icon.slice(1),
                 22,
-                // Use subcategory color if available, otherwise use category color or default
-                transaction.subcategory_color ||
-                  transaction.category_ring_color ||
-                  getTransactionColor(transaction.type)
+                '#FFFFFF' // Always white for better contrast
               )
             ) : (
               // If it's not a valid icon name format, render as text/emoji
               <Text
                 style={[
                   styles.transactionIconText,
-                  {
-                    color:
-                      transaction.subcategory_color ||
-                      transaction.category_ring_color ||
-                      getTransactionColor(transaction.type),
-                  },
+                  { color: '#FFFFFF' }, // White for consistency
                 ]}
               >
                 {transaction.icon}
               </Text>
             )
           ) : (
-            // Fallback for null/undefined icon
-            <Text
-              style={[
-                styles.transactionIconText,
-                { color: getTransactionColor(transaction.type) },
-              ]}
-            >
-              📄
-            </Text>
+            // Fallback for null/undefined icon - use original fallback icon system
+            getFallbackIconConfig(transaction.type, isDark).icon
           )}
         </View>
 
