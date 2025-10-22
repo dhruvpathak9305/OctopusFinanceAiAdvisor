@@ -72,11 +72,11 @@ const OptimizedAccountsCard: React.FC<OptimizedAccountsCardProps> = ({
   // Get only bank accounts (exclude credit cards and loans)
   const bankAccounts = getBankAccounts();
 
-  // Calculate monthly change (this would ideally come from historical data)
-  const monthlyChange = "+2.8%"; // This could be calculated from historical data
+  // Remove hardcoded values - use dynamic MoM calculation
+  const monthlyChange = "0.0%"; // TODO: Implement real MoM calculation from accountBalanceHistoryService
 
-  // Theme-aware colors (using a consistent green theme)
-  const chartLineColor = "#059669";
+  // Theme-aware colors - neutral for now (TODO: Calculate real MoM trend)
+  const chartLineColor = "#3B82F6"; // Blue (neutral) - will be dynamic when MoM is implemented
 
   // Fetch historical data for chart
   useEffect(() => {

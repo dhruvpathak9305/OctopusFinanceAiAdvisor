@@ -204,39 +204,39 @@ const FinancialDashboardCompact: React.FC<FinancialDashboardCompactProps> = ({
       title: "Net Worth",
       icon: "💰",
       value: formatCurrency(netWorthValue),
-      change: netWorthData?.change ?? "+1.9%",
+      change: netWorthData?.change ?? "0.0%", // Removed hardcoded +1.9%
       themeColor: colorPalette.success,
       isPositive: true,
       rawValue: netWorthValue,
       sparklineData: generateSparklineData(
         netWorthValue,
-        netWorthData?.change ?? "+1.9%"
+        netWorthData?.change ?? "0.0%" // Removed hardcoded +1.9%
       ),
     },
     {
       title: `Accounts${accountsData?.count ? ` (${accountsData.count})` : ""}`,
       icon: "🏛️",
       value: formatCurrency(accountsValue),
-      change: accountsData?.change ?? "+2.8%",
+      change: accountsData?.change ?? "0.0%", // Removed hardcoded +2.8%, use real data from accountsData
       themeColor: colorPalette.info,
       isPositive: true,
       rawValue: accountsValue,
       sparklineData: generateSparklineData(
         accountsValue,
-        accountsData?.change ?? "+2.8%"
+        accountsData?.change ?? "0.0%" // Removed hardcoded +2.8%
       ),
     },
     {
       title: "Credit Cards",
       icon: "💳",
       value: formatCurrency(creditCardValue),
-      change: creditCardData?.change ?? "+0.8%",
+      change: creditCardData?.change ?? "0.0%", // Removed hardcoded +0.8%
       themeColor: colorPalette.danger,
       isPositive: false,
       rawValue: creditCardValue,
       sparklineData: generateSparklineData(
         creditCardValue,
-        creditCardData?.change ?? "+0.8%"
+        creditCardData?.change ?? "0.0%" // Removed hardcoded +0.8%
       ),
     },
     {
@@ -282,10 +282,10 @@ const FinancialDashboardCompact: React.FC<FinancialDashboardCompactProps> = ({
     type: "positive" | "warning" | "neutral";
   } => {
     const netWorthChange = parseFloat(
-      (netWorthData?.change ?? "+1.9%").replace("%", "").replace("+", "")
+      (netWorthData?.change ?? "0.0%").replace("%", "").replace("+", "") // Removed hardcoded +1.9%
     );
     const creditCardChange = parseFloat(
-      (creditCardData?.change ?? "+0.8%").replace("%", "").replace("+", "")
+      (creditCardData?.change ?? "0.0%").replace("%", "").replace("+", "") // Removed hardcoded +0.8%
     );
     const incomeChange = parseFloat(
       (incomeData?.change ?? "0.0%").replace("%", "").replace("+", "")

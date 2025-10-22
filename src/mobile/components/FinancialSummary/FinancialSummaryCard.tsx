@@ -20,8 +20,10 @@ interface FinancialSummaryCardProps {
   total: number;
   monthlyChange: string;
   themeColor: string;
+  trend?: "up" | "down" | "neutral"; // Add trend prop for dynamic arrow
   loading: boolean;
   error: string | null;
+  chartMessage?: string | null; // Message to display when no chart data
   onViewAll: () => void;
   onAddNew?: () => void;
   onInfoPress?: () => void;
@@ -35,14 +37,23 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   total,
   monthlyChange,
   themeColor,
+  trend = "neutral", // Default to neutral if not provided
   loading,
   error,
+  chartMessage,
   onViewAll,
   onAddNew,
   onInfoPress,
   backgroundImage,
 }) => {
   const { isDark } = useTheme();
+
+  // Dynamic arrow icon based on trend
+  const getArrowIcon = () => {
+    if (trend === "up") return "↗"; // Up-right arrow for positive growth
+    if (trend === "down") return "↘"; // Down-right arrow for negative growth
+    return "→"; // Right arrow for neutral/no change
+  };
 
   const colors = isDark
     ? {
@@ -103,26 +114,75 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   };
 
   const renderChart = () => {
-    if (data.length === 0) return null;
+    // If there's a chart message (error or info), display it
+    if (chartMessage) {
+      console.log("ℹ️ FinancialSummaryCard: Displaying chart message:", chartMessage);
+      return (
+        <View style={[styles.chartContainer, styles.chartMessageContainer]}>
+          <Ionicons 
+            name="information-circle-outline" 
+            size={20} 
+            color={colors.textSecondary} 
+            style={{ marginBottom: 8 }} 
+          />
+          <Text style={[styles.chartMessageText, { color: colors.textSecondary }]}>
+            {chartMessage}
+          </Text>
+        </View>
+      );
+    }
 
-    const maxValue = Math.max(...data.map((d) => d.value));
-    const minValue = Math.min(...data.map((d) => d.value));
+    // Check if we have valid data
+    if (!data || data.length === 0 || data.every(d => d.value === 0)) {
+      console.log("⚠️ FinancialSummaryCard: No valid chart data available");
+      return (
+        <View style={[styles.chartContainer, styles.chartMessageContainer]}>
+          <Ionicons 
+            name="bar-chart-outline" 
+            size={20} 
+            color={colors.textSecondary} 
+            style={{ marginBottom: 8 }} 
+          />
+          <Text style={[styles.chartMessageText, { color: colors.textSecondary }]}>
+            Historical data will appear here
+          </Text>
+        </View>
+      );
+    }
+
+    console.log("📊 FinancialSummaryCard: Rendering chart with REAL data:", data.length, "months");
+
+    // Show last 12 months
+    const chartData = data.slice(-12);
+    const maxValue = Math.max(...chartData.map((d) => d.value));
+    const minValue = Math.min(...chartData.map((d) => d.value));
     const range = maxValue - minValue;
 
+    console.log("📊 Chart range:", { maxValue, minValue, range, dataPoints: chartData.length });
+
+    // Enhanced chart background color based on theme
+    const chartBgColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)";
+
     return (
-      <View style={styles.chartContainer}>
+      <View style={[styles.chartContainer, { backgroundColor: chartBgColor, borderRadius: 8, padding: 8 }]}>
         <View style={styles.chartBars}>
-          {data.slice(-6).map((dataPoint, index) => {
+          {chartData.map((dataPoint, index) => {
             const height =
-              range > 0 ? ((dataPoint.value - minValue) / range) * 40 : 20;
+              range > 0 ? ((dataPoint.value - minValue) / range) * 60 : 30;
             return (
               <View key={index} style={styles.chartBarContainer}>
                 <View
                   style={[
                     styles.chartBar,
                     {
-                      height: Math.max(height, 4),
+                      height: Math.max(height, 8),
                       backgroundColor: themeColor,
+                      opacity: 0.9,
+                      shadowColor: themeColor,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 2,
+                      elevation: 2,
                     },
                   ]}
                 />
@@ -131,12 +191,12 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
           })}
         </View>
         <View style={styles.chartLabels}>
-          {data.slice(-6).map((_, index) => (
+          {chartData.map((dataPoint, index) => (
             <Text
               key={index}
-              style={[styles.chartLabel, { color: colors.textSecondary }]}
+              style={[styles.chartLabel, { color: colors.textSecondary, fontSize: 9 }]}
             >
-              {index % 2 === 0 ? data[index]?.month?.slice(0, 3) || "M" : ""}
+              {index % 3 === 0 ? dataPoint.month?.slice(0, 3) || "" : ""}
             </Text>
           ))}
         </View>
@@ -201,7 +261,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
             { backgroundColor: `${themeColor}20` },
           ]}
         >
-          <Text style={styles.changeIcon}>↗</Text>
+          <Text style={styles.changeIcon}>{getArrowIcon()}</Text>
           <Text style={[styles.changeText, { color: themeColor }]}>
             {monthlyChange} from last month
           </Text>
@@ -216,7 +276,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     width: screenWidth * 0.7,
-    height: 180,
+    height: 210, // Increased from 180 to 210 for more chart space
     borderRadius: 12,
     borderWidth: 1,
     padding: 16,
@@ -305,16 +365,16 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: 6, // Reduced from 8 to 6
   },
   changeContainer: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3, // Reduced from 4 to 3
     borderRadius: 12,
     alignSelf: "flex-start",
-    marginBottom: 12,
+    marginBottom: 8, // Reduced from 12 to 8
   },
   changeIcon: {
     fontSize: 12,
@@ -326,24 +386,37 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     flex: 1,
+    minHeight: 80, // Ensure minimum height for chart
+  },
+  chartMessageContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  chartMessageText: {
+    fontSize: 11,
+    textAlign: "center",
+    lineHeight: 16,
+    opacity: 0.8,
   },
   chartBars: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    height: 40,
-    marginBottom: 4,
+    height: 60, // Increased from 50 to 60
+    marginBottom: 6,
   },
   chartBarContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-end",
-    marginHorizontal: 2,
+    marginHorizontal: 1,
   },
   chartBar: {
-    width: 6,
-    borderRadius: 3,
-    minHeight: 4,
+    width: 5, // Increased from 4 to 5 for better visibility
+    borderRadius: 2.5,
+    minHeight: 8, // Increased from 5 to 8
   },
   chartLabels: {
     flexDirection: "row",

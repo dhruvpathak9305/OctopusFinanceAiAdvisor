@@ -417,27 +417,28 @@ const MobileAccounts: React.FC = () => {
               })}
             </Text>
 
+            {/* TODO: Replace with real MoM calculation from accountBalanceHistoryService */}
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 marginBottom: 4,
-                backgroundColor: "#10B98120",
+                backgroundColor: "#3B82F620",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 12,
               }}
             >
               <Ionicons
-                name="trending-up"
+                name="remove"
                 size={11}
-                color="#10B981"
+                color="#3B82F6"
                 style={{ marginRight: 3 }}
               />
               <Text
-                style={{ color: "#10B981", fontSize: 11, fontWeight: "600" }}
+                style={{ color: "#3B82F6", fontSize: 11, fontWeight: "600" }}
               >
-                +2.8%
+                0.0%
               </Text>
             </View>
           </View>

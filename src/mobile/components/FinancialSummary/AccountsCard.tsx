@@ -4,6 +4,7 @@ import { useAccounts } from "../../../../contexts/AccountsContext";
 import { fetchAccountsHistory } from "../../../../services/accountsService";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
 import { useBalances } from "../../../../contexts/BalanceContext";
+import { getMoMGrowthWithFallback } from "../../../../services/accountBalanceHistoryService";
 import FinancialSummaryCard from "./FinancialSummaryCard";
 import AddAccountModal from "../AddAccountModal";
 
@@ -34,19 +35,56 @@ const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
   const [chartLoading, setChartLoading] = useState(true);
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
 
+  // MoM growth state
+  const [monthlyChange, setMonthlyChange] = useState("+0.0%");
+  const [momTrend, setMomTrend] = useState<"up" | "down" | "neutral">("neutral");
+  const [momLoading, setMomLoading] = useState(true);
+
   // Combined loading and error states
-  const loading = accountsLoading || balancesLoading;
+  const loading = accountsLoading || balancesLoading || momLoading;
   const error = accountsError || balancesError;
 
   // State is ready for rendering
 
-  // Calculate monthly change (this would ideally come from historical data)
-  const monthlyChange = "+2.8%"; // This could be calculated from historical data
-
-  // Theme-aware colors (using a consistent green theme)
-  const chartLineColor = "#059669";
+  // Theme-aware colors based on MoM trend
+  const chartLineColor =
+    momTrend === "up" ? "#059669" : momTrend === "down" ? "#DC2626" : "#3B82F6";
 
   // Note: Balance fetching is now handled by BalanceContext with real-time updates
+
+  // Fetch MoM growth data
+  useEffect(() => {
+    const fetchMoMGrowth = async () => {
+      try {
+        setMomLoading(true);
+        const momData = await getMoMGrowthWithFallback(totalBalance, isDemo);
+        
+        if (momData) {
+          setMonthlyChange(momData.formattedChange);
+          setMomTrend(momData.trend);
+          
+          console.log("📊 [AccountsCard] MoM Growth data loaded:", {
+            change: momData.formattedChange,
+            trend: momData.trend,
+            currentTotal: momData.currentMonthTotal,
+            previousTotal: momData.previousMonthTotal,
+          });
+        }
+      } catch (error) {
+        console.error("❌ [AccountsCard] Error fetching MoM growth:", error);
+        // Keep default values on error
+      } finally {
+        setMomLoading(false);
+      }
+    };
+
+    // Only fetch when we have a valid balance
+    if (totalBalance > 0 && !balancesLoading) {
+      fetchMoMGrowth();
+    } else if (!balancesLoading) {
+      setMomLoading(false);
+    }
+  }, [totalBalance, isDemo, balancesLoading]);
 
   // Fetch historical data for chart
   useEffect(() => {
@@ -153,6 +191,7 @@ const AccountsCard: React.FC<AccountsCardProps> = ({ backgroundImage }) => {
         total={totalBalance}
         monthlyChange={monthlyChange}
         themeColor={chartLineColor}
+        trend={momTrend} // Pass the actual MoM trend
         loading={loading || chartLoading || balancesLoading}
         error={error}
         onViewAll={handleViewAll}

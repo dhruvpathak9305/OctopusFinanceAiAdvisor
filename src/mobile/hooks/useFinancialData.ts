@@ -39,10 +39,11 @@ export const useFinancialData = () => {
   const { accounts, loading: accountsLoading } = useAccounts();
   const { isDemo } = useDemoMode();
 
+  // TODO: Replace hardcoded MoM values with real calculations from accountBalanceHistoryService
   const [financialData, setFinancialData] = useState<FinancialData>({
-    netWorth: { total: 0, change: "+1.9%", loading: true },
-    accounts: { total: 0, change: "+2.8%", loading: true, count: 0 },
-    creditCards: { total: 2321, change: "+0.8%", loading: false },
+    netWorth: { total: 0, change: "0.0%", loading: true }, // TODO: Calculate real MoM
+    accounts: { total: 0, change: "0.0%", loading: true, count: 0 }, // TODO: Calculate real MoM  
+    creditCards: { total: 2321, change: "0.0%", loading: false }, // TODO: Calculate real MoM
     income: { total: 566486, change: "0.0%", loading: false },
     expenses: { total: 133846, change: "0.0%", loading: false },
   });
@@ -112,18 +113,18 @@ export const useFinancialData = () => {
         setFinancialData({
           netWorth: {
             total: netWorthTotal,
-            change: "+1.9%",
+            change: "0.0%", // TODO: Calculate real MoM from balance history
             loading: false,
           },
           accounts: {
             total: accountsTotal,
-            change: "+2.8%",
+            change: "0.0%", // TODO: Calculate real MoM from balance history
             loading: false,
             count: bankAccounts.length,
           },
           creditCards: {
             total: 2321,
-            change: "+0.8%",
+            change: "0.0%", // TODO: Calculate real MoM
             loading: false,
           },
           income: {
@@ -141,14 +142,14 @@ export const useFinancialData = () => {
         console.error("Error fetching financial data:", error);
         // Set default fallback data on error
         setFinancialData({
-          netWorth: { total: 4776896, change: "+1.9%", loading: false },
+          netWorth: { total: 4776896, change: "0.0%", loading: false },
           accounts: {
             total: 4776896,
-            change: "+2.8%",
+            change: "0.0%", // TODO: Calculate real MoM
             loading: false,
             count: accounts.length,
           },
-          creditCards: { total: 2321, change: "+0.8%", loading: false },
+          creditCards: { total: 2321, change: "0.0%", loading: false },
           income: { total: 566486, change: "0.0%", loading: false },
           expenses: { total: 133846, change: "0.0%", loading: false },
         });

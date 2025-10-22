@@ -10,19 +10,38 @@
 scripts/
 ├── README.md (this file)
 │
-├── 🔌 Connection Scripts (Root Level - gitignored)
+├── 🔌 Connection Scripts (Root - gitignored)
 │   ├── db-connect.sh            # Full database connection
 │   └── quick-connect.sh         # Quick connection
 │
+├── 📦 setup/                    # Initial setup & configuration
+│   ├── README.md
+│   ├── setup-service-key.sh     # Service key setup
+│   ├── populate-with-service-key.js  # Populate balance history
+│   └── quick-populate-history.sh     # Quick populate wrapper
+│
+├── 🛠️  utilities/               # Diagnostic & utility tools
+│   ├── check-database.js        # Database connection test
+│   ├── check-mom-calculation.js # Verify MoM calculations
+│   └── ... (other utility scripts)
+│
+├── 🔧 maintenance/              # Maintenance & fixes
+│   ├── force-balance-sync.js    # Sync balance tables
+│   ├── fix-duplicates.sql
+│   └── fix-transfer-links.sql
+│
 ├── 📤 uploads/                  # Transaction upload scripts
-│   ├── upload-transactions-complete.sql
-│   ├── upload-transactions-enhanced.sql
-│   ├── upload-transactions-october.sql
+│   ├── _templates/
+│   │   └── upload-template.sql
+│   ├── upload-transactions-hdfc-*.sql
+│   ├── upload-transactions-icici-*.sql
+│   ├── upload-transactions-idfc-*.sql
 │   └── upload-bulk-transactions.sql
 │
 ├── ✅ verification/             # Verification & testing
-│   ├── verify-october-final.sql
-│   ├── verify-october-upload.sql
+│   ├── _templates/
+│   │   └── verify-template.sql
+│   ├── verify-*-final.sql
 │   ├── verification-queries.sql
 │   ├── edge-case-tests.sql
 │   └── final-verification.sql
@@ -30,6 +49,10 @@ scripts/
 ├── 🔧 maintenance/              # Maintenance & fixes
 │   ├── fix-duplicates.sql
 │   └── fix-transfer-links.sql
+│
+├── 🔄 migrations/               # Database migrations
+│   ├── populate_complete_account_metadata.sql
+│   └── update_idfc_complete_metadata.sql
 │
 ├── 🧪 tests/                    # Test scripts
 │   ├── testBankStatement.ts
@@ -40,16 +63,18 @@ scripts/
 │   ├── testOpenAI.ts
 │   └── testRealData.ts
 │
-└── 🛠️ utilities/                # Utility scripts
-    ├── fetch-all-accounts.sql
-    ├── capture-complete-schema.sql
-    ├── checkBalanceRealTable.sql
-    ├── cleanup_net_worth_data.sql
-    ├── populateBalanceReal.sql
-    ├── populateNetWorthFromMobileData.ts
-    ├── populateSampleNetWorthData.ts
-    ├── demoCSVParser.ts
-    └── account-bank-mapping.json
+├── 🛠️ utilities/                # Utility scripts
+│   ├── fetch-all-accounts.sql
+│   ├── capture-complete-schema.sql
+│   ├── checkBalanceRealTable.sql
+│   ├── cleanup_net_worth_data.sql
+│   ├── populateBalanceReal.sql
+│   ├── populateNetWorthFromMobileData.ts
+│   ├── populateSampleNetWorthData.ts
+│   ├── demoCSVParser.ts
+│   └── account-bank-mapping.json
+│
+└── 📄 check-database.js         # Database connection check
 ```
 
 ---
@@ -65,6 +90,67 @@ scripts/
 | `quick-connect.sh` | Quick PSQL connection |
 
 **⚠️ Security:** Both gitignored - contain credentials
+
+---
+
+### 📦 Setup Scripts
+**Location:** `scripts/setup/`
+
+| Script | Purpose |
+|--------|---------|
+| `setup-service-key.sh` | Interactive setup for Supabase service role key |
+| `populate-with-service-key.js` | Populate 12 months of balance history for all accounts |
+| `quick-populate-history.sh` | Quick wrapper for balance history population |
+
+**Usage:**
+```bash
+# First time setup
+bash scripts/setup/setup-service-key.sh
+node scripts/setup/populate-with-service-key.js
+
+# Verify
+node scripts/utilities/check-mom-calculation.js
+```
+
+---
+
+### 🛠️ Utility Scripts
+**Location:** `scripts/utilities/`
+
+| Script | Purpose |
+|--------|---------|
+| `check-database.js` | Test database connection |
+| `check-mom-calculation.js` | Verify MoM calculations and display expected values |
+| (other utilities) | Schema capture, CSV parsers, etc. |
+
+**Usage:**
+```bash
+# Check database connection
+node scripts/utilities/check-database.js
+
+# Verify MoM calculation
+node scripts/utilities/check-mom-calculation.js
+```
+
+---
+
+### 🔧 Maintenance Scripts
+**Location:** `scripts/maintenance/`
+
+| Script | Purpose |
+|--------|---------|
+| `force-balance-sync.js` | Sync balance_real table with accounts_real |
+| `fix-duplicates.sql` | Remove duplicate transactions |
+| `fix-transfer-links.sql` | Fix broken transfer links |
+
+**Usage:**
+```bash
+# Sync balances (when app shows wrong totals)
+node scripts/maintenance/force-balance-sync.js
+
+# Fix duplicates
+psql [connection] -f scripts/maintenance/fix-duplicates.sql
+```
 
 ---
 
