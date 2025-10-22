@@ -162,14 +162,35 @@ const getTransactionTableName = (isDemo: boolean = false): string => {
   return getTableName("TRANSACTIONS", isDemo);
 };
 
-// Helper function to build date range filters
+// Helper function to build date range filters (UTC, end-exclusive)
+// We normalize both start and end to UTC midnight and treat the end
+// as exclusive to avoid timezone boundary issues (e.g., 30th 00:00:00+00).
 const buildDateRangeFilter = (dateRange?: { start: Date; end: Date }) => {
-  if (!dateRange) return {};
+  if (!dateRange) return {} as { gte?: string; lt?: string };
+
+  // Use LOCAL calendar components to preserve the intended calendar day,
+  // then construct an equivalent UTC boundary. This avoids shifting the
+  // day backward/forward due to timezone offsets.
+  const start = new Date(Date.UTC(
+    dateRange.start.getFullYear(),
+    dateRange.start.getMonth(),
+    dateRange.start.getDate(),
+    0, 0, 0, 0
+  ));
+
+  // Make end exclusive by moving to the start of the next day in UTC
+  const endExclusive = new Date(Date.UTC(
+    dateRange.end.getFullYear(),
+    dateRange.end.getMonth(),
+    dateRange.end.getDate(),
+    0, 0, 0, 0
+  ));
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
 
   return {
-    gte: dateRange.start.toISOString(),
-    lte: dateRange.end.toISOString(),
-  };
+    gte: start.toISOString(),
+    lt: endExclusive.toISOString(),
+  } as { gte: string; lt: string };
 };
 
 // Helper function to get current and previous month date ranges
@@ -333,11 +354,14 @@ export const fetchTransactions = async (
       query = query.eq("type", filters.type);
     }
 
-    // Apply date range filter
+    // Apply date range filter (UTC, end-exclusive)
     if (filters.dateRange) {
-      const dateFilter = buildDateRangeFilter(filters.dateRange);
+      const dateFilter = buildDateRangeFilter(filters.dateRange) as {
+        gte?: string;
+        lt?: string;
+      };
       if (dateFilter.gte) query = query.gte("date", dateFilter.gte);
-      if (dateFilter.lte) query = query.lte("date", dateFilter.lte);
+      if (dateFilter.lt) query = query.lt("date", dateFilter.lt);
     }
 
     // Apply institution filter
@@ -355,9 +379,15 @@ export const fetchTransactions = async (
       query = query.eq("subcategory", filters.subcategory);
     }
 
-    // Apply account filter (maps to source_account_id in database)
+    // Apply account filter
+    // For income: filter by destination_account_id (money coming IN to account)
+    // For expenses/transfers: filter by source_account_id (money going OUT of account)
     if (filters.accountId) {
-      query = query.eq("source_account_id", filters.accountId);
+      if (filters.type === "income") {
+        query = query.eq("destination_account_id", filters.accountId);
+      } else {
+        query = query.eq("source_account_id", filters.accountId);
+      }
     }
 
     // Apply credit card filter

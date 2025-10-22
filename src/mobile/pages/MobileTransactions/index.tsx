@@ -675,24 +675,41 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
           );
           
           accountFilteredTransactions = transformedTransactions.filter((t) => {
-            // Match transactions where this account is the SOURCE (outgoing)
-            if (t.source_account_id === selectedAccountData.id) {
-              return true;
+            // For income, the account is the DESTINATION (money coming in)
+            if (t.type === "income") {
+              if (t.destination_account_id === selectedAccountData.id) {
+                return true;
+              }
             }
-            
-            // Match transactions where this account is the DESTINATION (incoming transfers only)
-            if (t.type === "transfer" && t.destination_account_id === selectedAccountData.id) {
-              return true;
+
+            // For expenses, the account is the SOURCE (money going out)
+            if (t.type === "expense") {
+              if (t.source_account_id === selectedAccountData.id) {
+                return true;
+              }
             }
-            
-            // Fallback: Match by account name or institution name
-            const transactionSource = t.source_account_name || t.source || "";
-            const accountNameMatch = 
-              transactionSource === selectedAccount ||
-              transactionSource.includes(selectedAccount) ||
-              selectedAccount.includes(transactionSource);
-            
-            return accountNameMatch;
+
+            // For transfers, either side can match
+            if (t.type === "transfer") {
+              if (
+                t.source_account_id === selectedAccountData.id ||
+                t.destination_account_id === selectedAccountData.id
+              ) {
+                return true;
+              }
+            }
+
+            // Fallback: Match by account name if IDs are missing
+            const names = [
+              t.source_account_name,
+              t.destination_account_name,
+              t.source,
+            ].filter(Boolean) as string[];
+            return names.some((n) =>
+              n === selectedAccount ||
+              n.includes(selectedAccount) ||
+              selectedAccount.includes(n)
+            );
           });
           
           console.log(

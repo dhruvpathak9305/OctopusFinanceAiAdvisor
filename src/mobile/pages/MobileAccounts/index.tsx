@@ -373,11 +373,16 @@ const MobileAccounts: React.FC = () => {
         });
 
         // Aggregate income amounts by day
-        incomeTransactions.forEach(tx => {
+        console.log(`\n💰 Processing ${incomeTransactions.length} income transactions:`);
+        incomeTransactions.forEach((tx, index) => {
           const day = new Date(tx.date).getDate();
           const current = incomeByDay.get(day) || 0;
           incomeByDay.set(day, current + tx.amount);
+          if (index < 5) {
+            console.log(`  ${index + 1}. Day ${day}: ₹${tx.amount} - ${tx.name || tx.description?.substring(0, 30)}`);
+          }
         });
+        console.log(`💰 Total income transactions processed: ${incomeTransactions.length}\n`);
 
         // Convert to arrays (in thousands for display)
         const spendArray: number[] = [];
