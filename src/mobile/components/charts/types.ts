@@ -35,6 +35,7 @@ export interface ChartTooltipProps {
   suffix?: string;
   secondaryValue?: string;
   secondaryLabel?: string;
+  formatValue?: (value: number) => string; // Custom formatter function
 }
 
 /**
@@ -62,6 +63,11 @@ export interface MonthlyChartProps extends BaseChartProps {
   formatYLabel?: (value: string) => string;
   selectedBank?: string | null;
   bankAmount?: string; // Formatted bank amount like "3K", "6L", "70Cr"
+  previousMonthData?: {
+    spend: number;
+    invested: number;
+    income: number;
+  }; // Previous month totals for MOM comparison
 }
 
 /**

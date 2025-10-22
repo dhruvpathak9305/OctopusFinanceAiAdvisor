@@ -28,16 +28,21 @@ import {
   FILTER_OPTIONS,
   CHART_COLORS,
   formatBankAmount,
-  ACCOUNT_BALANCE_TREND,
-  ACCOUNT_BALANCE_LABELS,
 } from "./utils";
 import { BankAccount, ChartDataPoint } from "./types";
 import { useRealAccountsData } from "./useRealAccountsData";
+import { useDemoMode } from "../../../../contexts/DemoModeContext";
+import { 
+  getMoMGrowthWithFallback,
+  fetchAccountHistory,
+} from "../../../../services/accountBalanceHistoryService";
+import { fetchTransactions, TransactionFilters } from "../../../../services/transactionsService";
 
 const MobileAccounts: React.FC = () => {
   const { isDark } = useTheme();
   const colors = isDark ? darkTheme : lightTheme;
   const navigation = useNavigation();
+  const { isDemo } = useDemoMode();
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [isDistributionExpanded, setIsDistributionExpanded] = useState(false);
   const [activeChart, setActiveChart] = useState<
@@ -57,6 +62,26 @@ const MobileAccounts: React.FC = () => {
     y: 0,
   });
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+
+  // State for real historical data and MOM
+  const [historicalChartData, setHistoricalChartData] = useState<number[]>([]);
+  const [historicalChartLabels, setHistoricalChartLabels] = useState<string[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [monthlyChange, setMonthlyChange] = useState("+0.0%");
+  const [momTrend, setMomTrend] = useState<"up" | "down" | "neutral">("neutral");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string>("");
+
+  // State for month navigation and transaction data
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [transactionChartLoading, setTransactionChartLoading] = useState(true);
+  const [spendData, setSpendData] = useState<number[]>([]);
+  const [incomeData, setIncomeData] = useState<number[]>([]);
+  const [investedData, setInvestedData] = useState<number[]>([]);
+  const [transactionLabels, setTransactionLabels] = useState<string[]>([]);
+  
+  // State for previous month data (for MOM comparison)
+  const [previousSpendTotal, setPreviousSpendTotal] = useState(0);
+  const [previousIncomeTotal, setPreviousIncomeTotal] = useState(0);
 
   const screenWidth = Dimensions.get("window").width;
 
@@ -99,6 +124,349 @@ const MobileAccounts: React.FC = () => {
     }
   });
 
+  // Fetch historical chart data when accounts or filter changes
+  useEffect(() => {
+    const fetchHistoricalData = async () => {
+      try {
+        setChartLoading(true);
+        
+        // Determine which account to fetch history for
+        let accountIdToFetch: string | null = null;
+        
+        if (selectedFilter !== "All" && selectedFilter !== "Add Account") {
+          // Find the selected account
+          const selectedAccount = accounts.find(acc => acc.name === selectedFilter);
+          if (selectedAccount) {
+            accountIdToFetch = selectedAccount.id;
+          }
+        }
+        
+        // Fetch 12 months of historical data
+        const history = await fetchAccountHistory(accountIdToFetch, 12, isDemo);
+        
+        if (history && history.length > 0) {
+          // Transform and validate data for chart
+          const validData: number[] = [];
+          const validLabels: string[] = [];
+          
+          history.forEach(item => {
+            // Validate that value exists and is a valid number
+            const value = Number(item.value);
+            if (!isNaN(value) && isFinite(value)) {
+              const valueInLakhs = value / 100000; // Convert to lakhs
+              // Only add if the converted value is also valid
+              if (!isNaN(valueInLakhs) && isFinite(valueInLakhs)) {
+                validData.push(valueInLakhs);
+                const date = new Date(item.date);
+                const label = date.toLocaleDateString("en-US", { month: "short" });
+                validLabels.push(label);
+              }
+            }
+          });
+          
+          // Only set data if we have valid values
+          if (validData.length > 0) {
+            setHistoricalChartData(validData);
+            setHistoricalChartLabels(validLabels);
+          } else {
+            console.warn("No valid data points found in historical data");
+            setHistoricalChartData([]);
+            setHistoricalChartLabels([]);
+          }
+        } else {
+          // Fallback to empty data
+          setHistoricalChartData([]);
+          setHistoricalChartLabels([]);
+        }
+      } catch (err) {
+        console.error("Error fetching historical chart data:", err);
+        // Fallback to empty data
+        setHistoricalChartData([]);
+        setHistoricalChartLabels([]);
+      } finally {
+        setChartLoading(false);
+      }
+    };
+
+    if (!accountsLoading && accounts.length > 0) {
+      fetchHistoricalData();
+    } else if (!accountsLoading) {
+      setChartLoading(false);
+    }
+  }, [accounts, isDemo, accountsLoading, selectedFilter]);
+
+  // Calculate MOM growth when balance or filter changes
+  useEffect(() => {
+    const calculateMOM = async () => {
+      // Use the displayed balance (filtered by selected account or total)
+      const balanceToUse = displayedBalance;
+      
+      if (balanceToUse > 0) {
+        try {
+          const momData = await getMoMGrowthWithFallback(balanceToUse, isDemo);
+          
+          if (momData) {
+            setMonthlyChange(momData.formattedChange);
+            setMomTrend(momData.trend);
+          }
+        } catch (err) {
+          console.error("Error calculating MOM:", err);
+          setMonthlyChange("+0.0%");
+          setMomTrend("neutral");
+        }
+      } else {
+        // No balance, show neutral
+        setMonthlyChange("0.0%");
+        setMomTrend("neutral");
+      }
+    };
+
+    if (!accountsLoading && accounts.length > 0) {
+      calculateMOM();
+    }
+  }, [displayedBalance, isDemo, accountsLoading, accounts.length, selectedFilter]);
+
+  // Update last updated timestamp
+  useEffect(() => {
+    const updateTimestamp = () => {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const dateString = now.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+      });
+      
+      // Check if it's today
+      const today = new Date();
+      const isToday = 
+        now.getDate() === today.getDate() &&
+        now.getMonth() === today.getMonth() &&
+        now.getFullYear() === today.getFullYear();
+      
+      setLastUpdatedAt(
+        isToday ? `Today at ${timeString}` : `${dateString} at ${timeString}`
+      );
+    };
+
+    updateTimestamp();
+    // Update timestamp every minute
+    const interval = setInterval(updateTimestamp, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch transaction data for the selected month
+  useEffect(() => {
+    const fetchMonthlyTransactions = async () => {
+      try {
+        setTransactionChartLoading(true);
+
+        // Get start and end dates for the selected month
+        const startOfMonth = new Date(
+          selectedMonth.getFullYear(),
+          selectedMonth.getMonth(),
+          1
+        );
+        const endOfMonth = new Date(
+          selectedMonth.getFullYear(),
+          selectedMonth.getMonth() + 1,
+          0
+        );
+
+        // Get number of days in the month
+        const daysInMonth = endOfMonth.getDate();
+
+        // Create date range filter
+        const dateRange = {
+          start: startOfMonth,
+          end: endOfMonth,
+        };
+
+        // Find selected account ID if a specific account is selected
+        let accountIdToFilter: string | undefined = undefined;
+        if (selectedFilter !== "All" && selectedFilter !== "Add Account") {
+          const selectedAccount = accounts.find(acc => acc.name === selectedFilter);
+          if (selectedAccount) {
+            accountIdToFilter = selectedAccount.id;
+          }
+        }
+
+        // Fetch expense transactions
+        const expenseFilters: TransactionFilters = {
+          type: "expense",
+          dateRange,
+          accountId: accountIdToFilter,
+        };
+        const expenseTransactions = await fetchTransactions(expenseFilters, isDemo);
+
+        // Fetch income transactions
+        const incomeFilters: TransactionFilters = {
+          type: "income",
+          dateRange,
+          accountId: accountIdToFilter,
+        };
+        const incomeTransactions = await fetchTransactions(incomeFilters, isDemo);
+
+        // Fetch previous month data for comparison
+        const previousMonthDate = new Date(
+          selectedMonth.getFullYear(),
+          selectedMonth.getMonth() - 1,
+          1
+        );
+        const startOfPreviousMonth = new Date(
+          previousMonthDate.getFullYear(),
+          previousMonthDate.getMonth(),
+          1
+        );
+        const endOfPreviousMonth = new Date(
+          previousMonthDate.getFullYear(),
+          previousMonthDate.getMonth() + 1,
+          0
+        );
+
+        const previousDateRange = {
+          start: startOfPreviousMonth,
+          end: endOfPreviousMonth,
+        };
+
+        // Fetch previous month expenses
+        const previousExpenseFilters: TransactionFilters = {
+          type: "expense",
+          dateRange: previousDateRange,
+          accountId: accountIdToFilter,
+        };
+        const previousExpenseTransactions = await fetchTransactions(previousExpenseFilters, isDemo);
+
+        // Fetch previous month income
+        const previousIncomeFilters: TransactionFilters = {
+          type: "income",
+          dateRange: previousDateRange,
+          accountId: accountIdToFilter,
+        };
+        const previousIncomeTransactions = await fetchTransactions(previousIncomeFilters, isDemo);
+
+        // Calculate previous month totals
+        const prevSpendTotal = previousExpenseTransactions.reduce((sum, tx) => sum + tx.amount, 0) / 1000;
+        const prevIncomeTotal = previousIncomeTransactions.reduce((sum, tx) => sum + tx.amount, 0) / 1000;
+        
+        setPreviousSpendTotal(prevSpendTotal);
+        setPreviousIncomeTotal(prevIncomeTotal);
+
+        // Group transactions by day
+        const spendByDay = new Map<number, number>();
+        const incomeByDay = new Map<number, number>();
+
+        // Initialize all days with 0
+        for (let day = 1; day <= daysInMonth; day++) {
+          spendByDay.set(day, 0);
+          incomeByDay.set(day, 0);
+        }
+
+        // Aggregate expense amounts by day
+        expenseTransactions.forEach(tx => {
+          const day = new Date(tx.date).getDate();
+          const current = spendByDay.get(day) || 0;
+          spendByDay.set(day, current + tx.amount);
+        });
+
+        // Aggregate income amounts by day
+        incomeTransactions.forEach(tx => {
+          const day = new Date(tx.date).getDate();
+          const current = incomeByDay.get(day) || 0;
+          incomeByDay.set(day, current + tx.amount);
+        });
+
+        // Convert to arrays (in thousands for display)
+        const spendArray: number[] = [];
+        const incomeArray: number[] = [];
+        const labelsArray: string[] = [];
+        const investedArray: number[] = []; // Placeholder for now
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          spendArray.push((spendByDay.get(day) || 0) / 1000);
+          incomeArray.push((incomeByDay.get(day) || 0) / 1000);
+          investedArray.push(0); // TODO: Implement invested calculation
+          labelsArray.push(day.toString());
+        }
+
+        // For monthly view, we would aggregate differently
+        // For now, keeping it simple with daily data
+        setSpendData(spendArray);
+        setIncomeData(incomeArray);
+        setInvestedData(investedArray);
+        setTransactionLabels(labelsArray);
+
+        const monthTitle = selectedMonth.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+        
+        const totalSpend = spendArray.reduce((a, b) => a + b, 0);
+        const totalIncome = incomeArray.reduce((a, b) => a + b, 0);
+        
+        const filterInfo = accountIdToFilter 
+          ? ` - Filter: ${selectedFilter} (${accountIdToFilter})` 
+          : " - Filter: All Accounts";
+        
+        console.log(`📊 Transaction Data for ${monthTitle}${filterInfo}`);
+        console.log(`├─ 💰 Expenses:`);
+        console.log(`│  ├─ Current Month: ${expenseTransactions.length} transactions = ₹${totalSpend.toFixed(1)}K`);
+        console.log(`│  ├─ Previous Month: ${previousExpenseTransactions.length} transactions = ₹${prevSpendTotal.toFixed(1)}K`);
+        console.log(`│  ├─ Change: ${((totalSpend - prevSpendTotal) / prevSpendTotal * 100).toFixed(1)}%`);
+        console.log(`│  └─ Sample:`, expenseTransactions.slice(0, 3).map(tx => ({
+          date: new Date(tx.date).toLocaleDateString(),
+          amount: `₹${tx.amount}`,
+          desc: tx.description?.substring(0, 30)
+        })));
+        console.log(`├─ 📈 Income:`);
+        console.log(`│  ├─ Current Month: ${incomeTransactions.length} transactions = ₹${totalIncome.toFixed(1)}K`);
+        console.log(`│  ├─ Previous Month: ${previousIncomeTransactions.length} transactions = ₹${prevIncomeTotal.toFixed(1)}K`);
+        console.log(`│  ├─ Change: ${((totalIncome - prevIncomeTotal) / prevIncomeTotal * 100).toFixed(1)}%`);
+        console.log(`│  └─ Sample:`, incomeTransactions.slice(0, 3).map(tx => ({
+          date: new Date(tx.date).toLocaleDateString(),
+          amount: `₹${tx.amount}`,
+          desc: tx.description?.substring(0, 30)
+        })));
+        console.log(`└─ 📊 Chart Data Points: ${spendArray.length} days`);
+        
+        // Validation check
+        const dbExpenseTotal = expenseTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+        const dbIncomeTotal = incomeTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+        const chartExpenseTotal = totalSpend * 1000;
+        const chartIncomeTotal = totalIncome * 1000;
+        
+        if (Math.abs(dbExpenseTotal - chartExpenseTotal) > 1) {
+          console.warn(`⚠️ Expense mismatch! DB: ₹${dbExpenseTotal}, Chart: ₹${chartExpenseTotal}`);
+        } else {
+          console.log(`✅ Expense data verified: ₹${dbExpenseTotal}`);
+        }
+        
+        if (Math.abs(dbIncomeTotal - chartIncomeTotal) > 1) {
+          console.warn(`⚠️ Income mismatch! DB: ₹${dbIncomeTotal}, Chart: ₹${chartIncomeTotal}`);
+        } else {
+          console.log(`✅ Income data verified: ₹${dbIncomeTotal}`);
+        }
+
+      } catch (error) {
+        console.error("Error fetching monthly transactions:", error);
+        // Set empty data on error
+        setSpendData([]);
+        setIncomeData([]);
+        setInvestedData([]);
+        setTransactionLabels([]);
+      } finally {
+        setTransactionChartLoading(false);
+      }
+    };
+
+    if (!accountsLoading && accounts.length >= 0) {
+      fetchMonthlyTransactions();
+    }
+  }, [selectedMonth, isDemo, accountsLoading, chartPeriod, selectedFilter, accounts]);
+
   const getCurrentChartData = () => {
     return chartPeriod === "daily" ? DAILY_CHART_DATA : MONTHLY_CHART_DATA;
   };
@@ -108,6 +476,27 @@ const MobileAccounts: React.FC = () => {
   const handleDataPointPress = (index: number, x: number, y: number) => {
     setSelectedDataPoint(index);
     setTooltipPosition({ x, y });
+  };
+
+  // Month navigation handlers
+  const handleMonthChange = (direction: "prev" | "next") => {
+    setSelectedMonth(prevMonth => {
+      const newMonth = new Date(prevMonth);
+      if (direction === "prev") {
+        newMonth.setMonth(newMonth.getMonth() - 1);
+      } else {
+        newMonth.setMonth(newMonth.getMonth() + 1);
+      }
+      return newMonth;
+    });
+  };
+
+  // Format selected month for display
+  const getMonthTitle = () => {
+    return selectedMonth.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
   };
 
   const CustomChart = () => {
@@ -215,7 +604,7 @@ const MobileAccounts: React.FC = () => {
             style={[
               styles.filterBankAmount,
               {
-                color: "#10B981",
+                color: selectedFilter === item ? "white" : "#10B981",
               },
             ]}
           >
@@ -417,35 +806,60 @@ const MobileAccounts: React.FC = () => {
               })}
             </Text>
 
-            {/* TODO: Replace with real MoM calculation from accountBalanceHistoryService */}
+            {/* Real MoM calculation from accountBalanceHistoryService */}
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 marginBottom: 4,
-                backgroundColor: "#3B82F620",
+                backgroundColor: 
+                  momTrend === "up" 
+                    ? "#05966920" 
+                    : momTrend === "down" 
+                    ? "#DC262620" 
+                    : "#3B82F620",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 12,
               }}
             >
               <Ionicons
-                name="remove"
+                name={
+                  momTrend === "up" 
+                    ? "trending-up" 
+                    : momTrend === "down" 
+                    ? "trending-down" 
+                    : "remove"
+                }
                 size={11}
-                color="#3B82F6"
+                color={
+                  momTrend === "up" 
+                    ? "#059669" 
+                    : momTrend === "down" 
+                    ? "#DC2626" 
+                    : "#3B82F6"
+                }
                 style={{ marginRight: 3 }}
               />
               <Text
-                style={{ color: "#3B82F6", fontSize: 11, fontWeight: "600" }}
+                style={{ 
+                  color: momTrend === "up" 
+                    ? "#059669" 
+                    : momTrend === "down" 
+                    ? "#DC2626" 
+                    : "#3B82F6", 
+                  fontSize: 11, 
+                  fontWeight: "600" 
+                }}
               >
-                0.0%
+                {monthlyChange}
               </Text>
             </View>
           </View>
 
           <View style={{ marginTop: 4, marginBottom: 10 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-              Last updated: Today at 4:57 PM
+              Last updated: {lastUpdatedAt || "Loading..."}
             </Text>
           </View>
 
@@ -459,42 +873,92 @@ const MobileAccounts: React.FC = () => {
               position: "relative",
             }}
           >
-            <ReusableLineChart
-              data={ACCOUNT_BALANCE_TREND}
-              labels={ACCOUNT_BALANCE_LABELS}
-              width={screenWidth - 72}
-              height={150}
-              color="#22C55E"
-              backgroundColor={colors.card}
-              textColor={colors.text}
-              secondaryTextColor={colors.textSecondary}
-              borderColor={colors.border}
-              showYAxisLabels={true}
-              showXAxisLabels={true}
-              formatYLabel={(v) => `₹${v}L`}
-              dotRadius={3}
-              lineThickness={2}
-              gridOpacity={0.2}
-              onPointClick={(index, x, y) => {
-                setAccountChartDataPoint(index);
-                setAccountChartTooltipPos({ x, y });
-              }}
-            />
+            {chartLoading ? (
+              <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Loading chart...
+                </Text>
+              </View>
+            ) : historicalChartData.length > 0 && 
+               historicalChartLabels.length > 0 &&
+               historicalChartData.length === historicalChartLabels.length ? (
+              <>
+                <ReusableLineChart
+                  data={historicalChartData}
+                  labels={historicalChartLabels}
+                  width={screenWidth - 72}
+                  height={150}
+                  color={
+                    momTrend === "up" 
+                      ? "#059669" 
+                      : momTrend === "down" 
+                      ? "#DC2626" 
+                      : "#22C55E"
+                  }
+                  backgroundColor={colors.card}
+                  textColor={colors.text}
+                  secondaryTextColor={colors.textSecondary}
+                  borderColor={colors.border}
+                  showYAxisLabels={true}
+                  showXAxisLabels={true}
+                  formatYLabel={(v) => {
+                    const numValue = Number(v);
+                    return !isNaN(numValue) && isFinite(numValue) 
+                      ? `₹${numValue.toFixed(1)}L` 
+                      : "₹0.0L";
+                  }}
+                  dotRadius={3}
+                  lineThickness={2}
+                  gridOpacity={0.2}
+                  onPointClick={(index, x, y) => {
+                    setAccountChartDataPoint(index);
+                    setAccountChartTooltipPos({ x, y });
+                  }}
+                />
 
-            {/* Tooltip for Account Chart */}
-            {accountChartDataPoint !== null && accountChartDataPoint >= 0 && (
-              <ChartTooltip
-                x={accountChartTooltipPos.x}
-                y={accountChartTooltipPos.y}
-                value={ACCOUNT_BALANCE_TREND[accountChartDataPoint]}
-                label={ACCOUNT_BALANCE_LABELS[accountChartDataPoint]}
-                color="#22C55E"
-                backgroundColor={colors.card}
-                textColor={colors.text}
-                borderColor={colors.border}
-                prefix="₹"
-                suffix="L"
-              />
+                {/* Tooltip for Account Chart */}
+                {accountChartDataPoint !== null && 
+                 accountChartDataPoint >= 0 && 
+                 accountChartDataPoint < historicalChartData.length &&
+                 !isNaN(historicalChartData[accountChartDataPoint]) &&
+                 isFinite(historicalChartData[accountChartDataPoint]) && (
+                  <ChartTooltip
+                    x={accountChartTooltipPos.x}
+                    y={accountChartTooltipPos.y}
+                    value={historicalChartData[accountChartDataPoint]}
+                    label={historicalChartLabels[accountChartDataPoint]}
+                    color={
+                      momTrend === "up" 
+                        ? "#059669" 
+                        : momTrend === "down" 
+                        ? "#DC2626" 
+                        : "#22C55E"
+                    }
+                    backgroundColor={colors.card}
+                    textColor={colors.text}
+                    borderColor={colors.border}
+                    prefix="₹"
+                    suffix="L"
+                  />
+                )}
+              </>
+            ) : (
+              <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                <Ionicons 
+                  name="bar-chart-outline" 
+                  size={32} 
+                  color={colors.textSecondary}
+                  style={{ marginBottom: 8, opacity: 0.5 }}
+                />
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  No historical data available
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 10, marginTop: 4 }}>
+                  {selectedFilter !== "All" 
+                    ? `No history for ${selectedFilter}` 
+                    : "No account history found"}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -802,70 +1266,59 @@ const MobileAccounts: React.FC = () => {
             },
           ]}
         >
-          <MonthlyChart
-            data={{
-              spend:
-                chartPeriod === "daily"
-                  ? DAILY_CHART_DATA.map((d: ChartDataPoint) => d.spend / 1000)
-                  : MONTHLY_CHART_DATA.map(
-                      (d: ChartDataPoint) => d.spend / 1000
-                    ),
-              invested:
-                chartPeriod === "daily"
-                  ? DAILY_CHART_DATA.map(
-                      (d: ChartDataPoint) => d.invested / 1000
-                    )
-                  : MONTHLY_CHART_DATA.map(
-                      (d: ChartDataPoint) => d.invested / 1000
-                    ),
-              income:
-                chartPeriod === "daily"
-                  ? DAILY_CHART_DATA.map((d: ChartDataPoint) => d.income / 1000)
-                  : MONTHLY_CHART_DATA.map(
-                      (d: ChartDataPoint) => d.income / 1000
-                    ),
-            }}
-            labels={
-              chartPeriod === "daily"
-                ? DAILY_CHART_DATA.map((d: ChartDataPoint) => d.date)
-                : MONTHLY_CHART_DATA.map((d: ChartDataPoint) => d.date)
-            }
-            activeChart={activeChart}
-            chartPeriod={chartPeriod}
-            title="August 2025"
-            width={screenWidth - 32}
-            height={220}
-            backgroundColor={colors.card}
-            textColor={colors.text}
-            secondaryTextColor={colors.textSecondary}
-            borderColor={colors.border}
-            noPadding={false}
-            onDataPointClick={(index, x, y) => {
-              setSelectedDataPoint(index);
-              setTooltipPosition({ x, y });
-            }}
-            onChartTypeChange={setActiveChart}
-            onPeriodChange={setChartPeriod}
-            onMonthChange={(direction) => {
-              console.log(`Month changed: ${direction}`);
-              // In a real app, this would update the current month
-            }}
-            selectedBank={selectedBank}
-            bankAmount={
-              selectedBank
-                ? formatBankAmount(
-                    accounts.find((acc) => acc.name === selectedBank)
-                      ?.balance || 0
-                  )
-                : undefined
-            }
-            chartColors={{
-              spend: "#EF4444",
-              invested: "#3B82F6",
-              income: "#22C55E",
-            }}
-            formatYLabel={(v) => `₹${v}K`}
-          />
+          {transactionChartLoading ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                Loading transactions...
+              </Text>
+            </View>
+          ) : (
+            <MonthlyChart
+                data={{
+                  spend: spendData.length > 0 ? spendData : [0],
+                  invested: investedData.length > 0 ? investedData : [0],
+                  income: incomeData.length > 0 ? incomeData : [0],
+                }}
+                labels={transactionLabels.length > 0 ? transactionLabels : ["1"]}
+                activeChart={activeChart}
+                chartPeriod={chartPeriod}
+                title={getMonthTitle()}
+                width={screenWidth - 32}
+                height={220}
+                backgroundColor={colors.card}
+                textColor={colors.text}
+                secondaryTextColor={colors.textSecondary}
+                borderColor={colors.border}
+                noPadding={false}
+                onDataPointClick={(index, x, y) => {
+                  setSelectedDataPoint(index);
+                  setTooltipPosition({ x, y });
+                }}
+                onChartTypeChange={setActiveChart}
+                onPeriodChange={setChartPeriod}
+                onMonthChange={handleMonthChange}
+                selectedBank={selectedBank}
+                bankAmount={
+                  selectedBank
+                    ? formatBankAmount(
+                        accounts.find((acc) => acc.name === selectedBank)
+                          ?.balance || 0
+                      )
+                    : undefined
+                }
+                previousMonthData={{
+                  spend: previousSpendTotal,
+                  invested: 0,
+                  income: previousIncomeTotal,
+                }}
+                chartColors={{
+                  spend: "#EF4444",
+                  invested: "#3B82F6",
+                  income: "#22C55E",
+                }}
+                formatYLabel={(v) => `₹${v}K`}
+              />
+          )}
         </View>
       </ScrollView>
     </View>

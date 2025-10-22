@@ -43,9 +43,62 @@ const LineChart: React.FC<LineChartProps> = ({
 }) => {
   const chartRef = useRef<View>(null);
 
+  // Validate and sanitize data to prevent NaN values
+  const validData = data
+    .map(value => {
+      const numValue = Number(value);
+      return !isNaN(numValue) && isFinite(numValue) ? numValue : null;
+    })
+    .filter((v): v is number => v !== null);
+
+  // If no valid data, show error state
+  if (validData.length === 0) {
+    return (
+      <View
+        style={[
+          styles.chartContainer,
+          { height: height + 40, width, backgroundColor },
+          containerStyle,
+        ]}
+      >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ color: secondaryTextColor, fontSize: 12 }}>
+            Invalid chart data
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   // Calculate the max and min values for the Y-axis scale
-  const maxValue = Math.max(...data) * 1.1; // Add 10% padding
-  const minValue = Math.min(...data) * 0.9; // Subtract 10% padding
+  const maxValue = Math.max(...validData) * 1.1; // Add 10% padding
+  const minValue = Math.min(...validData) * 0.9; // Subtract 10% padding
+
+  // Ensure we have valid range
+  const hasValidRange = 
+    !isNaN(maxValue) && 
+    !isNaN(minValue) && 
+    isFinite(maxValue) && 
+    isFinite(minValue) &&
+    maxValue !== minValue;
+
+  if (!hasValidRange) {
+    return (
+      <View
+        style={[
+          styles.chartContainer,
+          { height: height + 40, width, backgroundColor },
+          containerStyle,
+        ]}
+      >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ color: secondaryTextColor, fontSize: 12 }}>
+            Unable to calculate chart range
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   // Generate Y-axis labels
   const yAxisLabels = [
@@ -63,7 +116,7 @@ const LineChart: React.FC<LineChartProps> = ({
 
   // Handle touch events on the chart
   const handleChartTouch = (e: any) => {
-    if (!chartRef.current || !onPointClick) return;
+    if (!chartRef.current || !onPointClick || validData.length === 0) return;
 
     // Set hovering state to true
     setIsHovering(true);
@@ -73,8 +126,8 @@ const LineChart: React.FC<LineChartProps> = ({
     const i = Math.max(
       0,
       Math.min(
-        data.length - 1,
-        Math.round((locationX / chartWidth) * (data.length - 1))
+        validData.length - 1,
+        Math.round((locationX / chartWidth) * (validData.length - 1))
       )
     );
 
@@ -182,17 +235,23 @@ const LineChart: React.FC<LineChartProps> = ({
             <Svg width={width} height={height}>
               {/* Create a continuous path for the line */}
               <Path
-                d={data
+                d={validData
                   .map((value, i) => {
-                    const x = (i / (data.length - 1)) * (width - 50) + 35;
+                    const x = (i / (validData.length - 1)) * (width - 50) + 35;
                     const y =
                       height -
                       20 -
                       ((value - minValue) / (maxValue - minValue)) *
                         (height - 32);
 
+                    // Additional safety check
+                    if (isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) {
+                      return '';
+                    }
+
                     return i === 0 ? `M ${x},${y}` : `L ${x},${y}`;
                   })
+                  .filter(cmd => cmd !== '')
                   .join(" ")}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -202,12 +261,17 @@ const LineChart: React.FC<LineChartProps> = ({
               />
 
               {/* Add data points as circles */}
-              {data.map((value, i) => {
-                const x = (i / (data.length - 1)) * (width - 50) + 35;
+              {validData.map((value, i) => {
+                const x = (i / (validData.length - 1)) * (width - 50) + 35;
                 const y =
                   height -
                   20 -
                   ((value - minValue) / (maxValue - minValue)) * (height - 32);
+
+                // Skip rendering if coordinates are invalid
+                if (isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) {
+                  return null;
+                }
 
                 return (
                   <Circle
@@ -225,15 +289,16 @@ const LineChart: React.FC<LineChartProps> = ({
               {/* Add vertical dotted line for the selected point */}
               {isHovering &&
                 selectedDataPoint !== null &&
-                selectedDataPoint >= 0 && (
+                selectedDataPoint >= 0 &&
+                selectedDataPoint < validData.length && (
                   <Line
                     x1={
-                      (selectedDataPoint / (data.length - 1)) * (width - 50) +
+                      (selectedDataPoint / (validData.length - 1)) * (width - 50) +
                       35
                     }
                     y1={0}
                     x2={
-                      (selectedDataPoint / (data.length - 1)) * (width - 50) +
+                      (selectedDataPoint / (validData.length - 1)) * (width - 50) +
                       35
                     }
                     y2={height - 20}

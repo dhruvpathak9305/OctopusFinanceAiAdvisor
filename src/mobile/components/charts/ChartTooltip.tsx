@@ -20,9 +20,17 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
   suffix = "",
   secondaryValue,
   secondaryLabel,
+  formatValue,
 }) => {
   // Position the tooltip to ensure it stays within screen bounds
   const left = Math.min(Math.max(x - 50, 10), screenWidth - 120);
+
+  // Format the value using custom formatter or default formatting
+  const formattedValue = typeof value === "number" && formatValue
+    ? formatValue(value)
+    : typeof value === "number"
+    ? `${prefix}${value.toFixed(1)}${suffix}`
+    : value;
 
   return (
     <View
@@ -38,9 +46,7 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
     >
       <Text style={[styles.tooltipTitle, { color: textColor }]}>{label}</Text>
       <Text style={[styles.tooltipValue, { color }]}>
-        {prefix}
-        {typeof value === "number" ? value.toFixed(1) : value}
-        {suffix}
+        {formattedValue}
       </Text>
 
       {secondaryValue && secondaryLabel && (

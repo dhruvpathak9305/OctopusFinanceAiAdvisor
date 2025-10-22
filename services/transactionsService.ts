@@ -355,9 +355,9 @@ export const fetchTransactions = async (
       query = query.eq("subcategory", filters.subcategory);
     }
 
-    // Apply account filter
+    // Apply account filter (maps to source_account_id in database)
     if (filters.accountId) {
-      query = query.eq("account_id", filters.accountId);
+      query = query.eq("source_account_id", filters.accountId);
     }
 
     // Apply credit card filter

@@ -228,3 +228,68 @@ export const getMoMGrowthWithFallback = async (
   };
 };
 
+/**
+ * Fetches account balance history for a specific account or all accounts
+ * @param accountId - Optional account ID. If not provided, fetches for all accounts
+ * @param months - Number of months of history to fetch
+ * @param isDemo - Whether to use demo data
+ */
+export const fetchAccountHistory = async (
+  accountId: string | null,
+  months: number = 12,
+  isDemo: boolean = false
+): Promise<{ date: string; value: number }[]> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error("User not authenticated");
+      return [];
+    }
+
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+
+    const startDateStr = formatDateLocal(startDate);
+    const endDateStr = formatDateLocal(endDate);
+
+    let query = supabase
+      .from(isDemo ? "account_balance_history" : "account_balance_history_real")
+      .select("snapshot_date, balance, account_id")
+      .eq("user_id", user.id)
+      .gte("snapshot_date", startDateStr)
+      .lte("snapshot_date", endDateStr)
+      .order("snapshot_date", { ascending: true });
+
+    // Filter by specific account if provided
+    if (accountId) {
+      query = query.eq("account_id", accountId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error fetching account history:", error);
+      return [];
+    }
+
+    // Group by date and sum balances
+    const balanceByDate = new Map<string, number>();
+    (data || []).forEach((record: any) => {
+      const date = record.snapshot_date;
+      const currentBalance = balanceByDate.get(date) || 0;
+      balanceByDate.set(date, currentBalance + record.balance);
+    });
+
+    // Convert to array and sort by date
+    return Array.from(balanceByDate.entries())
+      .map(([date, balance]) => ({ date, value: balance }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  } catch (error) {
+    console.error("Exception fetching account history:", error);
+    return [];
+  }
+};
+

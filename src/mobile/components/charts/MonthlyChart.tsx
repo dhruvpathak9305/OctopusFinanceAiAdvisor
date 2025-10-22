@@ -48,6 +48,7 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({
   formatYLabel = (v) => `₹${v}K`,
   selectedBank,
   bankAmount,
+  previousMonthData,
 }) => {
   // Local state for selected data point and tooltip position
   const [selectedDataPoint, setSelectedDataPoint] = useState<number | null>(
@@ -101,30 +102,63 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({
   };
 
   // Format values for the chart summary
+  // NOTE: Input values are already in thousands (K), so we don't divide by 1000
   const formatValue = (value: number): string => {
-    if (value >= 100000) {
-      return `₹${(value / 100000).toFixed(1)}L`;
+    if (value >= 100) {
+      // If >= 100K, convert to Lakhs (100K = 1L)
+      return `₹${(value / 100).toFixed(1)}L`;
+    } else if (value >= 1) {
+      // If >= 1K, show in thousands
+      return `₹${value.toFixed(1)}K`;
+    } else {
+      // If < 1K (less than ₹1,000), show whole rupee amount
+      return `₹${Math.round(value * 1000)}`;
     }
-    return `₹${(value / 1000).toFixed(1)}K`;
   };
 
-  // Sample data for the chart summary (would come from props in a real implementation)
+  // Calculate real summary data from actual data prop
+  const calculateSummaryData = () => {
+    const currentData = data[activeChart];
+    
+    // Calculate current month total (sum of all data points in K)
+    const currentTotal = currentData.reduce((sum, val) => sum + val, 0);
+    
+    // Use previous month data from props if available, otherwise use placeholder
+    const previousTotal = previousMonthData 
+      ? previousMonthData[activeChart]
+      : currentTotal * 0.95; // Fallback: assume 5% less
+    
+    // Calculate percentage change
+    const change = previousTotal > 0 
+      ? ((currentTotal - previousTotal) / previousTotal) * 100 
+      : 0;
+    
+    return {
+      current: formatValue(currentTotal),
+      previous: formatValue(previousTotal),
+      change: Number(change.toFixed(1)),
+    };
+  };
+
+  // Calculate summary for current chart type
+  const currentSummary = calculateSummaryData();
+  
+  // Build summary data object for all chart types
   const summaryData = {
-    spend: {
-      current: "₹1.2L",
-      previous: "₹1.1L",
-      budget: "₹91.0K",
-      change: -7.7,
+    spend: activeChart === "spend" ? currentSummary : {
+      current: "₹0K",
+      previous: "₹0K",
+      change: 0,
     },
-    invested: {
-      current: "₹64.5K",
-      previous: "₹68.6K",
-      change: -7.7,
+    invested: activeChart === "invested" ? currentSummary : {
+      current: "₹0K",
+      previous: "₹0K",
+      change: 0,
     },
-    income: {
-      current: "₹68.1K",
-      previous: "₹63.6K",
-      change: 7.0,
+    income: activeChart === "income" ? currentSummary : {
+      current: "₹0K",
+      previous: "₹0K",
+      change: 0,
     },
   };
 
@@ -167,9 +201,6 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({
         currentValue={summaryData[activeChart].current}
         previousValue={summaryData[activeChart].previous}
         percentageChange={summaryData[activeChart].change}
-        budgetValue={
-          activeChart === "spend" ? summaryData.spend.budget : undefined
-        }
         textColor={textColor}
         secondaryTextColor={secondaryTextColor}
         chartColors={chartColors}
@@ -215,8 +246,7 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({
             backgroundColor={backgroundColor}
             textColor={textColor}
             borderColor={borderColor}
-            prefix="₹"
-            suffix="K"
+            formatValue={formatValue}
             secondaryLabel={selectedBank || undefined}
             secondaryValue={bankAmount || undefined}
           />
