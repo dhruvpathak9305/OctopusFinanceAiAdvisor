@@ -37,9 +37,13 @@ const BudgetCategoryDetailModal: React.FC<BudgetCategoryDetailModalProps> = ({
   onCategoryChange,
 }) => {
   const colors = useThemeColors();
-  const modal = useBudgetModal(visible, category);
-  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState("Monthly");
+  
+  // Convert display duration to API period type
+  const periodType = selectedDuration.toLowerCase() as "monthly" | "quarterly" | "yearly";
+  
+  const modal = useBudgetModal(visible, category, periodType);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
 
   // Don't render if no category
   if (!category) {

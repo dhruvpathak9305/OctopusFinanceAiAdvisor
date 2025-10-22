@@ -18,6 +18,8 @@ import {
 } from "../utils/subcategoryHelpers";
 import { fetchBudgetSubcategories } from "../../../../../services/budgetService";
 import { useDemoMode } from "../../../../../contexts/DemoModeContext";
+import { getSubcategoryProgress } from "../../../../../services/budgetProgressService";
+import { useUnifiedAuth } from "../../../../../contexts/UnifiedAuthContext";
 
 export type ModalView =
   | "main"
@@ -72,9 +74,11 @@ export interface BudgetModalActions {
 
 export const useBudgetModal = (
   visible: boolean,
-  category: BudgetCategory | null
+  category: BudgetCategory | null,
+  periodType: "monthly" | "quarterly" | "yearly" = "monthly"
 ): BudgetModalState & BudgetModalActions => {
   const { isDemo } = useDemoMode();
+  const { user } = useUnifiedAuth();
 
   // View state
   const [currentView, setCurrentView] = useState<ModalView>("main");
@@ -93,54 +97,57 @@ export const useBudgetModal = (
         return;
       }
 
-      const categoryWithSubs = category as BudgetCategory & {
-        subcategories?: any[];
-      };
+      try {
+        if (isDemo) {
+          // Use mock data for demo mode
+          setSubcategories(getMockSubcategories());
+          return;
+        }
 
-      if (
-        categoryWithSubs?.subcategories &&
-        categoryWithSubs.subcategories.length > 0
-      ) {
-        // Map the category's subcategories to the expected format
-        const mappedSubcategories: BudgetSubcategory[] =
-          categoryWithSubs.subcategories.map((sub: any) => ({
-            id: sub.id,
-            name: sub.name,
-            amount: parseFloat(sub.budget_limit) || 0,
-            budgetLimit: parseFloat(sub.budget_limit) || 0,
-            color: sub.color || "#10B981",
-            icon: sub.icon || "flash", // Use proper Lucide icon instead of circle
-            spent: parseFloat(sub.current_spend) || 0,
-            current_spend: parseFloat(sub.current_spend) || 0,
-            remaining: Math.max(
-              0,
-              (parseFloat(sub.budget_limit) || 0) -
-                (parseFloat(sub.current_spend) || 0)
-            ),
-            category_id: categoryWithSubs.id || "",
-            is_active: sub.is_active !== false,
-          }));
-        setSubcategories(mappedSubcategories);
-      } else {
-        // Fetch real subcategories from database
-        try {
-          if (isDemo) {
-            // Use mock data for demo mode
-            setSubcategories(getMockSubcategories());
-          } else {
-            // Fetch real subcategories from database
-            const realSubcategories = await fetchBudgetSubcategories(isDemo);
+        // Fetch real subcategory progress data with actual spending from database
+        if (user?.id && category.id) {
+          const subcategoryProgressData = await getSubcategoryProgress(
+            user.id,
+            category.id,
+            category.category_type as "expense" | "income",
+            periodType
+          );
 
-            // Filter subcategories for this category and map to expected format
-            const categorySubcategories = realSubcategories
-              .filter((sub: any) => sub.category_id === category.id)
-              .map((sub: any) => ({
+          // Map the progress data to the expected format
+          const mappedSubcategories: BudgetSubcategory[] =
+            subcategoryProgressData.map((sub) => ({
+              id: sub.subcategory_id,
+              name: sub.subcategory_name,
+              amount: sub.budget_limit,
+              budgetLimit: sub.budget_limit,
+              color: sub.color || "#10B981",
+              icon: sub.icon || "flash",
+              spent: sub.spent_amount,
+              current_spend: sub.spent_amount,
+              remaining: sub.remaining_amount,
+              category_id: category.id,
+              is_active: sub.is_active,
+            }));
+
+          setSubcategories(mappedSubcategories);
+        } else {
+          // Fallback: try to use subcategories from category object if available
+          const categoryWithSubs = category as BudgetCategory & {
+            subcategories?: any[];
+          };
+
+          if (
+            categoryWithSubs?.subcategories &&
+            categoryWithSubs.subcategories.length > 0
+          ) {
+            const mappedSubcategories: BudgetSubcategory[] =
+              categoryWithSubs.subcategories.map((sub: any) => ({
                 id: sub.id,
                 name: sub.name,
                 amount: parseFloat(sub.budget_limit) || 0,
                 budgetLimit: parseFloat(sub.budget_limit) || 0,
                 color: sub.color || "#10B981",
-                icon: sub.icon || "flash", // Use proper Lucide icon
+                icon: sub.icon || "flash",
                 spent: parseFloat(sub.current_spend) || 0,
                 current_spend: parseFloat(sub.current_spend) || 0,
                 remaining: Math.max(
@@ -148,22 +155,23 @@ export const useBudgetModal = (
                   (parseFloat(sub.budget_limit) || 0) -
                     (parseFloat(sub.current_spend) || 0)
                 ),
-                category_id: sub.category_id,
+                category_id: categoryWithSubs.id || "",
                 is_active: sub.is_active !== false,
               }));
-
-            setSubcategories(categorySubcategories);
+            setSubcategories(mappedSubcategories);
+          } else {
+            setSubcategories([]);
           }
-        } catch (error) {
-          console.error("Error fetching subcategories:", error);
-          // Fallback to mock data on error
-          setSubcategories(getMockSubcategories());
         }
+      } catch (error) {
+        console.error("Error fetching subcategory progress:", error);
+        // Fallback to mock data on error
+        setSubcategories(getMockSubcategories());
       }
     };
 
     fetchSubcategoriesForCategory();
-  }, [category, isDemo]);
+  }, [category, isDemo, user?.id, periodType]);
   const [selectedSubcategory, setSelectedSubcategory] =
     useState<BudgetSubcategory | null>(null);
 

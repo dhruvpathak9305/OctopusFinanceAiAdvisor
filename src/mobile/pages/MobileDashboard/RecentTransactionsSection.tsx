@@ -412,25 +412,32 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
       setLoading(true);
       setError(null);
 
-      // Calculate date range based on selected filter - ensure we get enough transactions
+      // Calculate date range based on selected filter
       const now = new Date();
       let startDate = new Date();
 
       switch (selectedFilter.toLowerCase()) {
         case "this week":
-          startDate.setDate(now.getDate() - 30); // Extended to 30 days to ensure enough transactions
+          // Last 7 days from today
+          startDate.setDate(now.getDate() - 7);
           break;
         case "monthly":
-          startDate.setMonth(now.getMonth() - 1);
+          // Start of current month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           break;
         case "quarterly":
-          startDate.setMonth(now.getMonth() - 3);
+          // Start of current quarter (last 3 months)
+          const currentMonth = now.getMonth();
+          const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
+          startDate = new Date(now.getFullYear(), quarterStartMonth, 1);
           break;
         case "this year":
-          startDate.setFullYear(now.getFullYear() - 1);
+          // Start of current year (January 1st)
+          startDate = new Date(now.getFullYear(), 0, 1);
           break;
         default:
-          startDate.setDate(now.getDate() - 30); // Default to 30 days to show at least 10 transactions
+          // Default to last 7 days
+          startDate.setDate(now.getDate() - 7);
       }
 
       // Fetch transactions from Supabase
