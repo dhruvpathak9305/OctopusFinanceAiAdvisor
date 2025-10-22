@@ -430,58 +430,70 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       // Set account fields based on transaction type using correct field names from database
       const transactionType = editTransaction.type || "expense";
 
-      if (transactionType === "income") {
-        // For income, use destination account (where money goes)
-        const accountName = editTransaction.destination_account_name || "";
-        const accountInstitution =
-          editTransaction.destination_account_type || "";
-        if (accountName) {
-          // Format as "Account Name (Institution)" to match dropdown format
-          const formattedAccount = accountInstitution
-            ? `${accountName} (${accountInstitution})`
-            : accountName;
-          console.log(
-            "🔥 ACCOUNT DEBUG - Setting income account:",
-            formattedAccount
-          );
-          setAccount(formattedAccount);
-        }
-      } else if (transactionType === "expense") {
-        // For expense, use source account (where money comes from)
-        const accountName = editTransaction.source_account_name || "";
-        const accountInstitution = editTransaction.source_account_type || "";
-        if (accountName) {
-          const formattedAccount = accountInstitution
-            ? `${accountName} (${accountInstitution})`
-            : accountName;
-          console.log(
-            "🔥 ACCOUNT DEBUG - Setting expense account:",
-            formattedAccount
-          );
-          setAccount(formattedAccount);
-        }
-      } else if (transactionType === "transfer") {
-        // For transfer, use both source and destination accounts
-        const fromAccountName = editTransaction.source_account_name || "";
-        const fromAccountInstitution =
-          editTransaction.source_account_type || "";
-        const toAccountName = editTransaction.destination_account_name || "";
-        const toAccountInstitution =
-          editTransaction.destination_account_type || "";
+      // Wait for accounts to load before setting account
+      if (accounts.length > 0) {
+        if (transactionType === "income") {
+          // For income, use destination account (where money goes)
+          const accountId = editTransaction.destination_account_id;
+          if (accountId) {
+            const matchedAccount = accounts.find(acc => acc.id === accountId);
+            if (matchedAccount) {
+              const formattedAccount = `${matchedAccount.name} (${matchedAccount.institution})`;
+              console.log("🔥 ACCOUNT DEBUG - Setting income account:", formattedAccount);
+              setAccount(formattedAccount);
+            } else {
+              // Fallback to name matching
+              const accountName = editTransaction.destination_account_name || "";
+              const accountInstitution = editTransaction.destination_account_type || "";
+              if (accountName) {
+                const formattedAccount = accountInstitution
+                  ? `${accountName} (${accountInstitution})`
+                  : accountName;
+                console.log("🔥 ACCOUNT DEBUG - Fallback income account:", formattedAccount);
+                setAccount(formattedAccount);
+              }
+            }
+          }
+        } else if (transactionType === "expense") {
+          // For expense, use source account (where money comes from)
+          const accountId = editTransaction.source_account_id;
+          if (accountId) {
+            const matchedAccount = accounts.find(acc => acc.id === accountId);
+            if (matchedAccount) {
+              const formattedAccount = `${matchedAccount.name} (${matchedAccount.institution})`;
+              console.log("🔥 ACCOUNT DEBUG - Setting expense account:", formattedAccount);
+              setAccount(formattedAccount);
+            } else {
+              // Fallback to name matching
+              const accountName = editTransaction.source_account_name || "";
+              const accountInstitution = editTransaction.source_account_type || "";
+              if (accountName) {
+                const formattedAccount = accountInstitution
+                  ? `${accountName} (${accountInstitution})`
+                  : accountName;
+                console.log("🔥 ACCOUNT DEBUG - Fallback expense account:", formattedAccount);
+                setAccount(formattedAccount);
+              }
+            }
+          }
+        } else if (transactionType === "transfer") {
+          // For transfer, use both source and destination accounts
+          const fromAccountId = editTransaction.source_account_id;
+          const toAccountId = editTransaction.destination_account_id;
 
-        if (fromAccountName) {
-          setFromAccount(
-            fromAccountInstitution
-              ? `${fromAccountName} (${fromAccountInstitution})`
-              : fromAccountName
-          );
-        }
-        if (toAccountName) {
-          setToAccount(
-            toAccountInstitution
-              ? `${toAccountName} (${toAccountInstitution})`
-              : toAccountName
-          );
+          if (fromAccountId) {
+            const matchedAccount = accounts.find(acc => acc.id === fromAccountId);
+            if (matchedAccount) {
+              setFromAccount(`${matchedAccount.name} (${matchedAccount.institution})`);
+            }
+          }
+
+          if (toAccountId) {
+            const matchedAccount = accounts.find(acc => acc.id === toAccountId);
+            if (matchedAccount) {
+              setToAccount(`${matchedAccount.name} (${matchedAccount.institution})`);
+            }
+          }
         }
       }
 
@@ -493,7 +505,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setEndDate(new Date(editTransaction.recurrence_end_date));
       }
     }
-  }, [isEditMode, isCopyMode, editTransaction]);
+  }, [isEditMode, isCopyMode, editTransaction, accounts]);
 
   // Note: Categories and subcategories now come from database via useEffect
 
@@ -515,6 +527,20 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     if (!description || !amount) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
+    }
+
+    // Validate account is selected for non-transfer transactions
+    if (transactionType !== "transfer" && !account) {
+      Alert.alert("Error", "Please select an account");
+      return;
+    }
+
+    // Validate transfer accounts
+    if (transactionType === "transfer") {
+      if (!fromAccount || !toAccount) {
+        Alert.alert("Error", "Please select both accounts for transfer");
+        return;
+      }
     }
 
     // Validate splits if splitting is enabled
@@ -541,12 +567,25 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       const selectedSubcategory = budgetSubcategories.find(
         (sub) => sub.name === subcategory
       );
+      
+      // Find account by matching formatted string
       const selectedAccount = accounts.find(
         (acc) => `${acc.name} (${acc.institution})` === account
       );
 
-      // Prepare transaction data according to the database schema
-      const transactionData = {
+      // Additional validation for account selection
+      if (transactionType !== "transfer" && !selectedAccount) {
+        console.error("❌ Account not found:", account);
+        console.error("Available accounts:", accounts.map(acc => `${acc.name} (${acc.institution})`));
+        Alert.alert(
+          "Account Error",
+          `Could not find the selected account. Please select an account from the list.`
+        );
+        return;
+      }
+
+      // Prepare transaction data based on transaction type
+      let transactionData: any = {
         name: description,
         description: description,
         amount: parseFloat(amount),
@@ -556,12 +595,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         subcategory_id: selectedSubcategory?.id || null,
         icon: null,
         merchant: merchant || null,
-        source_account_id: selectedAccount?.id || null,
-        source_account_type: selectedAccount ? "bank" : "other",
-        source_account_name: selectedAccount?.name || null,
-        destination_account_id: null,
-        destination_account_type: null,
-        destination_account_name: null,
         is_recurring: isRecurring,
         recurrence_pattern: isRecurring ? frequency : null,
         recurrence_end_date:
@@ -571,6 +604,50 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         loan_term_months: null,
         metadata: null,
       };
+
+      // Set account fields based on transaction type
+      if (transactionType === "expense") {
+        // For expense: money goes OUT from source account
+        transactionData.source_account_id = selectedAccount?.id || null;
+        transactionData.source_account_type = selectedAccount ? "bank" : "other";
+        transactionData.source_account_name = selectedAccount?.name || null;
+        transactionData.destination_account_id = null;
+        transactionData.destination_account_type = null;
+        transactionData.destination_account_name = null;
+      } else if (transactionType === "income") {
+        // For income: money comes IN to destination account
+        transactionData.source_account_id = null;
+        transactionData.source_account_type = null;
+        transactionData.source_account_name = null;
+        transactionData.destination_account_id = selectedAccount?.id || null;
+        transactionData.destination_account_type = selectedAccount ? "bank" : "other";
+        transactionData.destination_account_name = selectedAccount?.name || null;
+      } else if (transactionType === "transfer") {
+        // For transfer: money moves from source to destination
+        const selectedFromAccount = accounts.find(
+          (acc) => `${acc.name} (${acc.institution})` === fromAccount
+        );
+        const selectedToAccount = accounts.find(
+          (acc) => `${acc.name} (${acc.institution})` === toAccount
+        );
+
+        if (!selectedFromAccount || !selectedToAccount) {
+          console.error("❌ Transfer accounts not found:", { fromAccount, toAccount });
+          console.error("Available accounts:", accounts.map(acc => `${acc.name} (${acc.institution})`));
+          Alert.alert(
+            "Transfer Error",
+            "Could not find the selected accounts. Please select valid accounts from the list."
+          );
+          return;
+        }
+
+        transactionData.source_account_id = selectedFromAccount.id;
+        transactionData.source_account_type = "bank";
+        transactionData.source_account_name = selectedFromAccount.name;
+        transactionData.destination_account_id = selectedToAccount.id;
+        transactionData.destination_account_type = "bank";
+        transactionData.destination_account_name = selectedToAccount.name;
+      }
 
       console.log(
         isEditMode ? "Updating transaction:" : "Adding transaction:",
@@ -603,11 +680,24 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               // This will update the transaction list and close the modal
               onTransactionUpdate?.();
             });
-          } catch (err) {
+          } catch (err: any) {
             console.error("Error updating transaction:", err);
+            
+            // Show more specific error message based on error code
+            let errorMessage = "Failed to update transaction. Please try again.";
+            if (err?.message) {
+              if (err.message.includes("source_account_id")) {
+                errorMessage = "Please select an account for this transaction.";
+              } else if (err.message.includes("destination_account_id")) {
+                errorMessage = "Please select a destination account.";
+              } else if (err.message.includes("requires")) {
+                errorMessage = err.message;
+              }
+            }
+            
             Alert.alert(
-              "Error",
-              "Failed to update transaction. Please try again."
+              "Update Failed",
+              errorMessage
             );
           }
         }, 100);
