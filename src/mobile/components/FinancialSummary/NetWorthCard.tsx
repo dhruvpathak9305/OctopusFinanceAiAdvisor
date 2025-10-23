@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { Alert } from "react-native";
-import { useBalances } from "../../../../contexts/BalanceContext";
+import { useDemoMode } from "../../../../contexts/DemoModeContext";
+import { fetchFormattedCategoriesForUI } from "../../../../services/netWorthService";
 import FinancialSummaryCard from "./FinancialSummaryCard";
 
 interface NetWorthCardProps {
@@ -10,12 +11,10 @@ interface NetWorthCardProps {
 
 const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
   const navigation = useNavigation();
-  const {
-    totalBalance,
-    loading: balancesLoading,
-    error: balancesError,
-  } = useBalances();
+  const { isDemo } = useDemoMode();
   const [netWorthTotal, setNetWorthTotal] = useState(0);
+  const [totalAssets, setTotalAssets] = useState(0);
+  const [totalLiabilities, setTotalLiabilities] = useState(0);
   const [percentChange, setPercentChange] = useState(0);
   const [chartData, setChartData] = useState<
     Array<{ month: string; value: number }>
@@ -23,24 +22,33 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // For now, mirror Accounts card: use sum of balance_real (bank accounts) only
-  const accountsTotal = useMemo(() => totalBalance || 0, [totalBalance]);
-
-  // Calculate displayed total and chart based on accounts total
+  // Calculate real net worth from assets and liabilities (same as Money page)
   useEffect(() => {
     const calculateNetWorth = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const netWorth = accountsTotal;
+        // Fetch assets and liabilities using the same service as Money page
+        const [assets, liabilities] = await Promise.all([
+          fetchFormattedCategoriesForUI("asset", isDemo),
+          fetchFormattedCategoriesForUI("liability", isDemo),
+        ]);
+
+        // Calculate totals (including bank accounts, investments, properties, etc.)
+        const assetsTotal = assets.reduce((sum, cat) => sum + cat.value, 0);
+        const liabilitiesTotal = liabilities.reduce((sum, cat) => sum + cat.value, 0);
+        const netWorth = assetsTotal - liabilitiesTotal;
+
+        setTotalAssets(assetsTotal);
+        setTotalLiabilities(liabilitiesTotal);
         setNetWorthTotal(netWorth);
 
-        // Generate chart data based on accounts total trend placeholder
+        // Generate chart data based on net worth trend
         const chartData = generateChartDataFromNetWorth(netWorth);
         setChartData(chartData);
 
-        // Percentage change placeholder
+        // TODO: Calculate real percentage change from historical data
         const change = Math.random() * 8 - 2;
         setPercentChange(change);
       } catch (err) {
@@ -48,18 +56,16 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
         setError(
           err instanceof Error ? err.message : "Failed to calculate net worth"
         );
-        setNetWorthTotal(accountsTotal);
-        setPercentChange(3.6);
-        setChartData(generateMockChartData(accountsTotal));
+        setNetWorthTotal(0);
+        setPercentChange(0);
+        setChartData(generateMockChartData(0));
       } finally {
         setLoading(false);
       }
     };
 
-    if (!balancesLoading) {
-      calculateNetWorth();
-    }
-  }, [balancesLoading, accountsTotal]);
+    calculateNetWorth();
+  }, [isDemo]);
 
   // Generate chart data from net worth
   const generateChartDataFromNetWorth = (currentNetWorth: number) => {
@@ -104,7 +110,10 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
   const handleInfo = () => {
     Alert.alert(
       "How we calculate Net Worth",
-      "Now showing: Accounts Total from balance_real",
+      `Net Worth = Total Assets - Total Liabilities\n\n` +
+      `Assets: ₹${totalAssets.toLocaleString("en-IN")}\n` +
+      `Liabilities: ₹${totalLiabilities.toLocaleString("en-IN")}\n\n` +
+      `Includes bank accounts, investments, properties, credit cards, and loans.`,
       [{ text: "OK" }]
     );
   };
@@ -117,8 +126,8 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
       total={netWorthTotal}
       monthlyChange={monthlyChange}
       themeColor="#10B981"
-      loading={loading || balancesLoading}
-      error={error || balancesError}
+      loading={loading}
+      error={error}
       onViewAll={handleViewAll}
       onAddNew={handleAddNew}
       onInfoPress={handleInfo}
