@@ -222,6 +222,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showSubcategoryPicker, setShowSubcategoryPicker] = useState(false);
+  const [categoryViewMode, setCategoryViewMode] = useState<"list" | "grid">("list");
+  const [subcategoryViewMode, setSubcategoryViewMode] = useState<"list" | "grid">("grid");
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showFromAccountPicker, setShowFromAccountPicker] = useState(false);
   const [showToAccountPicker, setShowToAccountPicker] = useState(false);
@@ -2101,72 +2103,129 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                         >
                           <TouchableOpacity
                             onPress={() => setShowCategoryPicker(false)}
+                            style={styles.pickerHeaderButton}
                           >
-                            <Text
-                              style={[
-                                styles.pickerButton,
-                                { color: colors.textSecondary },
-                              ]}
-                            >
-                              Cancel
-                            </Text>
+                            <Ionicons
+                              name="close"
+                              size={24}
+                              color={colors.textSecondary}
+                            />
                           </TouchableOpacity>
-                          <Text
-                            style={[styles.pickerTitle, { color: colors.text }]}
-                          >
-                            Select Category
-                          </Text>
+                          <View style={styles.pickerTitleRow}>
+                            <Text
+                              style={[styles.pickerTitle, { color: colors.text }]}
+                            >
+                              Select Category
+                            </Text>
+                            <TouchableOpacity
+                              style={[
+                                styles.viewToggleSingleButton,
+                                { backgroundColor: categoryViewMode === "grid" ? colors.primary : colors.card }
+                              ]}
+                              onPress={() => setCategoryViewMode(categoryViewMode === "grid" ? "list" : "grid")}
+                            >
+                              <Ionicons
+                                name="grid"
+                                size={16}
+                                color={categoryViewMode === "grid" ? "#fff" : colors.textSecondary}
+                              />
+                            </TouchableOpacity>
+                          </View>
                           <TouchableOpacity
                             onPress={() => setShowCategoryPicker(false)}
+                            style={styles.pickerHeaderButton}
                           >
-                            <Text
-                              style={[
-                                styles.pickerButton,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              Done
-                            </Text>
+                            <Ionicons
+                              name="checkmark"
+                              size={24}
+                              color={colors.primary}
+                            />
                           </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.pickerContent}>
-                          {getCurrentCategories().map((categoryName, index) => (
-                            <TouchableOpacity
-                              key={index}
-                              style={[
-                                styles.pickerItem,
-                                { borderBottomColor: colors.border },
-                              ]}
-                              onPress={() => {
-                                setCategory(categoryName);
-                                setSubcategory(""); // Reset subcategory when category changes
-                                setShowCategoryPicker(false);
-                              }}
-                            >
-                              <Text
+                          {categoryViewMode === "list" ? (
+                            // List View
+                            getCurrentCategories().map((categoryName, index) => (
+                              <TouchableOpacity
+                                key={index}
                                 style={[
-                                  styles.pickerItemText,
-                                  {
-                                    color:
-                                      category === categoryName
-                                        ? colors.primary
-                                        : colors.text,
-                                    fontWeight:
-                                      category === categoryName ? "600" : "400",
-                                  },
+                                  styles.pickerItem,
+                                  { borderBottomColor: colors.border },
                                 ]}
+                                onPress={() => {
+                                  setCategory(categoryName);
+                                  setSubcategory("");
+                                  setShowCategoryPicker(false);
+                                }}
                               >
-                                {categoryName}
-                              </Text>
-                              {category === categoryName && (
-                                <Ionicons
-                                  name="checkmark"
-                                  size={20}
-                                  color={colors.primary}
-                                />
-                              )}
-                            </TouchableOpacity>
-                          ))}
+                                <Text
+                                  style={[
+                                    styles.pickerItemText,
+                                    {
+                                      color:
+                                        category === categoryName
+                                          ? colors.primary
+                                          : colors.text,
+                                      fontWeight:
+                                        category === categoryName ? "600" : "400",
+                                    },
+                                  ]}
+                                >
+                                  {categoryName}
+                                </Text>
+                                {category === categoryName && (
+                                  <Ionicons
+                                    name="checkmark"
+                                    size={20}
+                                    color={colors.primary}
+                                  />
+                                )}
+                              </TouchableOpacity>
+                            ))
+                          ) : (
+                            // Grid View
+                            <View style={styles.gridContainer}>
+                              {getCurrentCategories().map((categoryName, index) => (
+                                <TouchableOpacity
+                                  key={index}
+                                  style={[
+                                    styles.gridItem,
+                                    {
+                                      backgroundColor: category === categoryName ? colors.primary + "20" : colors.card,
+                                      borderColor: category === categoryName ? colors.primary : colors.border,
+                                    },
+                                  ]}
+                                  onPress={() => {
+                                    setCategory(categoryName);
+                                    setSubcategory("");
+                                    setShowCategoryPicker(false);
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.gridItemText,
+                                      {
+                                        color:
+                                          category === categoryName
+                                            ? colors.primary
+                                            : colors.text,
+                                      },
+                                    ]}
+                                  >
+                                    {categoryName}
+                                  </Text>
+                                  {category === categoryName && (
+                                    <Ionicons
+                                      name="checkmark-circle"
+                                      size={16}
+                                      color={colors.primary}
+                                      style={styles.gridItemCheckmark}
+                                    />
+                                  )}
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          )}
                         </ScrollView>
                       </View>
                     </TouchableWithoutFeedback>
@@ -2204,110 +2263,179 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                         >
                           <TouchableOpacity
                             onPress={() => setShowSubcategoryPicker(false)}
+                            style={styles.pickerHeaderButton}
                           >
-                            <Text
-                              style={[
-                                styles.pickerButton,
-                                { color: colors.textSecondary },
-                              ]}
-                            >
-                              Cancel
-                            </Text>
+                            <Ionicons
+                              name="close"
+                              size={24}
+                              color={colors.textSecondary}
+                            />
                           </TouchableOpacity>
-                          <Text
-                            style={[styles.pickerTitle, { color: colors.text }]}
-                          >
-                            Select Subcategory
-                          </Text>
+                          <View style={styles.pickerTitleRow}>
+                            <Text
+                              style={[styles.pickerTitle, { color: colors.text }]}
+                            >
+                              Select Subcategory
+                            </Text>
+                            <TouchableOpacity
+                              style={[
+                                styles.viewToggleSingleButton,
+                                { backgroundColor: subcategoryViewMode === "grid" ? colors.primary : colors.card }
+                              ]}
+                              onPress={() => setSubcategoryViewMode(subcategoryViewMode === "grid" ? "list" : "grid")}
+                            >
+                              <Ionicons
+                                name="grid"
+                                size={16}
+                                color={subcategoryViewMode === "grid" ? "#fff" : colors.textSecondary}
+                              />
+                            </TouchableOpacity>
+                          </View>
                           <TouchableOpacity
                             onPress={() => setShowSubcategoryPicker(false)}
+                            style={styles.pickerHeaderButton}
                           >
-                            <Text
-                              style={[
-                                styles.pickerButton,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              Done
-                            </Text>
+                            <Ionicons
+                              name="checkmark"
+                              size={24}
+                              color={colors.primary}
+                            />
                           </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.pickerContent}>
-                          {getCurrentSubcategories().map(
-                            (subcategoryName, index) => (
-                              <TouchableOpacity
-                                key={index}
-                                style={[
-                                  styles.pickerItem,
-                                  { borderBottomColor: colors.border },
-                                ]}
-                                onPress={() => {
-                                  setSubcategory(subcategoryName);
-                                  setShowSubcategoryPicker(false);
-                                }}
-                              >
-                                <View style={styles.pickerItemContent}>
-                                  {(() => {
-                                    const {
-                                      getSubcategoryIconFromDB,
-                                    } = require("../../../../utils/subcategoryIcons");
+                          {subcategoryViewMode === "list" ? (
+                            // List View
+                            getCurrentSubcategories().map(
+                              (subcategoryName, index) => {
+                                const {
+                                  getSubcategoryIconFromDB,
+                                } = require("../../../../utils/subcategoryIcons");
+                                
+                                const subcategoryData =
+                                  budgetSubcategories.find(
+                                    (sub) => sub.name === subcategoryName
+                                  );
+                                const dbIconName = subcategoryData?.icon;
+                                const iconElement =
+                                  getSubcategoryIconFromDB(
+                                    dbIconName,
+                                    subcategoryName,
+                                    20,
+                                    "#10B981"
+                                  );
 
-                                    // Find the subcategory data to get the database icon
-                                    const subcategoryData =
-                                      budgetSubcategories.find(
-                                        (sub) => sub.name === subcategoryName
-                                      );
-                                    const dbIconName = subcategoryData?.icon;
-                                    const iconElement =
-                                      getSubcategoryIconFromDB(
-                                        dbIconName,
-                                        subcategoryName,
-                                        20,
-                                        "#10B981"
-                                      );
-
-                                    if (iconElement) {
-                                      return (
-                                        <View style={styles.pickerItemIcon}>
-                                          {iconElement}
-                                        </View>
-                                      );
-                                    }
-                                    return (
-                                      <View style={styles.pickerItemIcon}>
-                                        <Text style={styles.pickerItemEmoji}>
-                                          📄
-                                        </Text>
-                                      </View>
-                                    );
-                                  })()}
-                                  <Text
+                                return (
+                                  <TouchableOpacity
+                                    key={index}
                                     style={[
-                                      styles.pickerItemText,
-                                      {
-                                        color:
-                                          subcategory === subcategoryName
-                                            ? colors.primary
-                                            : colors.text,
-                                        fontWeight:
-                                          subcategory === subcategoryName
-                                            ? "600"
-                                            : "400",
-                                      },
+                                      styles.pickerItem,
+                                      { borderBottomColor: colors.border },
                                     ]}
+                                    onPress={() => {
+                                      setSubcategory(subcategoryName);
+                                      setShowSubcategoryPicker(false);
+                                    }}
                                   >
-                                    {subcategoryName}
-                                  </Text>
-                                </View>
-                                {subcategory === subcategoryName && (
-                                  <Ionicons
-                                    name="checkmark"
-                                    size={20}
-                                    color={colors.primary}
-                                  />
-                                )}
-                              </TouchableOpacity>
+                                    <View style={styles.pickerItemContent}>
+                                      <View style={styles.pickerItemIcon}>
+                                        {iconElement || <Text style={styles.pickerItemEmoji}>📄</Text>}
+                                      </View>
+                                      <Text
+                                        style={[
+                                          styles.pickerItemText,
+                                          {
+                                            color:
+                                              subcategory === subcategoryName
+                                                ? colors.primary
+                                                : colors.text,
+                                            fontWeight:
+                                              subcategory === subcategoryName
+                                                ? "600"
+                                                : "400",
+                                          },
+                                        ]}
+                                      >
+                                        {subcategoryName}
+                                      </Text>
+                                    </View>
+                                    {subcategory === subcategoryName && (
+                                      <Ionicons
+                                        name="checkmark"
+                                        size={20}
+                                        color={colors.primary}
+                                      />
+                                    )}
+                                  </TouchableOpacity>
+                                );
+                              }
                             )
+                          ) : (
+                            // Grid View
+                            <View style={styles.gridContainer}>
+                              {getCurrentSubcategories().map(
+                                (subcategoryName, index) => {
+                                  const {
+                                    getSubcategoryIconFromDB,
+                                  } = require("../../../../utils/subcategoryIcons");
+                                  
+                                  const subcategoryData =
+                                    budgetSubcategories.find(
+                                      (sub) => sub.name === subcategoryName
+                                    );
+                                  const dbIconName = subcategoryData?.icon;
+                                  const iconElement =
+                                    getSubcategoryIconFromDB(
+                                      dbIconName,
+                                      subcategoryName,
+                                      20,
+                                      subcategory === subcategoryName ? colors.primary : colors.text
+                                    );
+
+                                  return (
+                                    <TouchableOpacity
+                                      key={index}
+                                      style={[
+                                        styles.gridItemLarge,
+                                        {
+                                          backgroundColor: subcategory === subcategoryName ? colors.primary + "20" : colors.card,
+                                          borderColor: subcategory === subcategoryName ? colors.primary : colors.border,
+                                        },
+                                      ]}
+                                      onPress={() => {
+                                        setSubcategory(subcategoryName);
+                                        setShowSubcategoryPicker(false);
+                                      }}
+                                    >
+                                      <View style={styles.gridItemIcon}>
+                                        {iconElement || <Text style={{fontSize: 20}}>📄</Text>}
+                                      </View>
+                                      <Text
+                                        style={[
+                                          styles.gridItemTextLarge,
+                                          {
+                                            color:
+                                              subcategory === subcategoryName
+                                                ? colors.primary
+                                                : colors.text,
+                                          },
+                                        ]}
+                                        numberOfLines={2}
+                                      >
+                                        {subcategoryName}
+                                      </Text>
+                                      {subcategory === subcategoryName && (
+                                        <Ionicons
+                                          name="checkmark-circle"
+                                          size={16}
+                                          color={colors.primary}
+                                          style={styles.gridItemCheckmark}
+                                        />
+                                      )}
+                                    </TouchableOpacity>
+                                  );
+                                }
+                              )}
+                            </View>
                           )}
                         </ScrollView>
                       </View>
@@ -7641,6 +7769,104 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 8,
     flexShrink: 0, // Prevent shrinking
+  },
+
+  // View toggle styles
+  pickerTitleContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickerTitleRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickerHeaderButton: {
+    padding: 4,
+  },
+  viewToggleContainer: {
+    flexDirection: "row",
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  viewToggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    marginHorizontal: 2,
+    borderRadius: 6,
+  },
+  viewToggleButtonActive: {
+    borderWidth: 2,
+  },
+  viewToggleContainerInline: {
+    flexDirection: "row",
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  viewToggleButtonSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginHorizontal: 1,
+  },
+  viewToggleButtonActiveSmall: {
+    // Active state handled by backgroundColor
+  },
+  viewToggleSingleButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 12,
+  },
+
+  // Grid view styles
+  gridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: 12,
+  },
+  gridItem: {
+    width: "31%",
+    margin: "1%",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50,
+  },
+  gridItemText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  gridItemLarge: {
+    width: "31%",
+    margin: "1%",
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 60,
+  },
+  gridItemIcon: {
+    marginBottom: 4,
+  },
+  gridItemTextLarge: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 14,
+  },
+  gridItemCheckmark: {
+    position: "absolute",
+    top: 4,
+    right: 4,
   },
 
   // Analysis result styles
