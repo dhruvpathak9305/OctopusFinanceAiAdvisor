@@ -38,9 +38,9 @@ const SplitToggle: React.FC<SplitToggleProps> = ({
         <View style={styles.toggleContent}>
           <View style={styles.iconContainer}>
             <Ionicons
-              name={isEnabled ? "people" : "people-outline"}
-              size={20}
-              color={isEnabled ? colors.primary : colors.textSecondary}
+              name="people-outline"
+              size={18}
+              color={colors.textSecondary}
             />
           </View>
           <View style={styles.textContainer}>
@@ -48,20 +48,19 @@ const SplitToggle: React.FC<SplitToggleProps> = ({
               style={[
                 styles.toggleText,
                 {
-                  color: isEnabled ? colors.primary : colors.text,
-                  fontWeight: isEnabled ? "600" : "500",
+                  color: colors.text,
                 },
               ]}
             >
-              Split with others
+              Split
             </Text>
-            <Text
-              style={[styles.toggleSubtext, { color: colors.textSecondary }]}
-            >
-              {isEnabled
-                ? "Divide this expense among multiple people"
-                : "Tap to split this expense with friends or groups"}
-            </Text>
+            {isEnabled && (
+              <Text
+                style={[styles.toggleSubtext, { color: colors.textSecondary }]}
+              >
+                Divide this expense among multiple people
+              </Text>
+            )}
           </View>
           <View style={styles.switchContainer}>
             <View
@@ -96,7 +95,8 @@ const styles = StyleSheet.create({
   toggleButton: {
     borderRadius: 12,
     borderWidth: 1,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   toggleContent: {
     flexDirection: "row",
@@ -110,12 +110,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   toggleText: {
-    fontSize: 16,
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: "500",
   },
   toggleSubtext: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
   },
   switchContainer: {
     alignItems: "center",

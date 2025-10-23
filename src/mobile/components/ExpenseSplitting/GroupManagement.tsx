@@ -51,10 +51,14 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
   );
   const [loading, setLoading] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberMobile, setNewMemberMobile] = useState("");
+  const [newMemberRelationship, setNewMemberRelationship] = useState("");
   const [localMembers, setLocalMembers] = useState<GroupMember[]>(members);
   const [editingMember, setEditingMember] = useState<GroupMember | null>(null);
   const [editMemberName, setEditMemberName] = useState("");
   const [editMemberEmail, setEditMemberEmail] = useState("");
+  const [editMemberMobile, setEditMemberMobile] = useState("");
+  const [editMemberRelationship, setEditMemberRelationship] = useState("");
   const [editMemberRole, setEditMemberRole] = useState<"member" | "admin">(
     "member"
   );
@@ -101,7 +105,10 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
       await ExpenseSplittingService.addGroupMember(
         group.id,
         newMemberEmail.trim(),
-        newMemberName.trim() || undefined
+        newMemberName.trim() || undefined,
+        "member",
+        newMemberMobile.trim() || undefined,
+        newMemberRelationship.trim() || undefined
       );
 
       // Small delay to ensure database operation completes
@@ -118,6 +125,8 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
 
       setNewMemberEmail("");
       setNewMemberName("");
+      setNewMemberMobile("");
+      setNewMemberRelationship("");
       Alert.alert("Success", "Member added successfully!");
     } catch (error) {
       console.error("Failed to add member:", error);
@@ -171,6 +180,8 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
     setEditingMember(member);
     setEditMemberName(member.user_name || "");
     setEditMemberEmail(member.user_email || "");
+    setEditMemberMobile(member.mobile_number || "");
+    setEditMemberRelationship(member.relationship || "");
     setEditMemberRole(member.role);
   };
 
@@ -190,6 +201,8 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
         {
           user_name: editMemberName.trim(),
           user_email: editMemberEmail.trim(),
+          mobile_number: editMemberMobile.trim() || undefined,
+          relationship: editMemberRelationship.trim() || undefined,
           role: editMemberRole,
         }
       );
@@ -447,6 +460,39 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
                           )}
                         </TouchableOpacity>
                       </View>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          {
+                            color: colors.text,
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                            marginTop: 8,
+                            marginBottom: 8,
+                          },
+                        ]}
+                        placeholder="Mobile Number (optional)"
+                        placeholderTextColor={colors.textSecondary}
+                        value={newMemberMobile}
+                        onChangeText={setNewMemberMobile}
+                        keyboardType="phone-pad"
+                      />
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          {
+                            color: colors.text,
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                            marginBottom: 8,
+                          },
+                        ]}
+                        placeholder="Relationship (e.g., Friend, Family, Colleague)"
+                        placeholderTextColor={colors.textSecondary}
+                        value={newMemberRelationship}
+                        onChangeText={setNewMemberRelationship}
+                        autoCapitalize="words"
+                      />
                       <Text
                         style={[
                           styles.helperText,
@@ -545,6 +591,26 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
                               >
                                 {member.user_email}
                               </Text>
+                              {member.mobile_number && (
+                                <Text
+                                  style={[
+                                    styles.memberPhone,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  📱 {member.mobile_number}
+                                </Text>
+                              )}
+                              {member.relationship && (
+                                <Text
+                                  style={[
+                                    styles.memberRelationship,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  👤 {member.relationship}
+                                </Text>
+                              )}
                               <View style={styles.memberBadges}>
                                 {member.role === "admin" && (
                                   <Text
@@ -801,6 +867,48 @@ const GroupManagement: React.FC<GroupManagementProps> = ({
 
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, { color: colors.text }]}>
+                      Mobile Number (Optional)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        {
+                          color: colors.text,
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                        },
+                      ]}
+                      value={editMemberMobile}
+                      onChangeText={setEditMemberMobile}
+                      placeholder="Enter mobile number"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>
+                      Relationship (Optional)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        {
+                          color: colors.text,
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                        },
+                      ]}
+                      value={editMemberRelationship}
+                      onChangeText={setEditMemberRelationship}
+                      placeholder="e.g., Friend, Family, Colleague"
+                      placeholderTextColor={colors.textSecondary}
+                      autoCapitalize="words"
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>
                       Role
                     </Text>
                     <View style={styles.roleSelector}>
@@ -1016,6 +1124,16 @@ const styles = StyleSheet.create({
   },
   memberEmail: {
     fontSize: 14,
+    marginBottom: 2,
+  },
+  memberPhone: {
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  memberRelationship: {
+    fontSize: 13,
+    fontStyle: "italic",
+    marginBottom: 2,
   },
   memberBadges: {
     flexDirection: "row",

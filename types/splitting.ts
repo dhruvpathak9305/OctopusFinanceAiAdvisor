@@ -24,6 +24,8 @@ export interface GroupMember {
   user_name?: string;
   user_email?: string;
   user_avatar?: string;
+  mobile_number?: string; // Contact phone number
+  relationship?: string; // Relationship to user (friend, family, colleague, etc.)
   is_registered_user?: boolean; // Whether this is a registered user or guest
 }
 

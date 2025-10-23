@@ -146,6 +146,8 @@ export class ExpenseSplittingService {
         is_active: member.is_active,
         user_name: member.user_name || "Unknown",
         user_email: member.user_email || "",
+        mobile_number: member.mobile_number || undefined,
+        relationship: member.relationship || undefined,
         is_registered_user: member.is_registered_user || false,
       }));
 
@@ -454,7 +456,9 @@ export class ExpenseSplittingService {
     groupId: string,
     userEmail: string,
     userName?: string,
-    role: "member" | "admin" = "member"
+    role: "member" | "admin" = "member",
+    mobileNumber?: string,
+    relationship?: string
   ): Promise<boolean> {
     try {
       console.log(
@@ -511,6 +515,8 @@ export class ExpenseSplittingService {
           role: role,
           user_name: finalUserName,
           user_email: userEmail,
+          mobile_number: mobileNumber || null,
+          relationship: relationship || null,
           is_registered_user: isRegisteredUser,
         })
         .select()
@@ -542,6 +548,8 @@ export class ExpenseSplittingService {
     updates: {
       user_name?: string;
       user_email?: string;
+      mobile_number?: string;
+      relationship?: string;
       role?: "member" | "admin";
     }
   ): Promise<boolean> {
