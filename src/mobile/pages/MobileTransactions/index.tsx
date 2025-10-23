@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -792,6 +792,8 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         console.log(
           "🔄 MobileTransactions: Screen focused, refreshing transactions"
         );
+        // Don't preserve scroll when navigating back from different screens
+        // (user expects to see fresh view from top)
         fetchTransactionsData();
       }
     }, [isConfirmationMode, fetchTransactionsData])
@@ -833,14 +835,20 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
             `🗓️ MobileTransactions: Switching to current month filter (${currentMonthFilter}) to show new transactions`
           );
           setSelectedFilter(currentMonthFilter);
-        }
-
-        setTimeout(() => {
+          
+          setTimeout(() => {
+            console.log(
+              "🔄 MobileTransactions: Calling fetchTransactionsData for bulk upload"
+            );
+            fetchTransactionsData();
+          }, 500);
+        } else {
+          // For single transaction updates/deletes, we handle them via the modal callback
+          // DON'T do full refresh here - the optimistic update already happened!
           console.log(
-            "🔄 MobileTransactions: Actually calling fetchTransactionsData now"
+            "⏭️ MobileTransactions: Skipping refresh for single transaction (handled by modal callback)"
           );
-          fetchTransactionsData();
-        }, 500); // Small delay to allow database operations to complete
+        }
       } else {
         console.log(
           "⏭️ MobileTransactions: Event type not relevant for refresh:",
@@ -1137,39 +1145,76 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
     setEditingTransaction(null);
   };
 
-  const handleTransactionUpdate = (updatedTransactionData?: any) => {
-    if (isConfirmationMode && updatedTransactionData?.isParsedTransaction) {
-      // For parsed transactions, update the local transactions list
-      const updatedTransactions = transactions.map((t) => {
-        if (t.id === updatedTransactionData.originalParsedData.id) {
-          // Update the transaction with edited data
-          return {
-            ...t,
-            title: updatedTransactionData.name,
-            description: updatedTransactionData.description,
-            amount:
-              updatedTransactionData.amount *
-              (updatedTransactionData.type === "expense" ? -1 : 1),
-            type: updatedTransactionData.type,
-            date: updatedTransactionData.date,
-            tags: [
-              updatedTransactionData.category_name || "Uncategorized",
-              updatedTransactionData.subcategory_name,
-              updatedTransactionData.type.toUpperCase(),
-            ].filter(Boolean) as string[],
-          };
-        }
-        return t;
-      });
-
-      setTransactions(updatedTransactions);
-      setGroupedTransactions(groupTransactionsByDate(updatedTransactions));
-    } else {
-      // For regular transactions, refresh from database
+  const handleTransactionUpdate = async (updatedTransactionId?: string) => {
+    console.log(`📞 handleTransactionUpdate called with ID: ${updatedTransactionId}`);
+    
+    if (isConfirmationMode) {
+      // For confirmation mode, do full refresh
+      console.log("🔄 Confirmation mode: doing full refresh");
       fetchTransactionsData();
-    }
+      handleCloseEditModal();
+    } else if (updatedTransactionId) {
+      // For regular transactions, fetch only the updated transaction
+      console.log(`🔄 Fetching single updated transaction: ${updatedTransactionId}`);
+      try {
+        const updatedTransaction = await fetchTransactionById(updatedTransactionId, isDemo);
+        console.log("📥 Fetched updated transaction:", updatedTransaction);
+        
+        if (updatedTransaction) {
+          // Transform the updated transaction to match our UI format
+          const transformedTransaction: Transaction = {
+            id: updatedTransaction.id,
+            title: updatedTransaction.name || updatedTransaction.description || "Transaction",
+            source: updatedTransaction.source_account_name || "Unknown",
+            tags: [
+              updatedTransaction.category_name || "Uncategorized",
+              updatedTransaction.subcategory_name,
+              updatedTransaction.type?.toUpperCase(),
+            ].filter(Boolean) as string[],
+            description: updatedTransaction.description || "",
+            amount: updatedTransaction.amount || 0,
+            type: updatedTransaction.type as "income" | "expense" | "transfer",
+            icon: updatedTransaction.subcategory_icon || updatedTransaction.category_icon || null,
+            date: updatedTransaction.date,
+            category_ring_color: updatedTransaction.category_ring_color,
+            category_bg_color: updatedTransaction.category_bg_color,
+            subcategory_color: updatedTransaction.subcategory_color,
+            source_account_id: updatedTransaction.source_account_id,
+            source_account_name: updatedTransaction.source_account_name,
+            destination_account_id: updatedTransaction.destination_account_id,
+            destination_account_name: updatedTransaction.destination_account_name,
+          };
+          
+          console.log("🎨 Updated transaction with icon:", transformedTransaction.icon);
 
-    handleCloseEditModal();
+          console.log("🔄 Updating local state with transformed transaction");
+          // Update only this transaction in the local state (no full refresh!)
+          const updatedTransactions = transactions.map((t) =>
+            t.id === updatedTransactionId ? transformedTransaction : t
+          );
+
+          setTransactions(updatedTransactions);
+          setGroupedTransactions(groupTransactionsByDate(updatedTransactions));
+          console.log(`✅ Transaction ${updatedTransactionId} updated in local state`);
+        } else {
+          console.warn("⚠️ Updated transaction is null, falling back to full refresh");
+          fetchTransactionsData();
+        }
+      } catch (error) {
+        console.error("❌ Error fetching updated transaction:", error);
+        // Fallback to full refresh if single fetch fails
+        console.log("⚠️ Falling back to full refresh");
+        fetchTransactionsData();
+      }
+      
+      // Modal already closed by QuickAddButton, just clean up state
+      handleCloseEditModal();
+    } else {
+      // No transaction ID provided, do full refresh
+      console.log("⚠️ No transaction ID provided, doing full refresh");
+      fetchTransactionsData();
+      handleCloseEditModal();
+    }
   };
 
   // Multi-select handlers
@@ -1247,8 +1292,15 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
 
     try {
       await deleteTransaction(transactionId, isDemo);
-      // Refresh transactions after deletion
-      fetchTransactionsData();
+      
+      // Remove the deleted transaction from local state (no full refresh!)
+      console.log(`🗑️ Removing transaction ${transactionId} from local state`);
+      const updatedTransactions = transactions.filter((t) => t.id !== transactionId);
+      
+      setTransactions(updatedTransactions);
+      setGroupedTransactions(groupTransactionsByDate(updatedTransactions));
+      console.log(`✅ Transaction ${transactionId} removed from local state`);
+      
       Alert.alert("Success", "Transaction deleted successfully");
     } catch (err) {
       console.error("Error deleting transaction:", err);
@@ -1738,9 +1790,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         <QuickAddButton
           editTransaction={editingTransaction}
           isEditMode={true}
-          onTransactionUpdate={() =>
-            handleTransactionUpdate(editingTransaction)
-          }
+          onTransactionUpdate={handleTransactionUpdate}
         />
       )}
     </SafeAreaView>

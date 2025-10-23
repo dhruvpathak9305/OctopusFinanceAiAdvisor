@@ -65,7 +65,7 @@ interface QuickAddButtonProps {
   style?: any;
   editTransaction?: any;
   isEditMode?: boolean;
-  onTransactionUpdate?: () => void; // Callback to refresh transactions after edit
+  onTransactionUpdate?: (updatedTransactionId?: string) => void; // Callback to refresh transactions after edit
 }
 
 interface AddTransactionModalProps {
@@ -76,7 +76,7 @@ interface AddTransactionModalProps {
   editTransaction?: any; // Transaction to edit (if in edit mode)
   isEditMode?: boolean;
   isCopyMode?: boolean; // New prop to indicate copy mode
-  onTransactionUpdate?: () => void; // Callback to refresh transactions
+  onTransactionUpdate?: (updatedTransactionId?: string) => void; // Callback to refresh transactions
 }
 
 // Enhanced non-blocking toast notification component
@@ -656,51 +656,53 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
       // Save to database with improved flow to prevent UI freezing
       if (isEditMode && editTransaction) {
-        // First close the modal to prevent UI blocking
-        onClose();
+        // Perform the database operation first
+        try {
+          console.log(`💾 Updating transaction ${editTransaction.id} in database...`);
+          await updateTransaction(
+            editTransaction.id,
+            transactionData,
+            isDemo
+          );
 
-        // Then perform the database operation in the background
-        setTimeout(async () => {
-          try {
-            await updateTransaction(
-              editTransaction.id,
-              transactionData,
-              isDemo
-            );
+          console.log(`✅ Transaction ${editTransaction.id} updated in database`);
 
-            // Show a more detailed success toast notification
-            setToastMessage(
-              `Transaction "${transactionData.name}" updated successfully!`
-            );
-            setToastVisible(true);
+          // Close modal AFTER successful update
+          onClose();
 
-            // Wait a moment before triggering the refresh to ensure UI responsiveness
-            InteractionManager.runAfterInteractions(() => {
-              // Call the refresh callback in the parent component
-              // This will update the transaction list and close the modal
-              onTransactionUpdate?.();
-            });
-          } catch (err: any) {
-            console.error("Error updating transaction:", err);
-            
-            // Show more specific error message based on error code
-            let errorMessage = "Failed to update transaction. Please try again.";
-            if (err?.message) {
-              if (err.message.includes("source_account_id")) {
-                errorMessage = "Please select an account for this transaction.";
-              } else if (err.message.includes("destination_account_id")) {
-                errorMessage = "Please select a destination account.";
-              } else if (err.message.includes("requires")) {
-                errorMessage = err.message;
-              }
-            }
-            
-            Alert.alert(
-              "Update Failed",
-              errorMessage
-            );
+          // Show success toast notification
+          setToastMessage(
+            `Transaction "${transactionData.name}" updated successfully!`
+          );
+          setToastVisible(true);
+
+          // Call the refresh callback immediately after closing
+          console.log(`🔔 QuickAddButton: Calling onTransactionUpdate with ID: ${editTransaction.id}`);
+          if (onTransactionUpdate) {
+            onTransactionUpdate(editTransaction.id);
+          } else {
+            console.warn("⚠️ onTransactionUpdate callback is not defined!");
           }
-        }, 100);
+        } catch (err: any) {
+          console.error("Error updating transaction:", err);
+          
+          // Show more specific error message based on error code
+          let errorMessage = "Failed to update transaction. Please try again.";
+          if (err?.message) {
+            if (err.message.includes("source_account_id")) {
+              errorMessage = "Please select an account for this transaction.";
+            } else if (err.message.includes("destination_account_id")) {
+              errorMessage = "Please select a destination account.";
+            } else if (err.message.includes("requires")) {
+              errorMessage = err.message;
+            }
+          }
+          
+          Alert.alert(
+            "Update Failed",
+            errorMessage
+          );
+        }
       } else {
         // First close the modal to prevent UI blocking
         onClose();
