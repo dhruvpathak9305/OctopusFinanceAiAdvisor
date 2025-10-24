@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   Group,
   GroupMember,
@@ -17,6 +18,7 @@ import {
   SPLIT_TYPES,
 } from "../../../types/splitting";
 import { ExpenseSplittingService } from "../../../../services/expenseSplittingService";
+import GroupManagement from "./GroupManagement";
 
 interface SplitCalculatorProps {
   totalAmount: number;
@@ -223,6 +225,11 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
     calculateSplits(updatedSplits);
   };
 
+  const handleMembersUpdate = async () => {
+    // Reload group members after any changes in GroupManagement
+    await loadGroupMembers();
+  };
+
   if (!selectedGroup) {
     return (
       <View style={styles.noGroupContainer}>
@@ -281,9 +288,29 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
 
       {/* Participants List */}
       <View style={styles.participantsContainer}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Participants ({splits.length})
-        </Text>
+        <View style={styles.participantsHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Participants ({splits.length})
+          </Text>
+          {selectedGroup && (
+            <View style={styles.groupManagementWrapper}>
+              <GroupManagement
+                group={selectedGroup}
+                members={groupMembers}
+                onGroupUpdate={(updatedGroup) => {
+                  // Group updated, no need to reload splits
+                }}
+                onMembersUpdate={handleMembersUpdate}
+                onGroupDelete={(deletedGroupId) => {
+                  // Handle group deletion if needed
+                  Alert.alert("Group Deleted", "This group has been deleted.");
+                }}
+                colors={colors}
+                isDark={colors.background === "#000000" || colors.card === "#1F2937"}
+              />
+            </View>
+          )}
+        </View>
 
         <ScrollView
           style={styles.participantsList}
@@ -377,48 +404,6 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
           ))}
         </ScrollView>
       </View>
-
-      {/* Split Summary */}
-      <View
-        style={[
-          styles.summaryContainer,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Total Amount:
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            ₹{totalAmount.toFixed(2)}
-          </Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Split Total:
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            ₹
-            {splits
-              .reduce((sum, split) => sum + split.share_amount, 0)
-              .toFixed(2)}
-          </Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Per Person:
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            ₹
-            {splits.length > 0
-              ? (totalAmount / splits.length).toFixed(2)
-              : "0.00"}
-          </Text>
-        </View>
-      </View>
     </View>
   );
 };
@@ -464,6 +449,15 @@ const styles = StyleSheet.create({
   },
   participantsContainer: {
     marginBottom: 16,
+  },
+  participantsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  groupManagementWrapper: {
+    // Wrapper will contain the GroupManagement button
   },
   participantsList: {
     maxHeight: 200,
@@ -512,24 +506,6 @@ const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 14,
     marginRight: 4,
-  },
-  summaryContainer: {
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 12,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    fontSize: 14,
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: "600",
   },
 });
 
