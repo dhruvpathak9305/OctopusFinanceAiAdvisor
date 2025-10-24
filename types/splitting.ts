@@ -32,7 +32,7 @@ export interface GroupMember {
 export interface TransactionSplit {
   id: string;
   transaction_id: string;
-  user_id: string;
+  user_id?: string; // Optional for guest users
   group_id?: string;
   share_amount: number;
   share_percentage?: number;
@@ -44,17 +44,28 @@ export interface TransactionSplit {
   notes?: string;
   created_at: string;
   updated_at: string;
-  // User details (joined from users table)
+  // User details (joined from users table or stored for guests)
   user_name?: string;
   user_email?: string;
+  // Guest user fields
+  is_guest_user?: boolean;
+  guest_name?: string;
+  guest_email?: string;
+  guest_mobile?: string;
+  guest_relationship?: string;
 }
 
 export interface SplitCalculation {
-  user_id: string;
+  user_id?: string; // Optional for guest users
   user_name: string;
+  user_email?: string;
   share_amount: number;
   share_percentage: number;
   is_paid: boolean;
+  // Guest user fields
+  is_guest?: boolean;
+  mobile_number?: string;
+  relationship?: string;
 }
 
 export interface GroupBalance {
@@ -85,12 +96,16 @@ export interface SplitFormData {
 }
 
 export interface SplitParticipant {
-  user_id: string;
+  user_id?: string; // Optional for guest users
   user_name: string;
   user_email?: string;
   share_amount: number;
   share_percentage: number;
   is_payer: boolean; // Who paid for the expense
+  // Guest user fields
+  is_guest?: boolean;
+  mobile_number?: string;
+  relationship?: string;
 }
 
 export interface IndividualPerson {

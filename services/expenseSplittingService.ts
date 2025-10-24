@@ -237,11 +237,12 @@ export class ExpenseSplittingService {
     };
   }
 
-  // Create transaction with splits
+  // Create transaction with splits (supports both registered and guest users)
   static async createTransactionWithSplits(
     transactionData: any,
     splits: SplitCalculation[],
-    groupId?: string
+    groupId?: string,
+    splitType: string = "equal"
   ): Promise<string> {
     try {
       // Validate splits first
@@ -261,74 +262,112 @@ export class ExpenseSplittingService {
 
       // Prepare splits data for database function
       const splitsData = await Promise.all(
-        splits.map(async (split) => {
-          // Create or get financial relationship for this split
-          let relationshipId = null;
+        splits.map(async (split: any) => {
+          // Check if this is a guest user (has user_email but not registered)
+          const isGuest = split.is_guest || (split.user_email && !split.user_id);
 
-          // Only create relationship if this is not the current user
-          if (split.user_id !== user.id) {
-            try {
-              const relationship =
-                await FinancialRelationshipService.getRelationshipWithUser(
-                  split.user_id
-                );
-              if (relationship) {
-                relationshipId = relationship.id;
-              } else {
-                const newRelationship =
-                  await FinancialRelationshipService.createRelationship(
-                    split.user_id,
-                    "split_expense"
+          if (isGuest) {
+            // Guest user split
+            return {
+              is_guest: true,
+              user_name: split.user_name || split.name,
+              user_email: split.user_email || split.email,
+              mobile_number: split.mobile_number || split.phone || null,
+              relationship: split.relationship || null,
+              group_id: groupId || null,
+              share_amount: split.share_amount,
+              share_percentage: split.share_percentage || null,
+              split_type: splitType,
+              paid_by: user.id, // Current user paid
+              notes: split.notes || null,
+            };
+          } else {
+            // Registered user split
+            // Create or get financial relationship for this split
+            let relationshipId = null;
+
+            // Only create relationship if this is not the current user
+            if (split.user_id !== user.id) {
+              try {
+                const relationship =
+                  await FinancialRelationshipService.getRelationshipWithUser(
+                    split.user_id
                   );
-                relationshipId = newRelationship.id;
+                if (relationship) {
+                  relationshipId = relationship.id;
+                } else {
+                  const newRelationship =
+                    await FinancialRelationshipService.createRelationship(
+                      split.user_id,
+                      "split_expense"
+                    );
+                  relationshipId = newRelationship.id;
+                }
+              } catch (err) {
+                console.error("Error creating financial relationship:", err);
+                // Continue without relationship if there's an error
               }
-            } catch (err) {
-              console.error("Error creating financial relationship:", err);
-              // Continue without relationship if there's an error
             }
-          }
 
-          return {
-            user_id: split.user_id,
-            group_id: groupId || null,
-            relationship_id: relationshipId,
-            share_amount: split.share_amount,
-            share_percentage: split.share_percentage,
-            split_type: "equal", // Default, can be enhanced
-            paid_by: null, // Will be set when someone pays
-            notes: null,
-          };
+            return {
+              is_guest: false,
+              user_id: split.user_id,
+              group_id: groupId || null,
+              relationship_id: relationshipId,
+              share_amount: split.share_amount,
+              share_percentage: split.share_percentage || null,
+              split_type: splitType,
+              paid_by: user.id, // Current user paid
+              notes: split.notes || null,
+            };
+          }
         })
       );
+
+      // Add split_type to transaction metadata
+      const enhancedTransactionData = {
+        ...transactionData,
+        metadata: {
+          ...(transactionData.metadata || {}),
+          has_splits: true,
+          split_count: splits.length,
+          split_type: splitType,
+        },
+      };
 
       const { data, error } = await supabase.rpc(
         "create_transaction_with_splits",
         {
-          p_transaction_data: transactionData,
+          p_transaction_data: enhancedTransactionData,
           p_splits: splitsData,
         }
       );
 
       if (error) throw error;
 
-      // Update relationship balances
+      // Update relationship balances for registered users only (skip guest users)
       const relationshipIds = splitsData
         .map((split) => split.relationship_id)
-        .filter((id) => id !== null) as string[];
+        .filter((id) => id !== null && id !== undefined && id !== '') as string[];
 
       // Update each relationship balance
-      for (const relationshipId of relationshipIds) {
-        try {
-          await FinancialRelationshipService.updateRelationshipBalance(
-            relationshipId
-          );
-        } catch (err) {
-          console.error(
-            `Error updating relationship balance for ${relationshipId}:`,
-            err
-          );
-          // Continue even if balance update fails
+      if (relationshipIds.length > 0) {
+        console.log(`Updating ${relationshipIds.length} relationship balances...`);
+        for (const relationshipId of relationshipIds) {
+          try {
+            await FinancialRelationshipService.updateRelationshipBalance(
+              relationshipId
+            );
+          } catch (err) {
+            console.warn(
+              `Skipping relationship balance update for ${relationshipId}:`,
+              err
+            );
+            // Continue even if balance update fails - this is non-critical for guest users
+          }
         }
+      } else {
+        console.log('No registered user relationships to update (all splits are guests)');
       }
 
       return data;
@@ -345,28 +384,18 @@ export class ExpenseSplittingService {
     try {
       const { data, error } = await supabase
         .from("transaction_splits")
-        .select(
-          `
-          *,
-          users:user_id (
-            id,
-            name,
-            email
-          ),
-          groups:group_id (
-            id,
-            name
-          )
-        `
-        )
+        .select("*")
         .eq("transaction_id", transactionId);
 
       if (error) throw error;
 
+      // Return splits with all fields
+      // User data is stored in guest fields (guest_name, guest_email, etc.)
       return (data || []).map((split: any) => ({
         ...split,
-        user_name: split.users?.name,
-        user_email: split.users?.email,
+        // Map guest fields to user fields for backward compatibility
+        user_name: split.guest_name || null,
+        user_email: split.guest_email || null,
       }));
     } catch (error) {
       console.error("Error fetching transaction splits:", error);

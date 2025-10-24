@@ -33,6 +33,10 @@ interface ExpenseSplittingInterfaceProps {
   };
   isDark?: boolean;
   disabled?: boolean;
+  // Initial split state for edit mode
+  initialSplitEnabled?: boolean;
+  initialSplits?: SplitCalculation[];
+  initialGroup?: Group;
 }
 
 const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
@@ -41,10 +45,13 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
   colors,
   isDark = false,
   disabled = false,
+  initialSplitEnabled = false,
+  initialSplits = [],
+  initialGroup = null,
 }) => {
-  const [isSplitEnabled, setIsSplitEnabled] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [splits, setSplits] = useState<SplitCalculation[]>([]);
+  const [isSplitEnabled, setIsSplitEnabled] = useState(initialSplitEnabled);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(initialGroup);
+  const [splits, setSplits] = useState<SplitCalculation[]>(initialSplits);
   const [individualPeople, setIndividualPeople] = useState<any[]>([]);
   const [splitMode, setSplitMode] = useState<"group" | "individual">("group");
   const [validation, setValidation] = useState<SplitValidationType>({
@@ -55,6 +62,60 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
     errors: [],
     warnings: [],
   });
+
+  // Track initialization state
+  const hasInitialized = React.useRef(false);
+  const isInitializing = React.useRef(false);
+  
+  // Update state when initial props change (for edit mode) - run only once
+  useEffect(() => {
+    console.log("🔄 ExpenseSplittingInterface - Init useEffect called:", {
+      hasInitialized: hasInitialized.current,
+      initialSplitEnabled,
+      initialSplitsCount: initialSplits?.length,
+      initialGroupName: initialGroup?.name,
+      initialGroupId: initialGroup?.id,
+    });
+
+    // Only initialize once when component mounts with initial data
+    if (hasInitialized.current) {
+      console.log("⏭️ Already initialized, skipping...");
+      return;
+    }
+
+    // Wait for ALL data to be ready before initializing
+    if (initialSplitEnabled && initialSplits && initialSplits.length > 0 && initialGroup) {
+      console.log("✅ All initial data ready! Initializing...");
+      console.log("📥 ExpenseSplittingInterface - Setting initial split state:", {
+        initialSplitEnabled,
+        initialSplitsCount: initialSplits?.length,
+        initialGroupName: initialGroup?.name,
+        initialGroupId: initialGroup?.id,
+      });
+      
+      isInitializing.current = true; // Mark as initializing
+      hasInitialized.current = true;
+      
+      setIsSplitEnabled(initialSplitEnabled);
+      setSplits(initialSplits);
+      setSelectedGroup(initialGroup); // Always set the group
+      setSplitMode("group");
+      
+      console.log("🎯 State updates queued - group, splits, enabled");
+      
+      // Reset initializing flag after state updates
+      setTimeout(() => {
+        isInitializing.current = false;
+        console.log("🏁 Initialization complete!");
+      }, 0);
+    } else {
+      console.log("⏳ Waiting for all initial data...", {
+        needsEnabled: !initialSplitEnabled,
+        needsSplits: !initialSplits || initialSplits.length === 0,
+        needsGroup: !initialGroup,
+      });
+    }
+  }, [initialSplitEnabled, initialSplits, initialGroup]);
 
   // Handle individual people updates
   const handleIndividualPeopleUpdate = (people: any[]) => {
@@ -75,10 +136,14 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
     }
   };
 
-  // Update parent when split state changes
+  // Update parent when split state changes (but not during initialization)
   useEffect(() => {
+    // Skip notifying parent during initialization to prevent infinite loop
+    if (isInitializing.current) {
+      return;
+    }
     onSplitChange(isSplitEnabled, splits, selectedGroup || undefined);
-  }, [isSplitEnabled, splits, selectedGroup]);
+  }, [isSplitEnabled, splits, selectedGroup, onSplitChange]);
 
   // Reset validation when amount changes
   useEffect(() => {
@@ -147,6 +212,14 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
   }
 
   console.log("Rendering full splitting interface - enabled state");
+  console.log("🔍 UI DEBUG:", {
+    splitMode,
+    hasSelectedGroup: !!selectedGroup,
+    selectedGroupName: selectedGroup?.name,
+    splitsCount: splits.length,
+    splits: splits,
+  });
+  
   return (
     <View style={styles.container}>
       {console.log("Full interface container rendered") || null}
@@ -252,6 +325,7 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
                 selectedGroup={selectedGroup}
                 onSplitsChange={handleSplitsChange}
                 colors={colors}
+                initialSplits={splits.length > 0 ? splits : undefined}
               />
             </View>
           )}

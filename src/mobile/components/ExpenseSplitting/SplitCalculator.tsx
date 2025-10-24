@@ -35,6 +35,7 @@ interface SplitCalculatorProps {
     surface: string;
     error: string;
   };
+  initialSplits?: SplitCalculation[]; // Initial splits for edit mode
 }
 
 const SplitCalculator: React.FC<SplitCalculatorProps> = ({
@@ -42,6 +43,7 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
   selectedGroup,
   onSplitsChange,
   colors,
+  initialSplits,
 }) => {
   const [splitType, setSplitType] = useState<"equal" | "percentage" | "custom">(
     "equal"
@@ -49,6 +51,7 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [splits, setSplits] = useState<SplitCalculation[]>([]);
   const [loading, setLoading] = useState(false);
+  const hasInitializedSplits = React.useRef(false);
 
   // Load group members when group changes
   useEffect(() => {
@@ -85,19 +88,42 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
       );
       setGroupMembers(members);
 
-      // Create initial equal splits
-      const participants = members.map((member) => ({
-        user_id: member.user_id,
-        user_name: member.user_name || member.user_email || "Unknown",
-      }));
+      // Use initial splits if provided (edit mode), otherwise create equal splits
+      if (initialSplits && initialSplits.length > 0 && !hasInitializedSplits.current) {
+        console.log("📊 SplitCalculator - Using initial splits from DB:", initialSplits);
+        hasInitializedSplits.current = true;
+        
+        // Determine split type from initial splits
+        const firstSplit = initialSplits[0];
+        if (firstSplit.share_percentage && Math.abs(firstSplit.share_percentage - (100 / initialSplits.length)) > 0.01) {
+          // Custom percentages
+          setSplitType("custom");
+        } else if (initialSplits.every(s => Math.abs((s.share_percentage || 0) - (100 / initialSplits.length)) < 0.01)) {
+          // Equal splits
+          setSplitType("equal");
+        } else {
+          // Custom amounts
+          setSplitType("custom");
+        }
+        
+        setSplits(initialSplits);
+        calculateSplits(initialSplits);
+      } else {
+        // Create initial equal splits for new transaction
+        console.log("📊 SplitCalculator - Creating new equal splits");
+        const participants = members.map((member) => ({
+          user_id: member.user_id,
+          user_name: member.user_name || member.user_email || "Unknown",
+        }));
 
-      const initialSplits = ExpenseSplittingService.calculateEqualSplits(
-        totalAmount,
-        participants
-      );
+        const newSplits = ExpenseSplittingService.calculateEqualSplits(
+          totalAmount,
+          participants
+        );
 
-      setSplits(initialSplits);
-      calculateSplits(initialSplits);
+        setSplits(newSplits);
+        calculateSplits(newSplits);
+      }
     } catch (error) {
       console.error("Failed to load group members:", error);
       Alert.alert("Error", "Failed to load group members");
@@ -169,9 +195,9 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
     onSplitsChange(currentSplits, validation);
   };
 
-  const updateSplitAmount = (userId: string, amount: number) => {
-    const updatedSplits = splits.map((split) =>
-      split.user_id === userId
+  const updateSplitAmount = (index: number, amount: number) => {
+    const updatedSplits = splits.map((split, i) =>
+      i === index
         ? {
             ...split,
             share_amount: amount,
@@ -183,9 +209,9 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
     calculateSplits(updatedSplits);
   };
 
-  const updateSplitPercentage = (userId: string, percentage: number) => {
-    const updatedSplits = splits.map((split) =>
-      split.user_id === userId
+  const updateSplitPercentage = (index: number, percentage: number) => {
+    const updatedSplits = splits.map((split, i) =>
+      i === index
         ? {
             ...split,
             share_percentage: percentage,
@@ -263,9 +289,9 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
           style={styles.participantsList}
           showsVerticalScrollIndicator={false}
         >
-          {splits.map((split) => (
+          {splits.map((split, index) => (
             <View
-              key={split.user_id}
+              key={split.user_id || `split-${index}-${split.user_name}`}
               style={[
                 styles.participantItem,
                 {
@@ -299,7 +325,7 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
                       value={split.share_percentage.toFixed(1)}
                       onChangeText={(text) => {
                         const percentage = parseFloat(text) || 0;
-                        updateSplitPercentage(split.user_id, percentage);
+                        updateSplitPercentage(index, percentage);
                       }}
                       keyboardType="numeric"
                       placeholder="0.0"
@@ -337,7 +363,7 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
                     onChangeText={(text) => {
                       if (splitType === "custom") {
                         const amount = parseFloat(text) || 0;
-                        updateSplitAmount(split.user_id, amount);
+                        updateSplitAmount(index, amount);
                       }
                     }}
                     keyboardType="numeric"

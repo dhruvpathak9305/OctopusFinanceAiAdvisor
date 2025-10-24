@@ -6,6 +6,7 @@ import {
 } from "../../../../utils/fallbackIcons";
 import { renderIconFromName } from "../../../../utils/subcategoryIcons";
 import { generateLighterBackground } from "../../../../utils/colors/SubcategoryColorGenerator";
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 interface TransactionItemProps {
   /**
@@ -38,6 +39,12 @@ interface TransactionItemProps {
     // Account linking fields for transfer direction
     source_account_id?: string | null;
     destination_account_id?: string | null;
+    // Metadata for split transactions
+    metadata?: {
+      has_splits?: boolean;
+      split_count?: number;
+      [key: string]: any;
+    } | null;
   };
 
   /**
@@ -414,6 +421,34 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
         {/* Action Buttons */}
         <View style={styles.transactionActions}>
+          {/* Split Badge - Check if transaction has splits (robust check for different data types) */}
+          {(() => {
+            const metadata = transaction.metadata;
+            const hasSplits = 
+              metadata?.has_splits === true || 
+              metadata?.has_splits === 'true' || 
+              (metadata?.split_count && Number(metadata.split_count) > 0);
+            
+            if (hasSplits) {
+              return (
+                <View style={[
+                  styles.splitBadge,
+                  { 
+                    backgroundColor: isDark ? '#F59E0B20' : '#F59E0B15',
+                    borderColor: isDark ? '#F59E0B' : '#D97706'
+                  }
+                ]}>
+                  <MaterialIcons 
+                    name="call-split" 
+                    size={14} 
+                    color={isDark ? '#FCD34D' : '#D97706'} 
+                  />
+                </View>
+              );
+            }
+            return null;
+          })()}
+          
           {transaction.is_recurring && (
             <View style={styles.recurringIndicator}>
               <Text style={styles.recurringText}>🔄</Text>
@@ -520,6 +555,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+  },
+  splitBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 4,
+    minWidth: 24,
+    height: 24,
   },
   recurringIndicator: {
     alignItems: "center",

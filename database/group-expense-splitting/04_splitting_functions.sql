@@ -68,7 +68,11 @@ BEGIN
   -- Create the transaction
   INSERT INTO public.transactions_real (
     user_id, name, description, amount, date, type,
-    merchant, source_account_type, source_account_name,
+    merchant, 
+    source_account_id, source_account_type, source_account_name,
+    destination_account_id, destination_account_type, destination_account_name,
+    category_id, subcategory_id,
+    is_recurring, recurrence_pattern, recurrence_end_date,
     metadata
   ) VALUES (
     auth.uid(),
@@ -78,25 +82,77 @@ BEGIN
     (p_transaction_data->>'date')::TIMESTAMP WITH TIME ZONE,
     p_transaction_data->>'type',
     p_transaction_data->>'merchant',
+    CASE WHEN p_transaction_data->>'source_account_id' != '' AND p_transaction_data->>'source_account_id' IS NOT NULL 
+         THEN (p_transaction_data->>'source_account_id')::UUID 
+         ELSE NULL 
+    END,
     p_transaction_data->>'source_account_type',
     p_transaction_data->>'source_account_name',
+    CASE WHEN p_transaction_data->>'destination_account_id' != '' AND p_transaction_data->>'destination_account_id' IS NOT NULL 
+         THEN (p_transaction_data->>'destination_account_id')::UUID 
+         ELSE NULL 
+    END,
+    p_transaction_data->>'destination_account_type',
+    p_transaction_data->>'destination_account_name',
+    CASE WHEN p_transaction_data->>'category_id' != '' AND p_transaction_data->>'category_id' IS NOT NULL 
+         THEN (p_transaction_data->>'category_id')::UUID 
+         ELSE NULL 
+    END,
+    CASE WHEN p_transaction_data->>'subcategory_id' != '' AND p_transaction_data->>'subcategory_id' IS NOT NULL 
+         THEN (p_transaction_data->>'subcategory_id')::UUID 
+         ELSE NULL 
+    END,
+    COALESCE((p_transaction_data->>'is_recurring')::BOOLEAN, false),
+    p_transaction_data->>'recurrence_pattern',
+    CASE WHEN p_transaction_data->>'recurrence_end_date' != '' AND p_transaction_data->>'recurrence_end_date' IS NOT NULL 
+         THEN (p_transaction_data->>'recurrence_end_date')::TIMESTAMP WITH TIME ZONE 
+         ELSE NULL 
+    END,
     COALESCE(p_transaction_data->'metadata', '{}'::JSONB) || jsonb_build_object('has_splits', true, 'split_count', array_length(p_splits, 1))
   ) RETURNING id INTO v_transaction_id;
   
-  -- Create the splits
+  -- Create the splits (supports both registered and guest users)
   FOREACH v_split IN ARRAY p_splits
   LOOP
     INSERT INTO public.transaction_splits (
-      transaction_id, user_id, group_id, share_amount, share_percentage,
-      split_type, paid_by, notes
+      transaction_id, 
+      user_id, 
+      is_guest_user,
+      guest_name,
+      guest_email,
+      guest_mobile,
+      guest_relationship,
+      group_id, 
+      share_amount, 
+      share_percentage,
+      split_type, 
+      paid_by, 
+      notes
     ) VALUES (
       v_transaction_id,
-      (v_split->>'user_id')::UUID,
-      CASE WHEN v_split->>'group_id' != '' THEN (v_split->>'group_id')::UUID ELSE NULL END,
+      CASE WHEN COALESCE(v_split->>'is_guest', 'false')::BOOLEAN = false 
+           THEN (v_split->>'user_id')::UUID 
+           ELSE NULL 
+      END,
+      COALESCE((v_split->>'is_guest')::BOOLEAN, false),
+      v_split->>'user_name',
+      v_split->>'user_email',
+      v_split->>'mobile_number',
+      v_split->>'relationship',
+      CASE WHEN v_split->>'group_id' != '' AND v_split->>'group_id' IS NOT NULL 
+           THEN (v_split->>'group_id')::UUID 
+           ELSE NULL 
+      END,
       (v_split->>'share_amount')::NUMERIC,
-      CASE WHEN v_split->>'share_percentage' != '' THEN (v_split->>'share_percentage')::NUMERIC ELSE NULL END,
+      CASE WHEN v_split->>'share_percentage' != '' AND v_split->>'share_percentage' IS NOT NULL 
+           THEN (v_split->>'share_percentage')::NUMERIC 
+           ELSE NULL 
+      END,
       COALESCE(v_split->>'split_type', 'equal'),
-      CASE WHEN v_split->>'paid_by' != '' THEN (v_split->>'paid_by')::UUID ELSE NULL END,
+      CASE WHEN v_split->>'paid_by' != '' AND v_split->>'paid_by' IS NOT NULL 
+           THEN (v_split->>'paid_by')::UUID 
+           ELSE NULL 
+      END,
       v_split->>'notes'
     );
   END LOOP;

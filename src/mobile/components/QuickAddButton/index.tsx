@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -370,33 +370,86 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   };
 
   // Handle expense splitting changes
-  const handleSplitChange = (
-    enabled: boolean,
-    splits?: SplitCalculation[],
-    group?: Group
-  ) => {
-    setIsSplitEnabled(enabled);
-    setSelectedSplitGroup(group || null);
-    setSplitCalculations(splits || []);
+  const handleSplitChange = useCallback(
+    async (enabled: boolean, splits?: SplitCalculation[], group?: Group) => {
+      setIsSplitEnabled(enabled);
+      setSelectedSplitGroup(group || null);
 
-    // Update validation when splits change
-    if (enabled && splits && splits.length > 0) {
-      const validation = ExpenseSplittingService.validateSplits(
-        parseFloat(amount) || 0,
-        splits
-      );
-      setSplitValidation(validation);
-    } else {
-      setSplitValidation({
-        is_valid: true,
-        total_shares: 0,
-        expected_total: 0,
-        difference: 0,
-        errors: [],
-        warnings: [],
-      });
-    }
-  };
+      // Enrich splits with group member details (mobile, relationship)
+      if (enabled && splits && splits.length > 0 && group) {
+        try {
+          // Fetch group members to get additional details
+          const groupMembers = await ExpenseSplittingService.getGroupMembers(
+            group.id
+          );
+
+          // Enrich each split with member details
+          const enrichedSplits = splits.map((split: any) => {
+            // Find the corresponding group member
+            const member = groupMembers.find(
+              (m) =>
+                m.user_id === split.user_id ||
+                m.user_email === split.user_email ||
+                m.user_name === split.user_name
+            );
+
+            if (member) {
+              // Add mobile and relationship from group member
+              return {
+                ...split,
+                mobile_number: member.mobile_number,
+                relationship: member.relationship,
+                is_guest: !member.is_registered_user,
+                user_email: member.user_email,
+                user_name: member.user_name,
+              };
+            }
+
+            return split;
+          });
+
+          setSplitCalculations(enrichedSplits);
+
+          // Update validation with enriched splits
+          const validation = ExpenseSplittingService.validateSplits(
+            parseFloat(amount) || 0,
+            enrichedSplits
+          );
+          setSplitValidation(validation);
+        } catch (error) {
+          console.error("Error enriching split data:", error);
+          // Fall back to original splits if enrichment fails
+          setSplitCalculations(splits || []);
+          const validation = ExpenseSplittingService.validateSplits(
+            parseFloat(amount) || 0,
+            splits
+          );
+          setSplitValidation(validation);
+        }
+      } else {
+        setSplitCalculations(splits || []);
+
+        // Update validation when splits change
+        if (enabled && splits && splits.length > 0) {
+          const validation = ExpenseSplittingService.validateSplits(
+            parseFloat(amount) || 0,
+            splits
+          );
+          setSplitValidation(validation);
+        } else {
+          setSplitValidation({
+            is_valid: true,
+            total_shares: 0,
+            expected_total: 0,
+            difference: 0,
+            errors: [],
+            warnings: [],
+          });
+        }
+      }
+    },
+    [amount]
+  );
 
   // Fetch data from database on component mount
   useEffect(() => {
@@ -506,6 +559,112 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       if (editTransaction.recurrence_end_date) {
         setEndDate(new Date(editTransaction.recurrence_end_date));
       }
+
+      // Load split data if this transaction has splits
+      const loadSplitData = async () => {
+        try {
+          console.log("🔍 SPLIT DEBUG - Checking for splits:", {
+            editTransaction_id: editTransaction?.id,
+            metadata: editTransaction?.metadata,
+            metadata_type: typeof editTransaction?.metadata,
+          });
+
+          const metadata = editTransaction.metadata;
+          const hasSplits = 
+            metadata?.has_splits === true || 
+            metadata?.has_splits === 'true' || 
+            (metadata?.split_count && Number(metadata.split_count) > 0);
+
+          console.log("🔍 SPLIT DEBUG - Has splits check:", {
+            has_splits: metadata?.has_splits,
+            split_count: metadata?.split_count,
+            hasSplits,
+          });
+
+          if (hasSplits && editTransaction.id) {
+            console.log("🔀 Loading split data for transaction:", editTransaction.id);
+            
+            // Fetch splits from database
+            const splits = await ExpenseSplittingService.getTransactionSplits(editTransaction.id);
+            
+            if (splits && splits.length > 0) {
+              console.log("🔀 Fetched splits:", splits);
+
+              // Load group FIRST if exists
+              let matchedGroup = null;
+              const groupId = splits[0]?.group_id;
+              
+              if (groupId) {
+                try {
+                  console.log("🔀 Loading group for ID:", groupId);
+                  const groups = await ExpenseSplittingService.getUserGroups();
+                  matchedGroup = groups.find(g => g.id === groupId);
+                  if (matchedGroup) {
+                    console.log("🔀 Loaded group:", matchedGroup.name);
+                  } else {
+                    console.log("⚠️ Group not found in user groups");
+                  }
+                } catch (err) {
+                  console.error("❌ Error loading group:", err);
+                }
+              }
+
+              // Convert TransactionSplit[] to SplitCalculation[]
+              const splitCalculations: SplitCalculation[] = splits.map((split) => ({
+                user_id: split.user_id || undefined,
+                user_name: (split.is_guest_user ? split.guest_name : split.user_name) || "Unknown",
+                user_email: split.is_guest_user ? split.guest_email : split.user_email,
+                share_amount: split.share_amount,
+                share_percentage: split.share_percentage || (split.share_amount / editTransaction.amount) * 100,
+                is_paid: split.is_paid,
+                is_guest: split.is_guest_user || false,
+                mobile_number: split.is_guest_user ? split.guest_mobile : undefined,
+                relationship: split.is_guest_user ? split.guest_relationship : undefined,
+              }));
+
+              // Set ALL split state together AFTER group is loaded
+              console.log("🎯 Setting all split state together:", {
+                splitCount: splitCalculations.length,
+                hasGroup: !!matchedGroup,
+                groupName: matchedGroup?.name,
+              });
+              
+              setIsSplitEnabled(true);
+              setSplitCalculations(splitCalculations);
+              if (matchedGroup) {
+                setSelectedSplitGroup(matchedGroup);
+              }
+
+              // Validate the splits
+              const validation = ExpenseSplittingService.validateSplits(
+                editTransaction.amount,
+                splitCalculations
+              );
+              setSplitValidation(validation);
+
+              console.log("✅ Split data loaded successfully:", {
+                splitCount: splitCalculations.length,
+                isValid: validation.is_valid,
+                groupId,
+              });
+            } else {
+              console.log("⚠️ No splits found in database for transaction:", editTransaction.id);
+            }
+          } else {
+            console.log("⚠️ Split check failed:", {
+              hasSplits,
+              hasTransactionId: !!editTransaction.id,
+              reason: !hasSplits ? "hasSplits is false" : "no transaction ID",
+            });
+          }
+        } catch (error) {
+          console.error("❌ Error loading split data:", error);
+          // Don't show error to user - just log it
+          // The form will still work, just won't have split data pre-populated
+        }
+      };
+
+      loadSplitData();
     }
   }, [isEditMode, isCopyMode, editTransaction, accounts]);
 
@@ -1251,6 +1410,9 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   colors={colors}
                   isDark={isDark}
                   disabled={loading}
+                  initialSplitEnabled={isSplitEnabled}
+                  initialSplits={splitCalculations}
+                  initialGroup={selectedSplitGroup || undefined}
                 />
               </View>
             )}

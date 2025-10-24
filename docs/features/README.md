@@ -9,8 +9,11 @@
 ```
 features/
 ├── README.md (this file)
+├── dashboard/              # Financial dashboard feature
+├── fixed-deposits/         # Fixed deposit features
 ├── net-worth/              # Net worth tracking feature
-└── dashboard/              # Financial dashboard feature
+├── transaction-splitting/  # Transaction splitting & group expenses
+└── transactions/           # Transaction features & enhancements
 ```
 
 ---
@@ -57,6 +60,54 @@ Financial dashboard skeleton and enhancements:
 
 ---
 
+## 💸 Transaction Splitting Feature
+
+**Location:** `features/transaction-splitting/`
+
+Complete documentation for splitting expenses among multiple people or groups:
+
+| Document | Purpose |
+|----------|---------|
+| `SPLIT_ARCHITECTURE_EXPLAINED.md` | Database architecture and data flow |
+| `SPLIT_DB_ANALYSIS_SUMMARY.md` | Database capabilities summary |
+| `SPLIT_EXECUTION_PLAN.md` | Implementation execution plan |
+| `SPLIT_IMPLEMENTATION_COMPLETE.md` | Completed implementation summary |
+| `SPLIT_SQL_TESTS.md` | SQL queries for testing |
+| `SPLIT_TESTING_GUIDE.md` | Comprehensive testing guide |
+| `TRANSACTION_SPLITTING_IMPLEMENTATION_PLAN.md` | Overall implementation roadmap |
+
+**Key Files to Start With:**
+1. `SPLIT_ARCHITECTURE_EXPLAINED.md` - Understand the architecture
+2. `SPLIT_TESTING_GUIDE.md` - Test the feature
+3. `SPLIT_IMPLEMENTATION_COMPLETE.md` - Implementation overview
+
+---
+
+## 💰 Transactions Feature
+
+**Location:** `features/transactions/`
+
+Transaction-related features and enhancements:
+
+| Document | Purpose |
+|----------|---------|
+| `TRANSACTION_EDIT_ACCOUNT_FIX.md` | Account selection fixes |
+
+---
+
+## 🏦 Fixed Deposits Feature
+
+**Location:** `features/fixed-deposits/`
+
+Fixed deposit UI and feature enhancements:
+
+| Document | Purpose |
+|----------|---------|
+| `FIXED_DEPOSITS_HEADER_ENHANCEMENT.md` | Header improvements |
+| `FIXED_DEPOSITS_MODAL_REDESIGN.md` | Modal UI redesign |
+
+---
+
 ## 🎯 Other Features
 
 ### Budget Progress
@@ -64,10 +115,11 @@ Financial dashboard skeleton and enhancements:
 - Budget tracking and progress monitoring
 - See `../budget-progress/README.md`
 
-### Expense Splitting
+### Expense Splitting (Legacy)
 **Location:** `../expense-splitting/`
-- Group expense management
+- Group expense management (older docs)
 - See `../expense-splitting/README.md`
+- **Note:** Current split docs in `transaction-splitting/`
 
 ---
 
@@ -119,7 +171,7 @@ Financial dashboard skeleton and enhancements:
 
 ---
 
-**Last Updated:** October 19, 2025  
-**Total Features Documented:** 4 (Net Worth, Dashboard, Budget, Expense Splitting)  
-**Status:** ✅ Well Organized
+**Last Updated:** October 25, 2025  
+**Total Features Documented:** 7 (Dashboard, Fixed Deposits, Net Worth, Transaction Splitting, Transactions, Budget Progress, Expense Splitting)  
+**Status:** ✅ Well Organized & Restructured
 

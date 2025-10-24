@@ -334,6 +334,8 @@ const transformSupabaseTransaction = (
       source_account_name: supabaseTransaction.source_account_name,
       destination_account_id: supabaseTransaction.destination_account_id,
       destination_account_name: supabaseTransaction.destination_account_name,
+      // CRITICAL: Include metadata for split transaction badge
+      metadata: supabaseTransaction.metadata || null,
     } as Transaction;
   } catch (error) {
     console.error(
@@ -1122,6 +1124,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
               is_recurring: fullTransaction.is_recurring || false,
               recurrence_pattern: fullTransaction.recurrence_pattern,
               recurrence_end_date: fullTransaction.recurrence_end_date,
+              metadata: fullTransaction.metadata || null, // CRITICAL: Include metadata for split transaction loading
             };
 
             setEditingTransaction(editTransactionData);
@@ -1183,6 +1186,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
             source_account_name: updatedTransaction.source_account_name,
             destination_account_id: updatedTransaction.destination_account_id,
             destination_account_name: updatedTransaction.destination_account_name,
+            metadata: updatedTransaction.metadata || null, // CRITICAL: Include metadata for split badge
           };
           
           console.log("🎨 Updated transaction with icon:", transformedTransaction.icon);

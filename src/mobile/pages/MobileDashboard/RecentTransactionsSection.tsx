@@ -135,6 +135,8 @@ const transformSupabaseTransaction = (
       supabaseTransaction.subcategory_name,
       supabaseTransaction.is_recurring ? "Recurring" : undefined,
     ].filter(Boolean) as string[],
+    // CRITICAL: Include metadata for split transaction badge
+    metadata: supabaseTransaction.metadata || null,
   };
 };
 
@@ -568,6 +570,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
             is_recurring: fullTransaction.is_recurring || false,
             recurrence_pattern: fullTransaction.recurrence_pattern,
             recurrence_end_date: fullTransaction.recurrence_end_date,
+            metadata: fullTransaction.metadata || null, // CRITICAL: Include metadata for split transaction loading
           };
 
           setEditingTransaction(editTransactionData);
