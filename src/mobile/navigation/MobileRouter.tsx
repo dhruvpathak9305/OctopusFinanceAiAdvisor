@@ -18,6 +18,7 @@ import MobileHome from "../pages/MobileHome";
 import MobileDashboard from "../pages/MobileDashboard";
 import MobileTransactions from "../pages/MobileTransactions";
 import MobilePortfolio from "../pages/MobilePortfolio";
+import MobileStockBrowser from "../pages/MobileStockBrowser";
 import MobileGoals from "../pages/MobileGoals";
 import MobileSettings from "../pages/MobileSettings/index";
 import MobileAuth from "../pages/MobileAuth";
@@ -231,6 +232,21 @@ const RootStackNavigator: React.FC = () => {
         component={MobileDateFilter}
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MobileStockBrowser"
+        component={MobileStockBrowser}
+        options={{
+          headerShown: true,
+          headerTitle: "Browse Stocks & Funds",
+          headerStyle: {
+            backgroundColor: "#0B1426",
+          },
+          headerTintColor: "#10B981",
+          headerTitleStyle: {
+            color: "#FFFFFF",
+          },
         }}
       />
     </Stack.Navigator>

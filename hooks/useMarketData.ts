@@ -3,7 +3,7 @@
  * Manages real-time market data and updates
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { StockMarketService } from '../services/stockMarketService';
 import type { StockQuote, MarketStatus } from '../types/portfolio-extended';
 
@@ -20,6 +20,12 @@ export const useMarketData = (symbols: string[], enabled: boolean = true): UseMa
   const [marketStatus, setMarketStatus] = useState<MarketStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use ref to track if initial fetch is done
+  const initialFetchDone = useRef(false);
+  
+  // Serialize symbols to avoid array reference changes
+  const symbolsKey = symbols.join(',');
 
   // Fetch quotes
   const fetchQuotes = useCallback(async () => {
@@ -38,7 +44,8 @@ export const useMarketData = (symbols: string[], enabled: boolean = true): UseMa
     } finally {
       setLoading(false);
     }
-  }, [symbols, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolsKey, enabled]); // Use symbolsKey instead of symbols array
 
   // Fetch market status
   const fetchMarketStatus = useCallback(async () => {
@@ -56,17 +63,23 @@ export const useMarketData = (symbols: string[], enabled: boolean = true): UseMa
     await Promise.all([fetchQuotes(), fetchMarketStatus()]);
   }, [fetchQuotes, fetchMarketStatus]);
 
-  // Initial fetch
+  // Initial fetch - only run once
   useEffect(() => {
-    fetchQuotes();
-    fetchMarketStatus();
-  }, [fetchQuotes, fetchMarketStatus]);
+    if (!initialFetchDone.current) {
+      fetchQuotes();
+      fetchMarketStatus();
+      initialFetchDone.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - run only once
 
   // Auto-refresh during market hours (every 30 seconds)
   useEffect(() => {
     if (!enabled || !marketStatus?.isOpen) return;
 
-    const interval = setInterval(fetchQuotes, 30000); // 30 seconds
+    const interval = setInterval(() => {
+      fetchQuotes();
+    }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
   }, [enabled, marketStatus?.isOpen, fetchQuotes]);

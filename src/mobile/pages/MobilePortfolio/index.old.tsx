@@ -19,6 +19,8 @@ import { usePortfolio } from '../../../../hooks/usePortfolio';
 import { useMarketData } from '../../../../hooks/useMarketData';
 import { useIPO } from '../../../../hooks/useIPO';
 import { StockMarketService } from '../../../../services/stockMarketService';
+import AddHoldingModal from './AddHoldingModal';
+import ImportCSVModal from './ImportCSVModal';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +49,8 @@ export default function EnhancedMobilePortfolio() {
   const { upcomingIPOs } = useIPO();
 
   const [selectedTab, setSelectedTab] = useState<'overview' | 'holdings' | 'ipos'>('overview');
+  const [showAddHolding, setShowAddHolding] = useState(false);
+  const [showImportCSV, setShowImportCSV] = useState(false);
 
   // Theme colors
   const colors = {
@@ -171,6 +175,20 @@ export default function EnhancedMobilePortfolio() {
     },
     actionButtonTextSecondary: {
       color: colors.text,
+    },
+    importButton: {
+      backgroundColor: colors.card,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    importButtonText: {
+      color: colors.primary,
+      fontSize: 15,
+      fontWeight: '600',
     },
     // Tabs
     tabsContainer: {
@@ -436,19 +454,31 @@ export default function EnhancedMobilePortfolio() {
 
   // Render Quick Actions
   const renderQuickActions = () => (
-    <View style={styles.quickActions}>
-      <TouchableOpacity style={styles.actionButton}>
-        <Text style={styles.actionButtonText}>+ Add Holding</Text>
-      </TouchableOpacity>
+    <>
+      <View style={styles.quickActions}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setShowAddHolding(true)}
+        >
+          <Text style={styles.actionButtonText}>+ Add Holding</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.actionButtonSecondary]}
+          onPress={() => navigation.navigate('MobileStockBrowser')}
+        >
+          <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
+            Browse Stocks
+          </Text>
+        </TouchableOpacity>
+      </View>
+      
       <TouchableOpacity 
-        style={[styles.actionButton, styles.actionButtonSecondary]}
-        onPress={() => navigation.navigate('MobileStockBrowser')}
+        style={styles.importButton}
+        onPress={() => setShowImportCSV(true)}
       >
-        <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
-          Browse Stocks
-        </Text>
+        <Text style={styles.importButtonText}>📄 Import from CSV</Text>
       </TouchableOpacity>
-    </View>
+    </>
   );
 
   // Render Tabs
@@ -649,6 +679,22 @@ export default function EnhancedMobilePortfolio() {
         
         {selectedTab === 'ipos' && renderIPOs()}
       </ScrollView>
+
+      {/* Add Holding Modal */}
+      <AddHoldingModal
+        visible={showAddHolding}
+        onClose={() => setShowAddHolding(false)}
+        portfolioId={currentPortfolio?.id || ''}
+        onSuccess={refreshData}
+      />
+
+      {/* Import CSV Modal */}
+      <ImportCSVModal
+        visible={showImportCSV}
+        onClose={() => setShowImportCSV(false)}
+        portfolioId={currentPortfolio?.id || ''}
+        onSuccess={refreshData}
+      />
     </View>
   );
 }

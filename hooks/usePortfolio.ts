@@ -192,7 +192,8 @@ export const usePortfolio = (): UsePortfolioReturn => {
   // Initial load
   useEffect(() => {
     fetchPortfolios();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   return {
     // Data

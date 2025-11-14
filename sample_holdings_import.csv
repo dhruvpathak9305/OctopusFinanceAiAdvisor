@@ -1,0 +1,11 @@
+asset_type,symbol,name,quantity,purchase_price,purchase_date,notes
+stock,RELIANCE,Reliance Industries Ltd,10,2400,2024-01-15,Long term investment
+stock,TCS,Tata Consultancy Services,5,3500,2023-11-20,Blue chip stock
+stock,INFY,Infosys Limited,15,1600,2024-02-10,IT sector
+stock,HDFCBANK,HDFC Bank Ltd,8,1650,2023-09-05,Banking sector
+mutual_fund,119551,HDFC Top 100 Fund - Direct Plan - Growth,100,650.50,2023-06-01,SIP investment
+mutual_fund,120503,ICICI Prudential Bluechip Fund - Direct - Growth,80,550.75,2023-08-15,Large cap fund
+etf,NIFTYBEES,Nippon India ETF Nifty BeES,50,220.30,2024-03-01,Index ETF
+etf,GOLDBEES,Nippon India ETF Gold BeES,25,58.50,2023-12-10,Gold ETF
+bond,GOVT2030,Government of India 7.5% Bond 2030,100,1050,2023-05-20,Safe investment
+
