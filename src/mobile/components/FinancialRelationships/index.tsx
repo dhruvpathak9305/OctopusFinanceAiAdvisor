@@ -25,6 +25,7 @@ const FinancialRelationships: React.FC<FinancialRelationshipsProps> = ({
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<
     string | null
   >(null);
+  const [selectedIsGroup, setSelectedIsGroup] = useState<boolean>(false);
 
   // Use the dark theme but with specific adjustments to match the main dashboard
   const colors = {
@@ -37,12 +38,14 @@ const FinancialRelationships: React.FC<FinancialRelationshipsProps> = ({
     textSecondary: "#9CA3AF", // Gray secondary text
   };
 
-  const handleSelectRelationship = (relationshipId: string) => {
+  const handleSelectRelationship = (relationshipId: string, isGroup: boolean = false) => {
     setSelectedRelationshipId(relationshipId);
+    setSelectedIsGroup(isGroup);
   };
 
   const handleBack = () => {
     setSelectedRelationshipId(null);
+    setSelectedIsGroup(false);
   };
 
   const handleCreateLoan = () => {
@@ -70,6 +73,7 @@ const FinancialRelationships: React.FC<FinancialRelationshipsProps> = ({
     return (
       <RelationshipDetail
         relationshipId={selectedRelationshipId}
+        isGroup={selectedIsGroup}
         onCreateLoan={handleCreateLoan}
         onRequestPayment={handleRequestPayment}
         onRecordPayment={handleRecordPayment}

@@ -52,6 +52,8 @@ import { OpenAIService } from "../../../../services/openaiService";
 // Import image handling
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
+// Import balance event emitter for UI refresh
+import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
 // Import expense splitting
 import ExpenseSplittingInterface from "../ExpenseSplitting/ExpenseSplittingInterface";
 import {
@@ -261,6 +263,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [splitCalculations, setSplitCalculations] = useState<
     SplitCalculation[]
   >([]);
+  const [paidByUserId, setPaidByUserId] = useState<string | null>(null);
   const [splitValidation, setSplitValidation] = useState<SplitValidation>({
     is_valid: true,
     total_shares: 0,
@@ -371,9 +374,13 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   // Handle expense splitting changes
   const handleSplitChange = useCallback(
-    async (enabled: boolean, splits?: SplitCalculation[], group?: Group) => {
+    async (enabled: boolean, splits?: SplitCalculation[], group?: Group, paidByUserId?: string) => {
       setIsSplitEnabled(enabled);
       setSelectedSplitGroup(group || null);
+      
+      // Store who paid for this transaction
+      console.log('[QuickAddButton] Who paid:', paidByUserId);
+      setPaidByUserId(paidByUserId || null);
 
       // Enrich splits with group member details (mobile, relationship)
       if (enabled && splits && splits.length > 0 && group) {
@@ -878,16 +885,25 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               splitValidation.is_valid
             ) {
               // Create transaction with splits
-              await ExpenseSplittingService.createTransactionWithSplits(
+              const transactionId = await ExpenseSplittingService.createTransactionWithSplits(
                 transactionData,
                 splitCalculations,
-                selectedSplitGroup?.id
+                selectedSplitGroup?.id,
+                "equal", // splitType
+                paidByUserId || undefined // who paid
               );
 
               // Show split-specific success message
               setToastMessage(
                 `Split transaction "${transactionData.name}" created with ${splitCalculations.length} participants!`
               );
+
+              // Emit balance update event to trigger UI refresh (same as regular transactions)
+              console.log("🔔 Emitting balance update event for split transaction:", transactionId);
+              balanceEventEmitter.emit({
+                type: "transaction-added",
+                transactionId: transactionId,
+              });
             } else {
               // Regular transaction without splits
               await addTransaction(transactionData, isDemo);

@@ -29,6 +29,10 @@ export interface FinancialRelationship {
   description?: string;
   member_count?: number;
   group_image_url?: string;
+  
+  // Detailed financial breakdown (for groups and splits)
+  total_owed_to_you?: number; // Amount others owe to the current user
+  total_you_owe?: number; // Amount current user owes to others
 }
 
 /**

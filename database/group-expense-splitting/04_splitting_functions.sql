@@ -196,14 +196,20 @@ BEGIN
   )
   SELECT 
     COALESCE(up.user_id, us.user_id) as user_id,
-    u.name as user_name,
-    u.email as user_email,
+    COALESCE(
+      gm.user_name, 
+      u.raw_user_meta_data->>'name',
+      u.raw_user_meta_data->>'full_name',
+      split_part(u.email, '@', 1)
+    ) as user_name,
+    COALESCE(gm.user_email, u.email) as user_email,
     COALESCE(up.total_paid, 0) as total_paid,
     COALESCE(us.total_owed, 0) as total_owed,
     COALESCE(up.total_paid, 0) - COALESCE(us.total_owed, 0) as net_balance
   FROM user_payments up
   FULL OUTER JOIN user_shares us ON up.user_id = us.user_id
   LEFT JOIN auth.users u ON COALESCE(up.user_id, us.user_id) = u.id
+  LEFT JOIN public.group_members gm ON gm.user_id = COALESCE(up.user_id, us.user_id) AND gm.group_id = p_group_id
   ORDER BY net_balance DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

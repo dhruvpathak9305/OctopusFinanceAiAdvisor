@@ -25,7 +25,8 @@ interface ExpenseSplittingInterfaceProps {
   onSplitChange: (
     isEnabled: boolean,
     splits?: SplitCalculation[],
-    group?: Group
+    group?: Group,
+    paidByUserId?: string
   ) => void;
   colors: {
     background: string;
@@ -60,6 +61,7 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
   const [splits, setSplits] = useState<SplitCalculation[]>(initialSplits);
   const [individualPeople, setIndividualPeople] = useState<any[]>([]);
   const [splitMode, setSplitMode] = useState<"group" | "individual">("group");
+  const [paidByUserId, setPaidByUserId] = useState<string | null>(null); // Track who paid
   const [validation, setValidation] = useState<SplitValidationType>({
     is_valid: true,
     total_shares: 0,
@@ -160,8 +162,8 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
     if (isInitializing.current) {
       return;
     }
-    onSplitChange(isSplitEnabled, splits, selectedGroup || undefined);
-  }, [isSplitEnabled, splits, selectedGroup, onSplitChange]);
+    onSplitChange(isSplitEnabled, splits, selectedGroup || undefined, paidByUserId || undefined);
+  }, [isSplitEnabled, splits, selectedGroup, paidByUserId, onSplitChange]);
 
   // Reset validation when amount changes
   useEffect(() => {
@@ -235,6 +237,14 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
   ) => {
     setSplits(newSplits);
     setValidation(newValidation);
+    
+    // Auto-select first registered user as payer if not already set
+    if (!paidByUserId && newSplits.length > 0) {
+      const firstRegisteredUser = newSplits.find(split => split.user_id && !split.is_guest);
+      if (firstRegisteredUser) {
+        setPaidByUserId(firstRegisteredUser.user_id || null);
+      }
+    }
   };
 
   console.log(
@@ -473,7 +483,7 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
                   />
                 </View>
 
-                {/* Split Calculator */}
+                {/* Split Calculator with integrated "Who Paid" selection */}
                 {selectedGroup && (
                   <View style={styles.section}>
                     <SplitCalculator
@@ -482,6 +492,8 @@ const ExpenseSplittingInterface: React.FC<ExpenseSplittingInterfaceProps> = ({
                       onSplitsChange={handleSplitsChange}
                       colors={colors}
                       initialSplits={splits.length > 0 ? splits : undefined}
+                      paidByUserId={paidByUserId}
+                      onPaidByChange={setPaidByUserId}
                     />
                   </View>
                 )}

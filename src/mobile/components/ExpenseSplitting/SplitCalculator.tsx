@@ -38,6 +38,8 @@ interface SplitCalculatorProps {
     error: string;
   };
   initialSplits?: SplitCalculation[]; // Initial splits for edit mode
+  paidByUserId?: string | null; // Who paid for this expense
+  onPaidByChange?: (userId: string | null) => void; // Callback when payer changes
 }
 
 const SplitCalculator: React.FC<SplitCalculatorProps> = ({
@@ -46,6 +48,8 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
   onSplitsChange,
   colors,
   initialSplits,
+  paidByUserId,
+  onPaidByChange,
 }) => {
   const [splitType, setSplitType] = useState<"equal" | "percentage" | "custom">(
     "equal"
@@ -289,9 +293,14 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
       {/* Participants List */}
       <View style={styles.participantsContainer}>
         <View style={styles.participantsHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Participants ({splits.length})
-          </Text>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Participants ({splits.length})
+            </Text>
+            <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
+              Tap to select who paid
+            </Text>
+          </View>
           {selectedGroup && (
             <View style={styles.groupManagementWrapper}>
               <GroupManagement
@@ -316,31 +325,90 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
           style={styles.participantsList}
           showsVerticalScrollIndicator={false}
         >
-          {splits.map((split, index) => (
-            <View
-              key={split.user_id || `split-${index}-${split.user_name}`}
-              style={[
-                styles.participantItem,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <View style={styles.participantInfo}>
-                <Ionicons
-                  name="person-circle"
-                  size={24}
-                  color={colors.primary}
-                />
-                <Text style={[styles.participantName, { color: colors.text }]}>
-                  {split.user_name}
-                </Text>
-              </View>
+          {splits.map((split, index) => {
+            const isSelected = paidByUserId === split.user_id;
+            return (
+              <TouchableOpacity
+                key={split.user_id || `split-${index}-${split.user_name}`}
+                style={[
+                  styles.participantItem,
+                  {
+                    backgroundColor: isSelected
+                      ? colors.primary + '15'
+                      : colors.card,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    borderWidth: isSelected ? 2 : 1,
+                  },
+                ]}
+                onPress={() => onPaidByChange?.(split.user_id || null)}
+                activeOpacity={0.7}
+              >
+                {/* Radio Button & Participant Info */}
+                <View style={styles.participantInfo}>
+                  <Ionicons
+                    name={isSelected ? "radio-button-on" : "radio-button-off"}
+                    size={24}
+                    color={isSelected ? colors.primary : colors.textSecondary}
+                  />
+                  <Ionicons
+                    name="person-circle"
+                    size={24}
+                    color={isSelected ? colors.primary : colors.textSecondary}
+                    style={styles.personIcon}
+                  />
+                  <View style={styles.participantNameContainer}>
+                    <Text style={[styles.participantName, { color: isSelected ? colors.primary : colors.text }]}>
+                      {split.user_name}
+                      {split.is_guest && ' (Guest)'}
+                    </Text>
+                    {isSelected && (
+                      <Text style={[styles.paidLabel, { color: colors.primary }]}>
+                        Paid for this
+                      </Text>
+                    )}
+                  </View>
+                </View>
 
-              <View style={styles.participantInputs}>
-                {splitType === "percentage" && (
+                <View style={styles.participantInputs}>
+                  {splitType === "percentage" && (
+                    <View style={styles.inputGroup}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            color: colors.text,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        value={split.share_percentage.toFixed(1)}
+                        onChangeText={(text) => {
+                          const percentage = parseFloat(text) || 0;
+                          updateSplitPercentage(index, percentage);
+                        }}
+                        keyboardType="numeric"
+                        placeholder="0.0"
+                        placeholderTextColor={colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.inputSuffix,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        %
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.inputGroup}>
+                    <Text
+                      style={[
+                        styles.currencySymbol,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      ₹
+                    </Text>
                     <TextInput
                       style={[
                         styles.input,
@@ -349,59 +417,23 @@ const SplitCalculator: React.FC<SplitCalculatorProps> = ({
                           borderColor: colors.border,
                         },
                       ]}
-                      value={split.share_percentage.toFixed(1)}
+                      value={split.share_amount.toFixed(2)}
                       onChangeText={(text) => {
-                        const percentage = parseFloat(text) || 0;
-                        updateSplitPercentage(index, percentage);
+                        if (splitType === "custom") {
+                          const amount = parseFloat(text) || 0;
+                          updateSplitAmount(index, amount);
+                        }
                       }}
                       keyboardType="numeric"
-                      placeholder="0.0"
+                      editable={splitType === "custom"}
+                      placeholder="0.00"
                       placeholderTextColor={colors.textSecondary}
                     />
-                    <Text
-                      style={[
-                        styles.inputSuffix,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      %
-                    </Text>
                   </View>
-                )}
-
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[
-                      styles.currencySymbol,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    ₹
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    value={split.share_amount.toFixed(2)}
-                    onChangeText={(text) => {
-                      if (splitType === "custom") {
-                        const amount = parseFloat(text) || 0;
-                        updateSplitAmount(index, amount);
-                      }
-                    }}
-                    keyboardType="numeric"
-                    editable={splitType === "custom"}
-                    placeholder="0.00"
-                    placeholderTextColor={colors.textSecondary}
-                  />
                 </View>
-              </View>
-            </View>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
     </View>
@@ -452,9 +484,17 @@ const styles = StyleSheet.create({
   },
   participantsHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  sectionHint: {
+    fontSize: 11,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   groupManagementWrapper: {
     // Wrapper will contain the GroupManagement button
@@ -467,19 +507,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
+    borderRadius: 10,
+    marginBottom: 10,
   },
   participantInfo: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    gap: 8,
+  },
+  personIcon: {
+    marginLeft: 4,
+  },
+  participantNameContainer: {
+    flex: 1,
   },
   participantName: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  paidLabel: {
+    fontSize: 11,
     fontWeight: "500",
-    marginLeft: 8,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   participantInputs: {
     flexDirection: "row",

@@ -242,7 +242,8 @@ export class ExpenseSplittingService {
     transactionData: any,
     splits: SplitCalculation[],
     groupId?: string,
-    splitType: string = "equal"
+    splitType: string = "equal",
+    paidByUserId?: string  // NEW: Who actually paid for this expense
   ): Promise<string> {
     try {
       // Validate splits first
@@ -258,6 +259,41 @@ export class ExpenseSplittingService {
       } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error("User not authenticated");
+      }
+
+      // Check if paidByUserId is a guest user (doesn't exist in auth.users)
+      const payerGuest = paidByUserId && splits.find(
+        s => (s.is_guest || !s.user_id) && s.user_id === paidByUserId
+      );
+      
+      const isPayerGuest = !!payerGuest;
+      
+      // Determine actual paid_by value and guest payer details:
+      // - If payer is a guest: paid_by = NULL, populate guest payer fields
+      // - If payer is specified and registered: paid_by = paidByUserId
+      // - Default: paid_by = current user
+      const actualPaidBy = isPayerGuest ? null : (paidByUserId || user.id);
+      
+      // Extract guest payer details if payer is a guest
+      const guestPayerDetails = isPayerGuest ? {
+        paid_by_guest_name: payerGuest?.user_name || payerGuest?.name || null,
+        paid_by_guest_email: payerGuest?.user_email || payerGuest?.email || null,
+        paid_by_guest_mobile: payerGuest?.mobile_number || payerGuest?.phone || null,
+      } : {
+        paid_by_guest_name: null,
+        paid_by_guest_email: null,
+        paid_by_guest_mobile: null,
+      };
+      
+      // Log payer information
+      if (isPayerGuest) {
+        console.log(
+          `✅ Guest user selected as payer: ${guestPayerDetails.paid_by_guest_name} (${guestPayerDetails.paid_by_guest_email})`
+        );
+      } else if (paidByUserId) {
+        console.log(`✅ Registered user selected as payer: ${paidByUserId}`);
+      } else {
+        console.log(`✅ Current user is payer (default): ${user.id}`);
       }
 
       // Prepare splits data for database function
@@ -278,7 +314,11 @@ export class ExpenseSplittingService {
               share_amount: split.share_amount,
               share_percentage: split.share_percentage || null,
               split_type: splitType,
-              paid_by: user.id, // Current user paid
+              paid_by: actualPaidBy, // NULL for guest payers
+              // Guest payer details (populated if a guest paid)
+              paid_by_guest_name: guestPayerDetails.paid_by_guest_name,
+              paid_by_guest_email: guestPayerDetails.paid_by_guest_email,
+              paid_by_guest_mobile: guestPayerDetails.paid_by_guest_mobile,
               notes: split.notes || null,
             };
           } else {
@@ -317,7 +357,11 @@ export class ExpenseSplittingService {
               share_amount: split.share_amount,
               share_percentage: split.share_percentage || null,
               split_type: splitType,
-              paid_by: user.id, // Current user paid
+              paid_by: actualPaidBy, // Registered user ID or NULL for guest payers
+              // Guest payer details (populated if a guest paid)
+              paid_by_guest_name: guestPayerDetails.paid_by_guest_name,
+              paid_by_guest_email: guestPayerDetails.paid_by_guest_email,
+              paid_by_guest_mobile: guestPayerDetails.paid_by_guest_mobile,
               notes: split.notes || null,
             };
           }
@@ -335,6 +379,16 @@ export class ExpenseSplittingService {
         },
       };
 
+      // Debug: Log what we're sending to database
+      console.log("📤 Sending to database function:");
+      console.log("  Transaction:", enhancedTransactionData.name);
+      console.log("  Splits count:", splitsData.length);
+      console.log("  Splits paid_by values:", splitsData.map(s => ({
+        user: s.user_name || s.user_id,
+        is_guest: s.is_guest,
+        paid_by: s.paid_by,
+      })));
+
       const { data, error } = await supabase.rpc(
         "create_transaction_with_splits",
         {
@@ -343,7 +397,12 @@ export class ExpenseSplittingService {
         }
       );
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Database function error:", error);
+        throw error;
+      }
+      
+      console.log("✅ Transaction created successfully:", data);
 
       // Update relationship balances for registered users only (skip guest users)
       const relationshipIds = splitsData

@@ -17,6 +17,9 @@ import {
 } from "../../../../contexts/ThemeContext";
 import { FinancialRelationshipService } from "../../../../services/financialRelationshipService";
 import { FinancialRelationship } from "../../../../types/financial-relationships";
+import { GroupFinancialService, GroupWithFinancials } from "../../../../services/groupFinancialService";
+import { supabase } from "../../../../lib/supabase/client";
+import GroupsErrorBoundary from "./GroupsErrorBoundary";
 
 interface RelationshipListProps {
   onSelectRelationship: (relationshipId: string) => void;
@@ -99,139 +102,36 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
     try {
       setLoading(true);
 
-      // In a real implementation, we would fetch from the database
-      // For now, create mock data based on the DB schema provided
+      // Get current user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('[RelationshipList] No user found');
+        setLoading(false);
+        return;
+      }
 
-      // Mock individual contacts from individual_contacts table
-      const mockIndividualContacts = [
-        {
-          id: "ind-1",
-          user_id: "current-user-id",
-          contact_name: "Rahul Kumar",
-          contact_email: "rahul@example.com",
-          created_at: new Date(
-            Date.now() - 30 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updated_at: new Date(
-            Date.now() - 2 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          is_active: true,
-          relationship_summary: JSON.stringify({
-            total_borrowed: 2000,
-            total_lent: 0,
-            has_active_loans: true,
-            has_active_splits: false,
-            last_transaction_date: new Date(
-              Date.now() - 5 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-          }),
-        },
-        {
-          id: "ind-2",
-          user_id: "current-user-id",
-          contact_name: "Priya Sharma",
-          contact_email: "priya@example.com",
-          created_at: new Date(
-            Date.now() - 45 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updated_at: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          is_active: true,
-          relationship_summary: JSON.stringify({
-            total_borrowed: 0,
-            total_lent: 1500,
-            has_active_loans: false,
-            has_active_splits: true,
-            last_transaction_date: new Date(
-              Date.now() - 7 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-          }),
-        },
-        {
-          id: "ind-3",
-          user_id: "current-user-id",
-          contact_name: "Vikram Singh",
-          contact_email: "vikram@example.com",
-          created_at: new Date(
-            Date.now() - 60 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updated_at: new Date(
-            Date.now() - 15 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          is_active: true,
-          relationship_summary: JSON.stringify({
-            total_borrowed: 0,
-            total_lent: 0,
-            has_active_loans: false,
-            has_active_splits: false,
-            last_transaction_date: new Date(
-              Date.now() - 15 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-          }),
-        },
-      ];
+      console.log('[RelationshipList] Loading relationships for user:', user.id);
 
-      // Mock groups data from groups and group_members tables
-      const mockGroups = [
-        {
-          id: "group-1",
-          name: "Weekend Trip",
-          description: "Trip to Goa expenses",
-          created_by: "current-user-id",
-          created_at: new Date(
-            Date.now() - 20 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updated_at: new Date(
-            Date.now() - 3 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          is_active: true,
-          group_image_url: null,
-          members: [
-            { user_id: "user-1", user_name: "Rahul Kumar", role: "member" },
-            { user_id: "user-2", user_name: "Priya Sharma", role: "member" },
-            { user_id: "current-user-id", user_name: "You", role: "admin" },
-          ],
-          relationship_summary: {
-            total_borrowed: 1200,
-            total_lent: 3000,
-            has_active_loans: true,
-            has_active_splits: true,
-            last_transaction_date: new Date(
-              Date.now() - 3 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-          },
-        },
-        {
-          id: "group-2",
-          name: "Office Team",
-          description: "Office lunch and events",
-          created_by: "user-4",
-          created_at: new Date(
-            Date.now() - 90 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updated_at: new Date(
-            Date.now() - 7 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          is_active: true,
-          group_image_url: null,
-          members: [
-            { user_id: "user-3", user_name: "Amit Patel", role: "admin" },
-            { user_id: "user-4", user_name: "Neha Gupta", role: "member" },
-            { user_id: "current-user-id", user_name: "You", role: "member" },
-            { user_id: "user-5", user_name: "Karan Malhotra", role: "member" },
-          ],
-          relationship_summary: {
-            total_borrowed: 2500,
-            total_lent: 0,
-            has_active_loans: true,
-            has_active_splits: false,
-            last_transaction_date: new Date(
-              Date.now() - 7 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-          },
-        },
-      ];
+      // Mock individual contacts - DISABLED until individual relationship tracking is fully implemented
+      // These don't have corresponding database records yet and cause errors when clicked
+      const mockIndividualContacts: any[] = [];
+      
+      // TODO: Re-enable when individual_contacts table and FinancialRelationshipService are fully implemented
+      // const mockIndividualContacts = [...];
+
+      // Fetch real groups data from database
+      console.log('[RelationshipList] Fetching real groups data...');
+      const { data: groupsData, error: groupsError } = await GroupFinancialService.getUserGroupsWithFinancials(user.id);
+      
+      let realGroups: GroupWithFinancials[] = [];
+      
+      if (groupsError) {
+        console.error('[RelationshipList] Error fetching groups:', groupsError);
+        // Continue with empty groups array instead of failing completely
+      } else if (groupsData) {
+        realGroups = groupsData;
+        console.log(`[RelationshipList] Successfully loaded ${realGroups.length} groups`);
+      }
 
       // Transform individual contacts to financial relationships
       const individualRelationships = mockIndividualContacts.map((contact) => {
@@ -261,11 +161,11 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
         };
       });
 
-      // Transform groups to financial relationships
-      const groupRelationships = mockGroups.map((group) => {
-        const summary = group.relationship_summary || {};
-        const totalAmount =
-          (summary.total_lent || 0) - (summary.total_borrowed || 0);
+      // Transform real groups to financial relationships
+      const groupRelationships = realGroups.map((group) => {
+        const summary = group.financial_summary;
+        // Net balance: positive means they owe you, negative means you owe them
+        const totalAmount = summary.net_balance;
 
         return {
           id: group.id,
@@ -277,14 +177,17 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
           is_active: group.is_active,
           created_at: group.created_at,
           updated_at: group.updated_at,
-          has_active_loans: summary.has_active_loans || false,
-          has_active_splits: summary.has_active_splits || false,
+          has_active_loans: false, // Groups don't have direct loans
+          has_active_splits: summary.has_active_splits,
           display_name: group.name,
           description: group.description,
-          member_count: group.members.length,
+          member_count: group.member_count,
           last_activity: summary.last_transaction_date,
-          group_image_url: group.group_image_url,
-        };
+          group_image_url: null, // Can be extended later
+          // Detailed financial breakdown
+          total_owed_to_you: summary.total_owed_to_you,
+          total_you_owe: summary.total_you_owe,
+        } as FinancialRelationship;
       });
 
       // Combine all relationships with type assertion
@@ -378,7 +281,7 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
     return (
       <TouchableOpacity
         style={[styles.relationshipCard, { backgroundColor: darkTheme.card }]}
-        onPress={() => onSelectRelationship(item.id)}
+        onPress={() => onSelectRelationship(item.id, isGroup)}
       >
         {/* Status indicator strip */}
         <View
@@ -472,21 +375,94 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
         </View>
 
         <View style={styles.relationshipDetails}>
-          <View style={styles.balanceContainer}>
-            <Text
-              style={[styles.balanceLabel, { color: colors.textSecondary }]}
-            >
-              {isPositive ? "They owe you:" : "You owe:"}
-            </Text>
-            <Text
-              style={[
-                styles.balanceAmount,
-                { color: isPositive ? "#10B981" : "#EF4444" },
-              ]}
-            >
-              {formatCurrency(item.total_amount)}
-            </Text>
-          </View>
+          {/* For groups, show detailed breakdown if there are pending amounts */}
+          {isGroup && (item.total_owed_to_you || item.total_you_owe) ? (
+            <View style={styles.detailedBalanceContainer}>
+              {item.total_owed_to_you && item.total_owed_to_you > 0 ? (
+                <View style={styles.balanceRow}>
+                  <Ionicons
+                    name="arrow-down-circle"
+                    size={16}
+                    color="#10B981"
+                    style={styles.balanceIcon}
+                  />
+                  <Text
+                    style={[styles.balanceLabel, { color: colors.textSecondary, flex: 1 }]}
+                  >
+                    To recover:
+                  </Text>
+                  <Text
+                    style={[
+                      styles.balanceAmount,
+                      { color: "#10B981" },
+                    ]}
+                  >
+                    {formatCurrency(item.total_owed_to_you)}
+                  </Text>
+                </View>
+              ) : null}
+              
+              {item.total_you_owe && item.total_you_owe > 0 ? (
+                <View style={styles.balanceRow}>
+                  <Ionicons
+                    name="arrow-up-circle"
+                    size={16}
+                    color="#EF4444"
+                    style={styles.balanceIcon}
+                  />
+                  <Text
+                    style={[styles.balanceLabel, { color: colors.textSecondary, flex: 1 }]}
+                  >
+                    To pay:
+                  </Text>
+                  <Text
+                    style={[
+                      styles.balanceAmount,
+                      { color: "#EF4444" },
+                    ]}
+                  >
+                    {formatCurrency(item.total_you_owe)}
+                  </Text>
+                </View>
+              ) : null}
+              
+              {/* Show net balance if both exist */}
+              {item.total_owed_to_you > 0 && item.total_you_owe > 0 ? (
+                <View style={[styles.balanceRow, styles.netBalanceRow]}>
+                  <Text
+                    style={[styles.netBalanceLabel, { color: colors.textSecondary, flex: 1 }]}
+                  >
+                    Net balance:
+                  </Text>
+                  <Text
+                    style={[
+                      styles.netBalanceAmount,
+                      { color: isPositive ? "#10B981" : "#EF4444" },
+                    ]}
+                  >
+                    {isPositive ? "+" : ""}{formatCurrency(item.total_amount)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            /* Fallback to simple display for non-groups or when no detailed data */
+            <View style={styles.balanceContainer}>
+              <Text
+                style={[styles.balanceLabel, { color: colors.textSecondary }]}
+              >
+                {isPositive ? "They owe you:" : "You owe:"}
+              </Text>
+              <Text
+                style={[
+                  styles.balanceAmount,
+                  { color: isPositive ? "#10B981" : "#EF4444" },
+                ]}
+              >
+                {formatCurrency(item.total_amount)}
+              </Text>
+            </View>
+          )}
 
           {isGroup && item.description && (
             <Text
@@ -506,11 +482,12 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: darkTheme.background }]}>
-      {/* Header */}
-      <Text style={[styles.title, { color: colors.text }]}>
-        FINANCIAL RELATIONSHIPS
-      </Text>
+    <GroupsErrorBoundary onReset={loadRelationships}>
+      <View style={[styles.container, { backgroundColor: darkTheme.background }]}>
+        {/* Header */}
+        <Text style={[styles.title, { color: colors.text }]}>
+          FINANCIAL RELATIONSHIPS
+        </Text>
 
       {/* Filter Tabs - Balance Filter */}
       <View
@@ -733,6 +710,7 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
         <Ionicons name="add" size={24} color="white" />
       </TouchableOpacity>
     </View>
+    </GroupsErrorBoundary>
   );
 };
 
@@ -889,12 +867,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
+  detailedBalanceContainer: {
+    marginBottom: 8,
+    gap: 6,
+  },
+  balanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  balanceIcon: {
+    marginRight: 8,
+  },
+  netBalanceRow: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: 4,
+    paddingTop: 8,
+  },
   balanceLabel: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
   },
   balanceAmount: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
+  },
+  netBalanceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  netBalanceAmount: {
+    fontSize: 16,
+    fontWeight: "700",
   },
   groupDescription: {
     fontSize: 12,
