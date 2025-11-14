@@ -629,15 +629,39 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 relationship: split.is_guest_user ? split.guest_relationship : undefined,
               }));
 
+              // Extract who paid from the first split (all splits should have same payer)
+              const firstSplit = splits[0];
+              let extractedPaidBy: string | null = null;
+              
+              if (firstSplit.paid_by) {
+                // Registered user paid
+                extractedPaidBy = firstSplit.paid_by;
+                console.log("💰 Loaded payer (registered):", extractedPaidBy);
+              } else if (firstSplit.paid_by_guest_name) {
+                // Guest user paid - find matching guest in the splits
+                const payerGuest = splits.find(s => 
+                  s.is_guest_user && 
+                  s.guest_name === firstSplit.paid_by_guest_name &&
+                  s.guest_email === firstSplit.paid_by_guest_email
+                );
+                if (payerGuest) {
+                  // Use the guest's user_id (temporary UUID for guest identification)
+                  extractedPaidBy = payerGuest.user_id || null;
+                  console.log("💰 Loaded payer (guest):", firstSplit.paid_by_guest_name, extractedPaidBy);
+                }
+              }
+
               // Set ALL split state together AFTER group is loaded
               console.log("🎯 Setting all split state together:", {
                 splitCount: splitCalculations.length,
                 hasGroup: !!matchedGroup,
                 groupName: matchedGroup?.name,
+                paidBy: extractedPaidBy,
               });
               
               setIsSplitEnabled(true);
               setSplitCalculations(splitCalculations);
+              setPaidByUserId(extractedPaidBy); // ✅ FIX: Set who paid!
               if (matchedGroup) {
                 setSelectedSplitGroup(matchedGroup);
               }

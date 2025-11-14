@@ -223,3 +223,6 @@ WHERE created_at > NOW() - INTERVAL '30 days';
 
 **Need Help?** Check the full [SETUP.md](./SETUP.md) guide or Edge Function logs.
 
+
+
+

@@ -58,3 +58,4 @@ merchants_*.json
 
 # typescript
 *.tsbuildinfo
+.github/instructions/wmt-copilot.instructions.md

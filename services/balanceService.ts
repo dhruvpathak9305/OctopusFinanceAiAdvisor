@@ -49,10 +49,16 @@ export class BalanceService {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
       // Use simplified query with denormalized fields - no JOIN needed!
       const { data, error } = await (supabase as any)
         .from("balance_real")
         .select("*")
+        .eq("user_id", user.id)
         .order("last_updated", { ascending: false });
 
       if (error) {
@@ -104,10 +110,20 @@ export class BalanceService {
         return mockBalances.find((b) => b.account_id === accountId) || null;
       }
 
+      // Get current user for verification
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       const { data, error } = await (supabase as any)
         .from("balance_real")
         .select("*")
         .eq("account_id", accountId)
+        .eq("user_id", user.id)
         .single();
 
       if (error) {
@@ -250,6 +266,15 @@ export class BalanceService {
         throw new Error("Cannot set opening balance in demo mode");
       }
 
+      // Get current user for verification
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       const { data, error } = await (supabase as any)
         .from("balance_real")
         .update({
@@ -258,6 +283,7 @@ export class BalanceService {
           last_updated: new Date().toISOString(),
         })
         .eq("account_id", accountId)
+        .eq("user_id", user.id)
         .select("*")
         .single();
 
@@ -300,6 +326,15 @@ export class BalanceService {
         throw new Error("Cannot adjust balance in demo mode");
       }
 
+      // Get current user for verification
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       const { data, error } = await (supabase as any)
         .from("balance_real")
         .update({
@@ -307,6 +342,7 @@ export class BalanceService {
           last_updated: new Date().toISOString(),
         })
         .eq("account_id", accountId)
+        .eq("user_id", user.id)
         .select("*")
         .single();
 
