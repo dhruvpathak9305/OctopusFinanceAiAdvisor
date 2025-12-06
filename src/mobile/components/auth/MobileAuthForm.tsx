@@ -69,22 +69,23 @@ export default function MobileAuthForm() {
 
     setIsSubmitting(true);
     
-    if (mode === 'login') {
-      await signIn(formData.email, formData.password);
-      // Alert and error handling done in auth context
-    } else if (mode === 'signup') {
-      const success = await signUp(formData.email, formData.password);
-      if (success) {
-        setMode('login'); // Switch to login after successful signup
-      }
-    } else if (mode === 'forgot') {
-      const success = await resetPassword(formData.email);
-      if (success) {
+    try {
+      if (mode === 'login') {
+        await signIn(formData.email, formData.password);
+        // Success - navigation happens via auth state change
+      } else if (mode === 'signup') {
+        await signUp(formData.email, formData.password);
+        setMode('login'); // Switch to login after signup (email confirmation needed)
+      } else if (mode === 'forgot') {
+        await resetPassword(formData.email);
         setMode('login'); // Switch to login after password reset sent
       }
+    } catch {
+      // Error already handled by auth context (Alert shown)
+      // Just catch to prevent unhandled promise rejection
+    } finally {
+      setIsSubmitting(false); // Always reset loading state
     }
-    
-    setIsSubmitting(false);
   };
 
   const updateFormData = (field: keyof FormData, value: string) => {
