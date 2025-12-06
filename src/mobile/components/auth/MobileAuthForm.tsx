@@ -68,39 +68,23 @@ export default function MobileAuthForm() {
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    try {
-      if (mode === 'login') {
-        await signIn(formData.email, formData.password);
-      } else if (mode === 'signup') {
-        await signUp(formData.email, formData.password);
-        Alert.alert(
-          'Account Created',
-          'Please check your email for verification before logging in.',
-          [
-            {
-              text: 'OK',
-              onPress: () => setMode('login'),
-            },
-          ]
-        );
-      } else if (mode === 'forgot') {
-        await resetPassword(formData.email);
-        Alert.alert(
-          'Reset Link Sent',
-          'Please check your email for the password reset link.',
-          [
-            {
-              text: 'OK',
-              onPress: () => setMode('login'),
-            },
-          ]
-        );
+    
+    if (mode === 'login') {
+      await signIn(formData.email, formData.password);
+      // Alert and error handling done in auth context
+    } else if (mode === 'signup') {
+      const success = await signUp(formData.email, formData.password);
+      if (success) {
+        setMode('login'); // Switch to login after successful signup
       }
-    } catch (error) {
-      // Error handling is done in the auth context
-    } finally {
-      setIsSubmitting(false);
+    } else if (mode === 'forgot') {
+      const success = await resetPassword(formData.email);
+      if (success) {
+        setMode('login'); // Switch to login after password reset sent
+      }
     }
+    
+    setIsSubmitting(false);
   };
 
   const updateFormData = (field: keyof FormData, value: string) => {

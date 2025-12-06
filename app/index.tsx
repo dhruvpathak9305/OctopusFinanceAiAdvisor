@@ -19,15 +19,15 @@ export default function HomePage() {
         <ThemeProvider>
           <DemoModeProvider>
             <UnifiedAuthProvider>
-              <AccountsProvider>
-                <BalanceProvider>
-                  <NetWorthProvider>
+            <AccountsProvider>
+              <BalanceProvider>
+                <NetWorthProvider>
                     <WebPageLayout>
                       <WebHomeContent />
                     </WebPageLayout>
-                  </NetWorthProvider>
-                </BalanceProvider>
-              </AccountsProvider>
+                </NetWorthProvider>
+              </BalanceProvider>
+            </AccountsProvider>
             </UnifiedAuthProvider>
           </DemoModeProvider>
         </ThemeProvider>
@@ -41,13 +41,13 @@ export default function HomePage() {
       <ThemeProvider>
         <DemoModeProvider>
           <UnifiedAuthProvider>
-            <AccountsProvider>
-              <BalanceProvider>
-                <NetWorthProvider>
+          <AccountsProvider>
+            <BalanceProvider>
+              <NetWorthProvider>
                   <MobileApp />
-                </NetWorthProvider>
-              </BalanceProvider>
-            </AccountsProvider>
+              </NetWorthProvider>
+            </BalanceProvider>
+          </AccountsProvider>
           </UnifiedAuthProvider>
         </DemoModeProvider>
       </ThemeProvider>

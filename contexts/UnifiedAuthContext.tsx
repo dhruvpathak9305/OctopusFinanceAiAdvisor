@@ -95,10 +95,10 @@ interface UnifiedAuthContextType {
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  signUp: (email: string, password: string) => Promise<void>;
-  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<boolean>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
+  signOut: () => Promise<boolean>;
+  resetPassword: (email: string) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -203,51 +203,69 @@ export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setError(null);
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string): Promise<boolean> => {
+    setError(null);
+    setLoading(true);
+    
     try {
-      setError(null);
-      setLoading(true);
       setupAuthListener();
-      
       console.log("UnifiedAuth: Attempting sign up for:", email);
 
       const { error: signUpError } = await supabase.auth.signUp({ email, password });
-      if (signUpError) throw signUpError;
+      
+      if (signUpError) {
+        const userMsg = getUserFriendlyError(signUpError);
+        console.warn("UnifiedAuth: Sign up issue:", signUpError.message);
+        setError(userMsg);
+        setLoading(false);
+
+        if (Platform.OS !== "web") {
+          Alert.alert("Sign Up Failed", userMsg, [{ text: "OK" }]);
+        }
+        return false;
+      }
 
       console.log("UnifiedAuth: Sign up successful");
+      setLoading(false);
 
       if (Platform.OS !== "web") {
         Alert.alert("Check Your Email", "We've sent you a confirmation link. Please verify your email to continue.", [{ text: "OK" }]);
       }
+      return true;
     } catch (err) {
-      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
-      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
-      console.error("UnifiedAuth: Sign up failed:", technicalMsg);
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : "Unknown error");
+      console.warn("UnifiedAuth: Sign up exception:", err);
       setError(userMsg);
+      setLoading(false);
 
       if (Platform.OS !== "web") {
-        Alert.alert("Sign Up Failed", userMsg, [{ text: "OK", style: "default" }]);
+        Alert.alert("Sign Up Failed", userMsg, [{ text: "OK" }]);
       }
-      throw err;
-    } finally {
-      setLoading(false);
+      return false;
     }
   }, [setupAuthListener]);
 
-  const signIn = useCallback(async (email: string, password: string, _rememberMe?: boolean) => {
+  const signIn = useCallback(async (email: string, password: string, _rememberMe?: boolean): Promise<boolean> => {
+    setError(null);
+    setLoading(true);
+    
     try {
-      setError(null);
-      setLoading(true);
       setupAuthListener();
-      
       console.log("UnifiedAuth: Attempting sign in for:", email);
       await setSessionMarker(null);
 
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
-        console.log("UnifiedAuth: Sign in error:", signInError.message);
-        throw signInError;
+        const userMsg = getUserFriendlyError(signInError);
+        console.warn("UnifiedAuth: Sign in issue:", signInError.message);
+        setError(userMsg);
+        setLoading(false);
+
+        if (Platform.OS !== "web") {
+          Alert.alert("Sign In Failed", userMsg, [{ text: "OK" }]);
+        }
+        return false;
       }
 
       if (data.session) {
@@ -258,29 +276,41 @@ export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       console.log("UnifiedAuth: Sign in successful for:", email);
+      setLoading(false);
+      return true;
     } catch (err) {
-      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
-      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
-      console.error("UnifiedAuth: Sign in failed:", technicalMsg);
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : "Unknown error");
+      console.warn("UnifiedAuth: Sign in exception:", err);
       setError(userMsg);
+      setLoading(false);
 
       if (Platform.OS !== "web") {
-        Alert.alert("Sign In Failed", userMsg, [{ text: "OK", style: "default" }]);
+        Alert.alert("Sign In Failed", userMsg, [{ text: "OK" }]);
       }
-      throw err;
-    } finally {
-      setLoading(false);
+      return false;
     }
   }, [setSessionMarker, setupAuthListener]);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (): Promise<boolean> => {
+    setError(null);
+    setLoading(true);
+    
     try {
-      setError(null);
-      setLoading(true);
       console.log("UnifiedAuth: Attempting sign out");
 
       const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
+      
+      if (signOutError) {
+        const userMsg = getUserFriendlyError(signOutError);
+        console.warn("UnifiedAuth: Sign out issue:", signOutError.message);
+        setError(userMsg);
+        setLoading(false);
+
+        if (Platform.OS !== "web") {
+          Alert.alert("Sign Out Failed", userMsg, [{ text: "OK" }]);
+        }
+        return false;
+      }
 
       setSession(null);
       setUser(null);
@@ -293,25 +323,26 @@ export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       console.log("UnifiedAuth: Sign out successful");
+      setLoading(false);
+      return true;
     } catch (err) {
-      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
-      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
-      console.error("UnifiedAuth: Sign out failed:", technicalMsg);
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : "Unknown error");
+      console.warn("UnifiedAuth: Sign out exception:", err);
       setError(userMsg);
+      setLoading(false);
 
       if (Platform.OS !== "web") {
-        Alert.alert("Sign Out Failed", userMsg, [{ text: "OK", style: "default" }]);
+        Alert.alert("Sign Out Failed", userMsg, [{ text: "OK" }]);
       }
-      throw err;
-    } finally {
-      setLoading(false);
+      return false;
     }
   }, [setSessionMarker]);
 
-  const resetPassword = useCallback(async (email: string) => {
+  const resetPassword = useCallback(async (email: string): Promise<boolean> => {
+    setError(null);
+    setLoading(true);
+    
     try {
-      setError(null);
-      setLoading(true);
       console.log("UnifiedAuth: Requesting password reset for:", email);
 
       const redirectUrl = Platform.OS === "web"
@@ -319,25 +350,36 @@ export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
         : undefined;
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
-      if (resetError) throw resetError;
+      
+      if (resetError) {
+        const userMsg = getUserFriendlyError(resetError);
+        console.warn("UnifiedAuth: Password reset issue:", resetError.message);
+        setError(userMsg);
+        setLoading(false);
+
+        if (Platform.OS !== "web") {
+          Alert.alert("Password Reset Failed", userMsg, [{ text: "OK" }]);
+        }
+        return false;
+      }
 
       console.log("UnifiedAuth: Password reset email sent");
+      setLoading(false);
 
       if (Platform.OS !== "web") {
         Alert.alert("Reset Link Sent", "Check your email for the password reset link.", [{ text: "OK" }]);
       }
+      return true;
     } catch (err) {
-      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
-      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
-      console.error("UnifiedAuth: Password reset failed:", technicalMsg);
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : "Unknown error");
+      console.warn("UnifiedAuth: Password reset exception:", err);
       setError(userMsg);
+      setLoading(false);
 
       if (Platform.OS !== "web") {
-        Alert.alert("Password Reset Failed", userMsg, [{ text: "OK", style: "default" }]);
+        Alert.alert("Password Reset Failed", userMsg, [{ text: "OK" }]);
       }
-      throw err;
-    } finally {
-      setLoading(false);
+      return false;
     }
   }, []);
 

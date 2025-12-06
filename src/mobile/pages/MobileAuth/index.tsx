@@ -6,26 +6,16 @@ import { useUnifiedAuth } from '../../../../contexts/UnifiedAuthContext';
 
 const MobileAuth: React.FC = () => {
   const navigation = useNavigation();
-  const { user, loading, isAuthenticated } = useUnifiedAuth();
+  const { isAuthenticated } = useUnifiedAuth();
 
   // Redirect to dashboard if user is already logged in
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (isAuthenticated) {
       navigation.navigate('Main' as never);
     }
-  }, [isAuthenticated, loading, navigation]);
+  }, [isAuthenticated, navigation]);
 
-  // Don't render the form until we've checked auth status
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </View>
-    );
-  }
+  // Note: We don't show a loading screen here - the form has its own loading indicator
 
   return (
     <ScrollView style={styles.container}>
