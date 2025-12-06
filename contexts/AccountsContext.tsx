@@ -2,6 +2,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { toast } from 'sonner';
 import { useDemoMode } from './DemoModeContext';
+import { useUnifiedAuth } from './UnifiedAuthContext';
 import * as accountsService from '../services/accountsService';
 
 export type Account = {
@@ -39,6 +40,9 @@ export const AccountsContext = createContext<AccountsContextType>({
 });
 
 export const AccountsProvider = ({ children }: { children: ReactNode }) => {
+  // Authentication check - CRITICAL: Don't fetch data before user is logged in
+  const { isAuthenticated, user } = useUnifiedAuth();
+  
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +50,13 @@ export const AccountsProvider = ({ children }: { children: ReactNode }) => {
 
   // Function to fetch accounts from service
   const fetchAccounts = async () => {
+    // Safety check: Don't fetch if user is not authenticated
+    if (!user || !isAuthenticated) {
+      console.log('ℹ️ AccountsProvider: Skipping fetch - user not authenticated');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const data = await accountsService.fetchAccounts(isDemo);
@@ -58,10 +69,17 @@ export const AccountsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Load accounts when the component mounts or when demo mode changes
+  // Load accounts when the component mounts or when demo mode changes - ONLY if authenticated
   useEffect(() => {
+    if (!isAuthenticated || !user) {
+      console.log('⏳ AccountsProvider: Waiting for authentication...');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('✅ AccountsProvider: User authenticated, fetching accounts...');
     fetchAccounts();
-  }, [isDemo]);
+  }, [isDemo, isAuthenticated, user]);
 
   // Add new account
   const addAccount = async (account: Omit<Account, "id" | "user_id" | "created_at" | "updated_at">) => {

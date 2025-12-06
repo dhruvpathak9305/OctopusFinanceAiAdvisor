@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import { BulkTransactionService } from "../../../../services/bulkTransactionServ
 import { fetchAccounts } from "../../../../services/accountsService";
 import { Account } from "../../../../contexts/AccountsContext";
 import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
-import MobileTransactions from "../../pages/MobileTransactions";
+// MobileTransactions is loaded dynamically when modal opens to break circular dependency
 
 interface BankStatementUploaderProps {
   onUpload: (fileData: any) => void;
@@ -79,6 +79,8 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
   const [showTransactionListModal, setShowTransactionListModal] =
     useState(false);
   const [showFilePreviewModal, setShowFilePreviewModal] = useState(false);
+  const [MobileTransactionsComponent, setMobileTransactionsComponent] = useState<React.ComponentType<any> | null>(null);
+  const [isLoadingMobileTransactions, setIsLoadingMobileTransactions] = useState(false);
   const [filePreviewContent, setFilePreviewContent] = useState<string>("");
 
   const [enhancedParsedData, setEnhancedParsedData] =
@@ -598,6 +600,27 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
       }
     }
   };
+
+  // Load MobileTransactions component dynamically when modal opens to break circular dependency
+  React.useEffect(() => {
+    if (showTransactionListModal && !MobileTransactionsComponent) {
+      setIsLoadingMobileTransactions(true);
+      // Dynamic require for React Native compatibility
+      const loadComponent = async () => {
+        try {
+          const module = require("../../pages/MobileTransactions");
+          setMobileTransactionsComponent(() => module.default);
+          setIsLoadingMobileTransactions(false);
+        } catch (error) {
+          console.error("Failed to load MobileTransactions:", error);
+          setIsLoadingMobileTransactions(false);
+          Alert.alert("Error", "Failed to load transaction editor");
+          setShowTransactionListModal(false);
+        }
+      };
+      loadComponent();
+    }
+  }, [showTransactionListModal, MobileTransactionsComponent]);
 
   const handleEditTransactions = () => {
     setShowTransactionListModal(true);
@@ -2422,12 +2445,23 @@ const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <MobileTransactions
-          isConfirmationMode={true}
-          parsedTransactions={parsedTransactions}
-          onConfirm={handleConfirmTransactionsFromList}
-          onCancel={() => setShowTransactionListModal(false)}
-        />
+        {isLoadingMobileTransactions || !MobileTransactionsComponent ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+            <ActivityIndicator size="large" />
+            <Text style={{ marginTop: 10, color: '#666' }}>Loading transaction editor...</Text>
+          </View>
+        ) : (
+          <MobileTransactionsComponent
+            isConfirmationMode={true}
+            parsedTransactions={parsedTransactions}
+            onConfirm={handleConfirmTransactionsFromList}
+            onCancel={() => {
+              setShowTransactionListModal(false);
+              // Optionally clear component to reload on next open
+              // setMobileTransactionsComponent(null);
+            }}
+          />
+        )}
       </Modal>
 
       {/* Account Selector Modal */}

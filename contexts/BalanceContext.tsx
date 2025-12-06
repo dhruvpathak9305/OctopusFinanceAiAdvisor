@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import BalanceService, { AccountBalance } from "../services/balanceService";
 import { useDemoMode } from "./DemoModeContext";
+import { useUnifiedAuth } from "./UnifiedAuthContext";
 import { supabase } from "../lib/supabase/client";
 import BalanceDebugger from "../utils/balanceDebugger";
 import { subscribeToBalanceUpdates } from "../utils/balanceEventEmitter";
@@ -40,6 +41,9 @@ interface BalanceProviderProps {
 export const BalanceProvider: React.FC<BalanceProviderProps> = ({
   children,
 }) => {
+  // Authentication check - CRITICAL: Don't fetch data before user is logged in
+  const { isAuthenticated, user } = useUnifiedAuth();
+  
   const [balances, setBalances] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +65,13 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
 
   // Function to fetch balances
   const fetchBalances = useCallback(async () => {
+    // Safety check: Don't fetch if user is not authenticated
+    if (!user || !isAuthenticated) {
+      console.log('ℹ️ BalanceProvider: Skipping fetch - user not authenticated');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -84,7 +95,7 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [isDemo]);
+  }, [isDemo, user, isAuthenticated]);
 
   // Public refresh function
   const refreshBalances = useCallback(async () => {
@@ -109,10 +120,17 @@ export const BalanceProvider: React.FC<BalanceProviderProps> = ({
     }
   }, []);
 
-  // Initial load
+  // Initial load - ONLY if user is authenticated
   useEffect(() => {
+    if (!isAuthenticated || !user) {
+      console.log('⏳ BalanceProvider: Waiting for authentication...');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('✅ BalanceProvider: User authenticated, fetching balances...');
     fetchBalances();
-  }, [fetchBalances]);
+  }, [fetchBalances, isAuthenticated, user]);
 
   // Fallback: Listen to custom balance update events (in case real-time subscriptions fail)
   useEffect(() => {

@@ -1,320 +1,336 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { Platform, Alert } from "react-native";
-import { supabase } from "../lib/supabase/client";
+import { Session, User, AuthChangeEvent } from "@supabase/supabase-js";
+import { supabase } from "../services/supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Platform-specific imports
-let router: any = null;
-let useNavigate: any = null;
-let useToast: any = null;
+// Storage abstraction for cross-platform session persistence
+const getStorage = () => {
+  if (Platform.OS === "web") {
+    return {
+      getItem: async (key: string) => {
+        try {
+          return localStorage.getItem(key);
+        } catch {
+          return null;
+        }
+      },
+      setItem: async (key: string, value: string) => {
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) {
+          console.warn("localStorage setItem failed:", e);
+        }
+      },
+      removeItem: async (key: string) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn("localStorage removeItem failed:", e);
+        }
+      },
+    };
+  }
+  return AsyncStorage;
+};
 
-if (Platform.OS === "web") {
-  // Web-specific imports
-  const expoRouter = require("expo-router");
-  router = expoRouter.router;
-
-  // For web, we'll use a simple toast implementation
-  useToast = () => ({
-    toast: (options: any) => {
-      console.log("Toast:", options.title, options.description);
-      // You can implement a proper toast system for web here
-    },
-  });
-} else {
-  // Mobile-specific - no additional imports needed
-}
+const SESSION_KEY = "octopusUnifiedSession";
 
 interface UnifiedAuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
   signUp: (email: string, password: string) => Promise<void>;
-  signIn: (
-    email: string,
-    password: string,
-    rememberMe?: boolean
-  ) => Promise<void>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  isAuthenticated: boolean;
+  clearError: () => void;
 }
 
-const UnifiedAuthContext = createContext<UnifiedAuthContextType | undefined>(
-  undefined
-);
+const UnifiedAuthContext = createContext<UnifiedAuthContextType | undefined>(undefined);
 
-export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false); // Start with false - no loading until user action
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const isInitializedRef = useRef(false);
 
-  const { toast } = useToast ? useToast() : { toast: null };
+  const storage = getStorage();
 
-  // Helper function to manage session marker
-  const setSessionMarker = async (value: string | null) => {
+  // Helper to set session marker
+  const setSessionMarker = useCallback(async (value: string | null) => {
     try {
       if (value) {
-        await AsyncStorage.setItem("octopusSession", value);
+        await storage.setItem(SESSION_KEY, value);
       } else {
-        await AsyncStorage.removeItem("octopusSession");
+        await storage.removeItem(SESSION_KEY);
       }
-    } catch (error) {
-      console.log("Error managing session marker:", error);
+    } catch (e) {
+      console.warn("Failed to set session marker:", e);
     }
-  };
+  }, [storage]);
 
-  const getSessionMarker = async (): Promise<string | null> => {
-    try {
-      return await AsyncStorage.getItem("octopusSession");
-    } catch (error) {
-      console.log("Error getting session marker:", error);
-      return null;
+  // Handle auth state changes
+  const handleAuthChange = useCallback(async (event: AuthChangeEvent, currentSession: Session | null) => {
+    console.log("UnifiedAuth: Auth state changed:", event);
+
+    if (event === "SIGNED_IN" && currentSession) {
+      setSession(currentSession);
+      setUser(currentSession.user);
+      setIsAuthenticated(true);
+      await setSessionMarker("true");
+      setLoading(false);
+    } else if (event === "SIGNED_OUT") {
+      setSession(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      await setSessionMarker(null);
+      setLoading(false);
+    } else if (event === "TOKEN_REFRESHED" && currentSession) {
+      setSession(currentSession);
+      setUser(currentSession.user);
     }
-  };
+  }, [setSessionMarker]);
 
-  // Platform-specific navigation
-  const navigateTo = (path: string) => {
-    if (Platform.OS === "web" && router) {
-      router.push(path);
-    }
-    // For mobile, navigation is handled by React Navigation components
-  };
+  // Setup auth listener - ONLY called when we know we need it
+  const setupAuthListener = useCallback(() => {
+    if (subscriptionRef.current) return; // Already set up
 
-  // Platform-specific notifications
-  const showNotification = (
-    title: string,
-    message: string,
-    type: "success" | "error" = "success"
-  ) => {
-    if (Platform.OS === "web" && toast) {
-      toast({
-        title,
-        description: message,
-        variant: type === "error" ? "destructive" : "default",
-      });
-    } else {
-      // Mobile uses Alert
-      Alert.alert(title, message, [{ text: "OK" }]);
-    }
-  };
+    console.log("UnifiedAuth: Setting up auth listener");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+    subscriptionRef.current = subscription;
+  }, [handleAuthChange]);
 
+  // Initialize - Check LOCAL storage only, NO network calls
   useEffect(() => {
-    // Set up the auth state listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setIsAuthenticated(!!currentSession?.user);
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
 
-      if (event === "SIGNED_IN" && currentSession?.user) {
-        // Clear any existing session marker
-        setSessionMarker(null);
-
-        if (Platform.OS === "web") {
-          // Redirect to dashboard on successful login (web only)
-          setTimeout(() => {
-            navigateTo("/(dashboard)");
-            showNotification(
-              "Welcome back!",
-              "You have successfully logged in."
-            );
-            setSessionMarker("true");
-          }, 100);
+    const initialize = async () => {
+      try {
+        // Check LOCAL storage for previous session marker - NO network call
+        const hadPreviousSession = await storage.getItem(SESSION_KEY);
+        
+        if (hadPreviousSession === "true") {
+          console.log("UnifiedAuth: Previous session marker found");
+          // Setup listener and try to restore session
+          setupAuthListener();
+          
+          // Try to get session - this might make a network call but only if we had a session
+          try {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (currentSession) {
+              setSession(currentSession);
+              setUser(currentSession.user);
+              setIsAuthenticated(true);
+              console.log("UnifiedAuth: Session restored");
+            } else {
+              // Session expired or invalid
+              await setSessionMarker(null);
+              console.log("UnifiedAuth: Previous session invalid");
+            }
+          } catch (err) {
+            console.warn("UnifiedAuth: Could not restore session (offline?):", err);
+            // Keep session marker - user might be offline
+          }
         } else {
-          // Mobile - just show notification
-          showNotification("Welcome back!", "You have successfully logged in.");
-          setSessionMarker("true");
+          console.log("UnifiedAuth: No previous session, app ready for login");
+          // NO auth listener setup - saves resources and prevents network calls
         }
-      } else if (event === "SIGNED_OUT") {
-        // Clear session marker when signed out
-        setSessionMarker(null);
-
-        if (Platform.OS === "web") {
-          // Redirect to home page (web only)
-          setTimeout(() => {
-            navigateTo("/");
-            showNotification(
-              "Logged out",
-              "You have been successfully logged out."
-            );
-          }, 100);
-        } else {
-          // Mobile - just show notification
-          showNotification(
-            "Logged out",
-            "You have been successfully logged out."
-          );
-        }
+      } catch (err) {
+        console.warn("UnifiedAuth: Initialization error:", err);
       }
+    };
 
-      setLoading(false);
-    });
+    initialize();
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setIsAuthenticated(!!currentSession?.user);
-
-      // Set session marker if we restored a session
-      if (currentSession) {
-        setSessionMarker("true");
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
       }
+    };
+  }, [storage, setupAuthListener, setSessionMarker]);
 
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+  const clearError = useCallback(() => {
+    setError(null);
   }, []);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     try {
-      console.log(`${Platform.OS}: Attempting sign up for:`, email);
+      setError(null);
+      setLoading(true);
+      
+      // Setup auth listener before auth action
+      setupAuthListener();
+      
+      console.log("UnifiedAuth: Attempting sign up for:", email);
 
-      const { error } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (signUpError) throw signUpError;
 
-      console.log(`${Platform.OS}: Sign up successful for:`, email);
-      showNotification(
-        "Check your email",
-        "We've sent you a confirmation link."
-      );
-    } catch (error: unknown) {
-      console.log(`${Platform.OS}: Sign up error:`, error);
-      const msg =
-        error instanceof Error
-          ? error.message
-          : "An error occurred during sign up.";
-      showNotification("Sign up failed", msg, "error");
-      throw error;
+      console.log("UnifiedAuth: Sign up successful");
+
+      if (Platform.OS === "web") {
+        console.log("Check your email for confirmation");
+      } else {
+        Alert.alert(
+          "Check your email",
+          "We have sent you a confirmation link.",
+          [{ text: "OK" }]
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "An error occurred during sign up.";
+      console.error("UnifiedAuth: Sign up failed:", msg);
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [setupAuthListener]);
 
-  const signIn = async (
-    email: string,
-    password: string,
-    rememberMe: boolean = false
-  ) => {
+  const signIn = useCallback(async (email: string, password: string, _rememberMe?: boolean) => {
     try {
-      console.log(`${Platform.OS}: Attempting sign in for:`, email);
+      setError(null);
+      setLoading(true);
+      
+      // Setup auth listener before auth action
+      setupAuthListener();
+      
+      console.log("UnifiedAuth: Attempting sign in for:", email);
 
-      // Clear any existing session marker before new login attempt
       await setSessionMarker(null);
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        console.log(`${Platform.OS}: Sign in error:`, error.message);
-        throw error;
+      if (signInError) {
+        console.log("UnifiedAuth: Sign in error:", signInError.message);
+        throw signInError;
       }
 
-      console.log(`${Platform.OS}: Sign in successful for:`, email);
-      // The onAuthStateChange will handle the notification and session marking
-    } catch (error: unknown) {
-      console.log(`${Platform.OS}: Sign in caught error:`, error);
-      const msg =
-        error instanceof Error ? error.message : "Invalid email or password.";
-      showNotification("Login failed", msg, "error");
-      throw error;
+      // Set session directly since we have it
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        await setSessionMarker("true");
+      }
+
+      console.log("UnifiedAuth: Sign in successful for:", email);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Invalid email or password.";
+      console.error("UnifiedAuth: Sign in failed:", msg);
+      setError(msg);
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Login failed", msg);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [setSessionMarker, setupAuthListener]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
-      console.log(`${Platform.OS}: Attempting sign out`);
+      setError(null);
+      setLoading(true);
+      console.log("UnifiedAuth: Attempting sign out");
 
-      // Always attempt to sign out, regardless of current session state
-      const { error } = await supabase.auth.signOut();
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
 
-      if (error) {
-        console.log(`${Platform.OS}: Sign out error:`, error.message);
-        // Even if there's an error, we should clear our local state
-        setSession(null);
-        setUser(null);
-        setIsAuthenticated(false);
-        await setSessionMarker(null);
-
-        // Show error to user but don't throw
-        showNotification("Sign out failed", error.message, "error");
-        return;
-      }
-
-      console.log(`${Platform.OS}: Sign out successful`);
-
-      // Clear local state and session marker
+      // Clear local state
       setSession(null);
       setUser(null);
       setIsAuthenticated(false);
       await setSessionMarker(null);
 
-      showNotification("Logged Out", "You have been successfully logged out.");
-    } catch (error: unknown) {
-      console.log(`${Platform.OS}: Sign out caught error:`, error);
+      // Clean up subscription
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
 
-      // Clear local state even if there's an error
-      setSession(null);
-      setUser(null);
-      setIsAuthenticated(false);
-      await setSessionMarker(null);
+      console.log("UnifiedAuth: Sign out successful");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "An error occurred during sign out.";
+      console.error("UnifiedAuth: Sign out failed:", msg);
+      setError(msg);
 
-      const msg =
-        error instanceof Error
-          ? error.message
-          : "An error occurred during sign out.";
-      showNotification("Sign out failed", msg, "error");
+      if (Platform.OS !== "web") {
+        Alert.alert("Sign out failed", msg);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [setSessionMarker]);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     try {
-      console.log(`${Platform.OS}: Attempting password reset for:`, email);
+      setError(null);
+      setLoading(true);
+      console.log("UnifiedAuth: Requesting password reset for:", email);
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo:
-          Platform.OS === "web"
-            ? `${window.location.origin}/reset-password`
-            : undefined,
+      const redirectUrl = Platform.OS === "web"
+        ? (typeof window !== "undefined" ? window.location.origin : "") + "/reset-password"
+        : undefined;
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
       });
 
-      if (error) throw error;
+      if (resetError) throw resetError;
 
-      console.log(`${Platform.OS}: Password reset email sent to:`, email);
-      showNotification(
-        "Password reset email sent",
-        "Check your email for the password reset link."
-      );
-    } catch (error: unknown) {
-      console.log(`${Platform.OS}: Password reset error:`, error);
-      const msg =
-        error instanceof Error
-          ? error.message
-          : "An error occurred while sending the reset email.";
-      showNotification("Password reset failed", msg, "error");
-      throw error;
+      console.log("UnifiedAuth: Password reset email sent");
+
+      if (Platform.OS !== "web") {
+        Alert.alert(
+          "Password reset email sent",
+          "Check your email for the password reset link.",
+          [{ text: "OK" }]
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "An error occurred while sending the reset email.";
+      console.error("UnifiedAuth: Password reset failed:", msg);
+      setError(msg);
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Password reset failed", msg);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const value = {
+  const value: UnifiedAuthContextType = {
     session,
     user,
     loading,
+    error,
+    isAuthenticated,
     signUp,
     signIn,
     signOut,
     resetPassword,
-    isAuthenticated,
+    clearError,
   };
 
   return (
@@ -324,10 +340,12 @@ export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-export function useUnifiedAuth() {
+export function useUnifiedAuth(): UnifiedAuthContextType {
   const context = useContext(UnifiedAuthContext);
   if (context === undefined) {
     throw new Error("useUnifiedAuth must be used within a UnifiedAuthProvider");
   }
   return context;
 }
+
+export default UnifiedAuthContext;

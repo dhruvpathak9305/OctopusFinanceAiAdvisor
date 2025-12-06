@@ -12,10 +12,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, darkTheme, lightTheme } from "../../../../contexts/ThemeContext";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";

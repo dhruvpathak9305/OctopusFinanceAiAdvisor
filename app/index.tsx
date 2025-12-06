@@ -18,17 +18,17 @@ export default function HomePage() {
       <ErrorBoundary>
         <ThemeProvider>
           <DemoModeProvider>
-            <AccountsProvider>
-              <BalanceProvider>
-                <NetWorthProvider>
-                  <UnifiedAuthProvider>
+            <UnifiedAuthProvider>
+              <AccountsProvider>
+                <BalanceProvider>
+                  <NetWorthProvider>
                     <WebPageLayout>
                       <WebHomeContent />
                     </WebPageLayout>
-                  </UnifiedAuthProvider>
-                </NetWorthProvider>
-              </BalanceProvider>
-            </AccountsProvider>
+                  </NetWorthProvider>
+                </BalanceProvider>
+              </AccountsProvider>
+            </UnifiedAuthProvider>
           </DemoModeProvider>
         </ThemeProvider>
       </ErrorBoundary>
@@ -40,15 +40,15 @@ export default function HomePage() {
     <ErrorBoundary>
       <ThemeProvider>
         <DemoModeProvider>
-          <AccountsProvider>
-            <BalanceProvider>
-              <NetWorthProvider>
-                <UnifiedAuthProvider>
+          <UnifiedAuthProvider>
+            <AccountsProvider>
+              <BalanceProvider>
+                <NetWorthProvider>
                   <MobileApp />
-                </UnifiedAuthProvider>
-              </NetWorthProvider>
-            </BalanceProvider>
-          </AccountsProvider>
+                </NetWorthProvider>
+              </BalanceProvider>
+            </AccountsProvider>
+          </UnifiedAuthProvider>
         </DemoModeProvider>
       </ThemeProvider>
     </ErrorBoundary>

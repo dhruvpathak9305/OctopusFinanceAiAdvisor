@@ -3,6 +3,7 @@ import React, { createContext, useContext, ReactNode, useCallback, useMemo, useR
 import { useNetWorth, useNetWorthSync, type UseNetWorthReturn } from '../hooks/useNetWorth';
 import { fetchCategories } from '../services/netWorthService';
 import { useDemoMode } from '../contexts/DemoModeContext';
+import { useUnifiedAuth } from './UnifiedAuthContext';
 import type { Asset } from '../src/mobile/pages/Money/components/NetWorthSection';
 import type { 
   DbNetWorthCategory, 
@@ -49,6 +50,9 @@ export const NetWorthContext = createContext<NetWorthContextType | undefined>(un
 // =============================================================================
 
 export const NetWorthProvider = ({ children }: { children: ReactNode }) => {
+  // Authentication check - CRITICAL: Don't fetch data before user is logged in
+  const { isAuthenticated, user } = useUnifiedAuth();
+  
   // Main net worth hook
   const netWorthHook = useNetWorth();
   
@@ -74,6 +78,12 @@ export const NetWorthProvider = ({ children }: { children: ReactNode }) => {
     // If already initialized or currently initializing, return the existing promise
     if (isInitializedRef.current || initializationPromiseRef.current) {
       return initializationPromiseRef.current || Promise.resolve();
+    }
+
+    // Safety check: Don't fetch data if user is not authenticated
+    if (!user || !isAuthenticated) {
+      console.log('ℹ️ NetWorthProvider: Skipping initialization - user not authenticated');
+      return Promise.resolve();
     }
 
     console.log('NetWorthProvider - Starting centralized data initialization...');
@@ -120,15 +130,24 @@ export const NetWorthProvider = ({ children }: { children: ReactNode }) => {
     netWorthHook.fetchSummary,
     netWorthHook.fetchCategorySummary,
     netWorthHook.fetchTrendData,
-    isDemo
+    isDemo,
+    user,
+    isAuthenticated
   ]);
 
-  // Auto-initialize data when provider mounts
+  // Auto-initialize data when provider mounts - ONLY if user is authenticated
   useEffect(() => {
+    // Skip initialization if user is not authenticated
+    if (!isAuthenticated || !user) {
+      console.log('⏳ NetWorthProvider: Waiting for authentication before initializing data...');
+      return;
+    }
+    
+    console.log('✅ NetWorthProvider: User authenticated, initializing data...');
     initializeData().catch(err => {
       console.error('NetWorthProvider - Auto-initialization failed:', err);
     });
-  }, [initializeData]);
+  }, [initializeData, isAuthenticated, user]);
 
   // Memoize refreshData to prevent infinite re-renders
   const refreshData = useCallback(async () => {

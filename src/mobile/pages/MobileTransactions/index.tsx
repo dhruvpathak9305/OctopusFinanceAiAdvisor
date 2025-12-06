@@ -5,10 +5,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import TransactionItem from "../../components/TransactionItem";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../../../contexts/ThemeContext";
@@ -21,6 +21,7 @@ import {
 import { Transaction as SupabaseTransaction } from "../../../../types/transactions";
 import DateSelectorWithNavigation from "../../components/DateSelectorWithNavigation";
 import SearchModal from "../../components/SearchModal";
+// Import QuickAddButton - circular dependency broken by dynamic loading in BankStatementUploader
 import QuickAddButton from "../../components/QuickAddButton";
 import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
 import { useRealAccountsData } from "../MobileAccounts/useRealAccountsData";

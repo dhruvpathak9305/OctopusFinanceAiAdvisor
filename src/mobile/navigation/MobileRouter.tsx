@@ -92,7 +92,7 @@ const DashboardStack: React.FC = () => {
 
 // Custom Tab Navigator with Scrollable Bottom Nav
 const MainTabNavigator: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState("Dashboard");
+  const [activeTab, setActiveTab] = React.useState("Home"); // Default to Home for non-authenticated users
   const navigation = useNavigation();
 
   const renderActiveScreen = () => {

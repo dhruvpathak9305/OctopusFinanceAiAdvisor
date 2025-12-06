@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Image,
   Dimensions,
@@ -16,6 +15,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import TravelMap from "../../../../components/ui/TravelMap";
 import FloatingAvatar from "../../../../components/travel/FloatingAvatar";
