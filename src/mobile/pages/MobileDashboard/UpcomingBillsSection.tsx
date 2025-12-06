@@ -587,12 +587,30 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
             </View>
           ) : Object.keys(groupedBills).length === 0 ? (
             <View style={[styles.emptyContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.emptyIcon}>
-                <Text style={styles.emptyIconText}>📄</Text>
+              {/* Creative Empty State Icon - Calendar with checkmark */}
+              <View style={styles.emptyIconWrapper}>
+                <View style={[styles.emptyIconOuter, { backgroundColor: '#10B98115' }]}>
+                  <View style={[styles.emptyIconInner, { backgroundColor: '#10B98125' }]}>
+                    {/* Calendar shape */}
+                    <View style={styles.calendarIcon}>
+                      <View style={[styles.calendarTop, { backgroundColor: '#10B981' }]}>
+                        <View style={styles.calendarRing} />
+                        <View style={styles.calendarRing} />
+                      </View>
+                      <View style={[styles.calendarBody, { backgroundColor: '#1F2937' }]}>
+                        <Text style={styles.checkmark}>✓</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                {/* Celebration accents */}
+                <View style={[styles.confetti, styles.confetti1, { backgroundColor: '#10B981' }]} />
+                <View style={[styles.confetti, styles.confetti2, { backgroundColor: '#34D399' }]} />
+                <View style={[styles.confetti, styles.confetti3, { backgroundColor: '#6EE7B7' }]} />
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Upcoming Bills</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>All Clear!</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                You're all caught up with your bills!
+                You're all caught up with your bills!{'\n'}Enjoy your peace of mind.
               </Text>
             </View>
           ) : (
@@ -740,6 +758,88 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
+  },
+  emptyIconWrapper: {
+    position: 'relative',
+    marginBottom: 20,
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconOuter: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconInner: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarTop: {
+    width: 32,
+    height: 8,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-start',
+    paddingTop: -3,
+  },
+  calendarRing: {
+    width: 4,
+    height: 8,
+    backgroundColor: '#0D9668',
+    borderRadius: 2,
+    marginTop: -4,
+  },
+  calendarBody: {
+    width: 32,
+    height: 24,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderColor: '#10B981',
+  },
+  checkmark: {
+    color: '#10B981',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  confetti: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  confetti1: {
+    top: 10,
+    right: 15,
+    transform: [{ rotate: '45deg' }],
+  },
+  confetti2: {
+    bottom: 18,
+    left: 12,
+    width: 5,
+    height: 5,
+  },
+  confetti3: {
+    top: 30,
+    left: 8,
+    width: 4,
+    height: 4,
   },
   emptyIcon: {
     width: 64,

@@ -713,14 +713,29 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
-              <View style={styles.emptyIcon}>
-                <Text style={styles.emptyIconText}>📄</Text>
+              {/* Creative Empty State Icon - Wallet with sparkle */}
+              <View style={styles.emptyIconWrapper}>
+                <View style={[styles.emptyIconOuter, { backgroundColor: '#10B98115' }]}>
+                  <View style={[styles.emptyIconInner, { backgroundColor: '#10B98125' }]}>
+                    {/* Wallet shape */}
+                    <View style={styles.walletIcon}>
+                      <View style={[styles.walletBody, { backgroundColor: '#10B981' }]}>
+                        <View style={[styles.walletFlap, { backgroundColor: '#0D9668' }]} />
+                        <View style={styles.walletClasp} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                {/* Sparkle accents */}
+                <View style={[styles.sparkle, styles.sparkle1, { backgroundColor: '#10B981' }]} />
+                <View style={[styles.sparkle, styles.sparkle2, { backgroundColor: '#10B981' }]} />
+                <View style={[styles.sparkle, styles.sparkle3, { backgroundColor: '#34D399' }]} />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
                 No Transactions Yet
               </Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Start by adding your first transaction!
+                Your financial journey starts here!{'\n'}Add your first transaction to begin tracking.
               </Text>
             </View>
           ) : (
@@ -957,6 +972,82 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderStyle: "dashed",
+  },
+  emptyIconWrapper: {
+    position: 'relative',
+    marginBottom: 20,
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconOuter: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconInner: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletBody: {
+    width: 36,
+    height: 28,
+    borderRadius: 6,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  walletFlap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 10,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+  },
+  walletClasp: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFD700',
+  },
+  sparkle: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  sparkle1: {
+    top: 8,
+    right: 12,
+    opacity: 0.8,
+  },
+  sparkle2: {
+    bottom: 15,
+    left: 10,
+    width: 5,
+    height: 5,
+    opacity: 0.6,
+  },
+  sparkle3: {
+    top: 25,
+    left: 5,
+    width: 4,
+    height: 4,
+    opacity: 0.5,
   },
   emptyIcon: {
     width: 64,
