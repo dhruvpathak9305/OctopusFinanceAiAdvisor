@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// SafeAreaView not needed - parent ScreenWithHeader already handles safe area
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useFinancialData } from "../../hooks/useFinancialData";
 import { ChatContainer } from "../../components/Chat";
@@ -271,7 +271,7 @@ export default function MobileDashboard() {
   };
 
   return (
-    <SafeAreaView
+    <View
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <ScrollView
@@ -342,7 +342,7 @@ export default function MobileDashboard() {
           key={`sms-modal-${Date.now()}`} // Force re-render with unique key
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
