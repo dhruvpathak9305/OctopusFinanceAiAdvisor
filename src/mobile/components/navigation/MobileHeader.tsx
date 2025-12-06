@@ -103,6 +103,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
         backgroundColor={theme.background}
       />
       <SafeAreaView
+        edges={["top"]}
         style={[styles.safeArea, { backgroundColor: theme.background }]}
       >
         <View
