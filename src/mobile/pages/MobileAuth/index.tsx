@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MobileAuthForm from '../../components/auth/MobileAuthForm';
 import { useUnifiedAuth } from '../../../../contexts/UnifiedAuthContext';
