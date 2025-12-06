@@ -1,0 +1,372 @@
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { Platform, Alert } from "react-native";
+import { Session, User, AuthChangeEvent } from "@supabase/supabase-js";
+import { supabase } from "../services/supabaseClient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Storage abstraction for cross-platform session persistence
+const getStorage = () => {
+  if (Platform.OS === "web") {
+    return {
+      getItem: async (key: string) => {
+        try {
+          return localStorage.getItem(key);
+        } catch {
+          return null;
+        }
+      },
+      setItem: async (key: string, value: string) => {
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) {
+          console.warn("localStorage setItem failed:", e);
+        }
+      },
+      removeItem: async (key: string) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn("localStorage removeItem failed:", e);
+        }
+      },
+    };
+  }
+  return AsyncStorage;
+};
+
+const SESSION_KEY = "octopusUnifiedSession";
+
+// Map technical errors to user-friendly messages
+const getUserFriendlyError = (error: Error | string): string => {
+  const errorMsg = typeof error === "string" ? error : error.message;
+  const lowerError = errorMsg.toLowerCase();
+
+  // Network errors
+  if (lowerError.includes("network request failed") || lowerError.includes("network error")) {
+    return "Unable to connect. Please check your internet connection and try again.";
+  }
+  if (lowerError.includes("timeout") || lowerError.includes("timed out")) {
+    return "Connection timed out. Please check your internet and try again.";
+  }
+  if (lowerError.includes("offline")) {
+    return "You appear to be offline. Please connect to the internet and try again.";
+  }
+
+  // Auth errors
+  if (lowerError.includes("invalid login credentials") || lowerError.includes("invalid email or password")) {
+    return "Invalid email or password. Please try again.";
+  }
+  if (lowerError.includes("email not confirmed")) {
+    return "Please verify your email before signing in. Check your inbox for the confirmation link.";
+  }
+  if (lowerError.includes("user not found") || lowerError.includes("no user found")) {
+    return "No account found with this email. Please sign up first.";
+  }
+  if (lowerError.includes("email already registered") || lowerError.includes("already exists")) {
+    return "An account with this email already exists. Please sign in instead.";
+  }
+  if (lowerError.includes("rate limit") || lowerError.includes("too many requests")) {
+    return "Too many attempts. Please wait a few minutes and try again.";
+  }
+  if (lowerError.includes("password") && lowerError.includes("weak")) {
+    return "Password is too weak. Use at least 8 characters with letters and numbers.";
+  }
+
+  // Server errors
+  if (lowerError.includes("500") || lowerError.includes("internal server error")) {
+    return "Something went wrong on our end. Please try again later.";
+  }
+  if (lowerError.includes("503") || lowerError.includes("service unavailable")) {
+    return "Service temporarily unavailable. Please try again in a few minutes.";
+  }
+
+  // Default: return a generic message instead of technical error
+  if (errorMsg.length > 100 || lowerError.includes("error") || lowerError.includes("exception")) {
+    return "Something went wrong. Please try again.";
+  }
+
+  return errorMsg;
+};
+
+interface UnifiedAuthContextType {
+  session: Session | null;
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
+  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  clearError: () => void;
+}
+
+const UnifiedAuthContext = createContext<UnifiedAuthContextType | undefined>(undefined);
+
+export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const isInitializedRef = useRef(false);
+
+  const storage = getStorage();
+
+  const setSessionMarker = useCallback(async (value: string | null) => {
+    try {
+      if (value) {
+        await storage.setItem(SESSION_KEY, value);
+      } else {
+        await storage.removeItem(SESSION_KEY);
+      }
+    } catch (e) {
+      console.warn("Failed to set session marker:", e);
+    }
+  }, [storage]);
+
+  const handleAuthChange = useCallback(async (event: AuthChangeEvent, currentSession: Session | null) => {
+    console.log("UnifiedAuth: Auth state changed:", event);
+
+    if (event === "SIGNED_IN" && currentSession) {
+      setSession(currentSession);
+      setUser(currentSession.user);
+      setIsAuthenticated(true);
+      await setSessionMarker("true");
+      setLoading(false);
+    } else if (event === "SIGNED_OUT") {
+      setSession(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      await setSessionMarker(null);
+      setLoading(false);
+    } else if (event === "TOKEN_REFRESHED" && currentSession) {
+      setSession(currentSession);
+      setUser(currentSession.user);
+    }
+  }, [setSessionMarker]);
+
+  const setupAuthListener = useCallback(() => {
+    if (subscriptionRef.current) return;
+    console.log("UnifiedAuth: Setting up auth listener");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+    subscriptionRef.current = subscription;
+  }, [handleAuthChange]);
+
+  useEffect(() => {
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    const initialize = async () => {
+      try {
+        const hadPreviousSession = await storage.getItem(SESSION_KEY);
+        
+        if (hadPreviousSession === "true") {
+          console.log("UnifiedAuth: Previous session marker found");
+          setupAuthListener();
+          
+          try {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (currentSession) {
+              setSession(currentSession);
+              setUser(currentSession.user);
+              setIsAuthenticated(true);
+              console.log("UnifiedAuth: Session restored");
+            } else {
+              await setSessionMarker(null);
+              console.log("UnifiedAuth: Previous session invalid");
+            }
+          } catch (err) {
+            console.warn("UnifiedAuth: Could not restore session (offline?):", err);
+          }
+        } else {
+          console.log("UnifiedAuth: No previous session, app ready for login");
+        }
+      } catch (err) {
+        console.warn("UnifiedAuth: Initialization error:", err);
+      }
+    };
+
+    initialize();
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+    };
+  }, [storage, setupAuthListener, setSessionMarker]);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const signUp = useCallback(async (email: string, password: string) => {
+    try {
+      setError(null);
+      setLoading(true);
+      setupAuthListener();
+      
+      console.log("UnifiedAuth: Attempting sign up for:", email);
+
+      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) throw signUpError;
+
+      console.log("UnifiedAuth: Sign up successful");
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Check Your Email", "We've sent you a confirmation link. Please verify your email to continue.", [{ text: "OK" }]);
+      }
+    } catch (err) {
+      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
+      console.error("UnifiedAuth: Sign up failed:", technicalMsg);
+      setError(userMsg);
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Sign Up Failed", userMsg, [{ text: "OK", style: "default" }]);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [setupAuthListener]);
+
+  const signIn = useCallback(async (email: string, password: string, _rememberMe?: boolean) => {
+    try {
+      setError(null);
+      setLoading(true);
+      setupAuthListener();
+      
+      console.log("UnifiedAuth: Attempting sign in for:", email);
+      await setSessionMarker(null);
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInError) {
+        console.log("UnifiedAuth: Sign in error:", signInError.message);
+        throw signInError;
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        await setSessionMarker("true");
+      }
+
+      console.log("UnifiedAuth: Sign in successful for:", email);
+    } catch (err) {
+      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
+      console.error("UnifiedAuth: Sign in failed:", technicalMsg);
+      setError(userMsg);
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Sign In Failed", userMsg, [{ text: "OK", style: "default" }]);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [setSessionMarker, setupAuthListener]);
+
+  const signOut = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      console.log("UnifiedAuth: Attempting sign out");
+
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+
+      setSession(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      await setSessionMarker(null);
+
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+
+      console.log("UnifiedAuth: Sign out successful");
+    } catch (err) {
+      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
+      console.error("UnifiedAuth: Sign out failed:", technicalMsg);
+      setError(userMsg);
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Sign Out Failed", userMsg, [{ text: "OK", style: "default" }]);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [setSessionMarker]);
+
+  const resetPassword = useCallback(async (email: string) => {
+    try {
+      setError(null);
+      setLoading(true);
+      console.log("UnifiedAuth: Requesting password reset for:", email);
+
+      const redirectUrl = Platform.OS === "web"
+        ? (typeof window !== "undefined" ? window.location.origin : "") + "/reset-password"
+        : undefined;
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
+      if (resetError) throw resetError;
+
+      console.log("UnifiedAuth: Password reset email sent");
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Reset Link Sent", "Check your email for the password reset link.", [{ text: "OK" }]);
+      }
+    } catch (err) {
+      const technicalMsg = err instanceof Error ? err.message : "Unknown error";
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : technicalMsg);
+      console.error("UnifiedAuth: Password reset failed:", technicalMsg);
+      setError(userMsg);
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Password Reset Failed", userMsg, [{ text: "OK", style: "default" }]);
+      }
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const value: UnifiedAuthContextType = {
+    session,
+    user,
+    loading,
+    error,
+    isAuthenticated,
+    signUp,
+    signIn,
+    signOut,
+    resetPassword,
+    clearError,
+  };
+
+  return (
+    <UnifiedAuthContext.Provider value={value}>
+      {children}
+    </UnifiedAuthContext.Provider>
+  );
+};
+
+export function useUnifiedAuth(): UnifiedAuthContextType {
+  const context = useContext(UnifiedAuthContext);
+  if (context === undefined) {
+    throw new Error("useUnifiedAuth must be used within a UnifiedAuthProvider");
+  }
+  return context;
+}
+
+export default UnifiedAuthContext;
