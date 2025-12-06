@@ -1,0 +1,15 @@
+# Ignore test files
+**/__tests__/**
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Ignore docs
+docs/
+*.md
+
+# Ignore development files
+.vscode/
+.idea/
+

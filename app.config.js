@@ -20,6 +20,7 @@ export default {
       bundleIdentifier: "com.anonymous.OctopusFinanceAiAdvisor"
     },
     android: {
+      package: "com.octopusfinance.advisor",
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"
@@ -40,6 +41,10 @@ export default {
       ]
     ],
     extra: {
+      // EAS Build configuration
+      eas: {
+        projectId: "89b76a8e-e300-455c-9331-b6741c55b012"
+      },
       // Supabase configuration
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://fzzbfgnmbchhmqepwmer.supabase.co',
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6emJmZ25tYmNoaG1xZXB3bWVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4NDMyMTksImV4cCI6MjA1OTQxOTIxOX0.T47MLWYCH5xIvk9QEAYNqbwOSrm1AiWpBbZjiRmNn0U',

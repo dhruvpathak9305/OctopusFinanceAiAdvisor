@@ -4,33 +4,29 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import type { Database } from '../../types/supabase';
 
-// Supabase configuration
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 
-                   process.env.EXPO_PUBLIC_SUPABASE_URL || 
+// Supabase configuration - prioritize environment variables for EAS builds
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 
+                   Constants.expoConfig?.extra?.supabaseUrl || 
                    'https://fzzbfgnmbchhmqepwmer.supabase.co';
 
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || 
-                       process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
-                       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6emJmZ25tYmNoaG1xZXB3bWVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4NDMyMTksImV4cCI6MjA1OTQxOTIxOX0.T47MLWYCH5xIvk9QEAYNpqwOSrm1AiWpBbZjiRmNn0U';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
+                       Constants.expoConfig?.extra?.supabaseAnonKey || 
+                       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6emJmZ25tYmNoaG1xZXB3bWVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4NDMyMTksImV4cCI6MjA1OTQxOTIxOX0.T47MLWYCH5xIvk9QEAYNqbwOSrm1AiWpBbZjiRmNn0U';
+
+console.log('Supabase URL:', supabaseUrl ? 'Set' : 'Missing');
+console.log('Supabase Key:', supabaseAnonKey ? 'Set' : 'Missing');
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase configuration');
 }
 
-// Storage key that Supabase uses internally
-const SUPABASE_AUTH_TOKEN_KEY = `sb-fzzbfgnmbchhmqepwmer-auth-token`;
+const SUPABASE_AUTH_TOKEN_KEY = 'sb-fzzbfgnmbchhmqepwmer-auth-token';
 
-// Custom storage that does NOT auto-restore sessions on cold start
-// This prevents the "Network request failed" spam when offline
 const LazySecureStoreAdapter = {
   getItem: async (key: string): Promise<string | null> => {
-    // Only return stored session if we explicitly want it
-    // Check for a flag that indicates user wants to stay logged in
     try {
       const stayLoggedIn = await SecureStore.getItemAsync('octopus_stay_logged_in');
       if (stayLoggedIn !== 'true') {
-        // User hasn't explicitly logged in with "remember me" - don't restore session
-        // This prevents network calls on cold start for users who didn't log in
         return null;
       }
       return await SecureStore.getItemAsync(key);
@@ -42,7 +38,6 @@ const LazySecureStoreAdapter = {
   setItem: async (key: string, value: string): Promise<void> => {
     try {
       await SecureStore.setItemAsync(key, value);
-      // When setting auth token, mark that user should stay logged in
       if (key === SUPABASE_AUTH_TOKEN_KEY) {
         await SecureStore.setItemAsync('octopus_stay_logged_in', 'true');
       }
@@ -53,7 +48,6 @@ const LazySecureStoreAdapter = {
   removeItem: async (key: string): Promise<void> => {
     try {
       await SecureStore.deleteItemAsync(key);
-      // When removing auth token, also clear the stay logged in flag
       if (key === SUPABASE_AUTH_TOKEN_KEY) {
         await SecureStore.deleteItemAsync('octopus_stay_logged_in');
       }
@@ -63,11 +57,10 @@ const LazySecureStoreAdapter = {
   },
 };
 
-// Create Supabase client
 export const supabase: SupabaseClient<Database> = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: Platform.OS === 'web' ? undefined : LazySecureStoreAdapter,
-    autoRefreshToken: true, // OK to refresh when user is actually logged in
+    autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
   },
@@ -78,7 +71,6 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(supabas
   },
 });
 
-// Helper to clear all auth data (for logout or fresh start)
 export const clearSupabaseAuth = async (): Promise<void> => {
   try {
     await SecureStore.deleteItemAsync(SUPABASE_AUTH_TOKEN_KEY);
@@ -89,7 +81,6 @@ export const clearSupabaseAuth = async (): Promise<void> => {
   }
 };
 
-// Helper to enable session persistence (call after successful login)
 export const enableSessionPersistence = async (): Promise<void> => {
   try {
     await SecureStore.setItemAsync('octopus_stay_logged_in', 'true');
