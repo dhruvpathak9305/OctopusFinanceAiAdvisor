@@ -57,6 +57,7 @@ export interface SettingsHandlers {
   handleDashboardSettings: () => void;
   handleAnalyticsSettings: () => void;
   handleGoalsSettings: () => void;
+  handleSyncQueue?: () => void;
 }
 
 export interface SettingsConfig {

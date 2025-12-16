@@ -91,6 +91,12 @@ export async function initializeLocalDb(): Promise<void> {
 async function runMigrationsAsync(db: LocalDB, fromVersion: number): Promise<void> {
   console.log(`Running migrations from version ${fromVersion} to ${LOCAL_SCHEMA_VERSION}`);
   
+  // Run version-specific migrations
+  if (fromVersion < 2 && LOCAL_SCHEMA_VERSION >= 2) {
+    console.log('Running migration 002: Add Performance Indexes');
+    await runMigration002(db);
+  }
+  
   // Get all schema SQL statements
   const schemaStatements = getAllSchemaSQL();
   
@@ -115,6 +121,60 @@ async function runMigrationsAsync(db: LocalDB, fromVersion: number): Promise<voi
     } catch (error) {
       console.error('Error executing schema statement:', error);
     }
+  }
+}
+
+/**
+ * Migration 002: Add Performance Indexes
+ */
+async function runMigration002(db: LocalDB): Promise<void> {
+  try {
+    // Composite index for transactions: user_id + date + sync_status
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_transactions_local_user_date_sync 
+      ON transactions_local (user_id, date DESC, sync_status);
+    `);
+
+    // Composite index for efficient sync queries: user_id + updated_at
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_transactions_local_user_updated 
+      ON transactions_local (user_id, updated_at DESC);
+    `);
+
+    // Index for date-range queries without user filter
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_transactions_local_date_desc 
+      ON transactions_local (date DESC);
+    `);
+
+    // Composite index for sync job processing: sync_status + updated_at
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_updated 
+      ON sync_jobs (status, updated_at DESC);
+    `);
+
+    // Similar indexes for accounts table
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_accounts_local_user_updated 
+      ON accounts_local (user_id, updated_at DESC);
+    `);
+
+    // Similar indexes for budget categories
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_budget_categories_local_user_updated 
+      ON budget_categories_local (user_id, updated_at DESC);
+    `);
+
+    // Similar indexes for net worth entries
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_net_worth_entries_local_user_updated 
+      ON net_worth_entries_local (user_id, updated_at DESC);
+    `);
+
+    console.log('Migration 002 completed: Performance indexes added');
+  } catch (error: any) {
+    console.error('Error running migration 002:', error);
+    // Don't throw - indexes are optional optimizations
   }
 }
 

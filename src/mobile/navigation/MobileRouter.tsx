@@ -29,6 +29,7 @@ import MobileTravel from "../pages/MobileTravel";
 import MobileDateFilter from "../pages/MobileDateFilter";
 import FinancialRelationshipsScreen from "../screens/FinancialRelationshipsScreen";
 import ScrollableBottomNav from "../components/navigation/ScrollableBottomNav";
+import { SyncQueueView } from "../../../components/sync/SyncQueueView";
 
 // Navigation Types
 export type MobileTabParamList = {
@@ -51,6 +52,7 @@ export type MobileStackParamList = {
   MobileCredit: undefined;
   MobileTravel: undefined;
   MobileDateFilter: undefined;
+  SyncQueue: undefined;
 };
 
 const Tab = createBottomTabNavigator<MobileTabParamList>();
@@ -240,6 +242,21 @@ const RootStackNavigator: React.FC = () => {
         options={{
           headerShown: true,
           headerTitle: "Browse Stocks & Funds",
+          headerStyle: {
+            backgroundColor: "#0B1426",
+          },
+          headerTintColor: "#10B981",
+          headerTitleStyle: {
+            color: "#FFFFFF",
+          },
+        }}
+      />
+      <Stack.Screen
+        name="SyncQueue"
+        component={SyncQueueView}
+        options={{
+          headerShown: true,
+          headerTitle: "Sync Queue",
           headerStyle: {
             backgroundColor: "#0B1426",
           },

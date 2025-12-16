@@ -10,6 +10,8 @@
 
 import { LocalDB } from '../localDb';
 import { SyncStatus } from '../database/localSchema';
+import { getQueryCache, generateCacheKey } from './queryCache';
+import metricsCollector, { MetricType } from '../performance/metricsCollector';
 
 /**
  * Base filter interface for queries
@@ -72,6 +74,28 @@ export interface IRepository<T, TInsert, TUpdate, TFilter extends BaseFilter> {
    * Get pending sync records
    */
   getPendingSync(): Promise<T[]>;
+}
+
+/**
+ * Default page size for pagination
+ */
+export const DEFAULT_PAGE_SIZE = 50;
+
+/**
+ * Maximum page size to prevent memory issues
+ */
+export const MAX_PAGE_SIZE = 1000;
+
+/**
+ * Pagination result interface
+ */
+export interface PaginationResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasMore: boolean;
 }
 
 /**
@@ -169,14 +193,31 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
 
   /**
    * Find all records matching the filter
+   * Applies default pagination limit if none specified to prevent loading entire tables
+   * Uses query cache for frequently accessed queries
    */
   async findAll(filter?: TFilter): Promise<T[]> {
+    // Check cache first
+    const cache = getQueryCache();
+    const cacheKey = generateCacheKey(this.tableName, filter);
+    const cached = cache.get<T[]>(cacheKey);
+    
+    if (cached !== null) {
+      return cached;
+    }
+
     const db = await this.getDb();
     const where = filter ? this.buildWhereClause(filter) : { sql: '', params: [] };
     const orderBy = filter?.orderBy 
       ? `ORDER BY ${filter.orderBy} ${filter.orderDirection || 'ASC'}` 
       : '';
-    const limit = filter?.limit ? `LIMIT ${filter.limit}` : '';
+    
+    // Apply default limit if none specified (prevent loading entire tables)
+    const requestedLimit = filter?.limit;
+    const effectiveLimit = requestedLimit 
+      ? Math.min(requestedLimit, MAX_PAGE_SIZE) 
+      : DEFAULT_PAGE_SIZE;
+    const limit = `LIMIT ${effectiveLimit}`;
     const offset = filter?.offset ? `OFFSET ${filter.offset}` : '';
 
     const sql = `
@@ -188,8 +229,26 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
     `;
 
     try {
+      const startTime = Date.now();
       const result = await db.getAllAsync<any>(sql, where.params);
+      const duration = Date.now() - startTime;
       const rows = result.map(row => this.rowToEntity(row));
+      
+      // Record query performance metric
+      metricsCollector.recordQuery(
+        this.tableName,
+        'findAll',
+        duration,
+        { filter, row_count: rows.length }
+      ).catch(() => {}); // Don't block on metrics collection
+      
+      // Log slow queries (>100ms)
+      if (duration > 100) {
+        console.warn(`Slow query detected: ${this.tableName}.findAll took ${duration}ms`);
+      }
+      
+      // Cache the result
+      cache.set(cacheKey, rows);
       
       // Trigger background sync if premium and online
       if (this.isPremium && this.isOnline) {
@@ -211,7 +270,18 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ? LIMIT 1`;
 
     try {
+      const startTime = Date.now();
       const result = await db.getFirstAsync<any>(sql, [id]);
+      const duration = Date.now() - startTime;
+      
+      // Record query performance metric
+      metricsCollector.recordQuery(
+        this.tableName,
+        'findById',
+        duration,
+        { row_count: result ? 1 : 0 }
+      ).catch(() => {});
+      
       if (!result) {
         return null;
       }
@@ -253,7 +323,19 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
     `;
 
     try {
+      const startTime = Date.now();
       await db.runAsync(sql, values);
+      const duration = Date.now() - startTime;
+      
+      // Record query performance metric
+      metricsCollector.recordQuery(
+        this.tableName,
+        'create',
+        duration
+      ).catch(() => {});
+      
+      // Invalidate cache for this table
+      getQueryCache().clearTable(this.tableName);
       
       // Queue sync job if premium
       if (this.isPremium) {
@@ -295,11 +377,23 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
     `;
 
     try {
+      const startTime = Date.now();
       const result = await db.runAsync(sql, values);
+      const duration = Date.now() - startTime;
+      
+      // Record query performance metric
+      metricsCollector.recordQuery(
+        this.tableName,
+        'update',
+        duration
+      ).catch(() => {});
       
       if (result.changes === 0) {
         throw new Error(`Record with id ${id} not found`);
       }
+      
+      // Invalidate cache for this table
+      getQueryCache().clearTable(this.tableName);
       
       // Queue sync job if premium
       if (this.isPremium) {
@@ -339,6 +433,9 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
         throw new Error(`Record with id ${id} not found`);
       }
       
+      // Invalidate cache for this table
+      getQueryCache().clearTable(this.tableName);
+      
       // Queue sync job if premium
       if (this.isPremium) {
         await this.enqueueSyncJob('delete', id, {});
@@ -368,6 +465,47 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
       console.error(`Error in count for ${this.tableName}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Get total count of records matching the filter (alias for count)
+   */
+  async getTotalCount(filter?: TFilter): Promise<number> {
+    return this.count(filter);
+  }
+
+  /**
+   * Find records with pagination metadata
+   * Returns paginated result with total count and pagination info
+   */
+  async findPage(
+    filter?: TFilter & { page?: number; pageSize?: number }
+  ): Promise<PaginationResult<T>> {
+    const page = filter?.page || 1;
+    const pageSize = Math.min(filter?.pageSize || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    const offset = (page - 1) * pageSize;
+
+    // Get total count
+    const total = await this.getTotalCount(filter);
+
+    // Get paginated data
+    const data = await this.findAll({
+      ...filter,
+      limit: pageSize,
+      offset,
+    });
+
+    const totalPages = Math.ceil(total / pageSize);
+    const hasMore = page < totalPages;
+
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages,
+      hasMore,
+    };
   }
 
   /**
@@ -432,6 +570,13 @@ export abstract class BaseRepository<T, TInsert, TUpdate, TFilter extends BaseFi
     // Trigger sync engine to process sync queue
     const syncEngine = require('../sync/syncEngine').default;
     syncEngine.scheduleSync(this.tableName);
+  }
+
+  /**
+   * Clear cache for this repository's table
+   */
+  clearCache(): void {
+    getQueryCache().clearTable(this.tableName);
   }
 }
 

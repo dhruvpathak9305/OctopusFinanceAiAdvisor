@@ -1,11 +1,15 @@
 import { Alert, Linking } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import { Theme } from "../../../../contexts/ThemeContext";
 import { SettingsHandlers } from "../types";
+import { MobileStackParamList } from "../../../navigation/MobileRouter";
 
 interface CreateSettingsHandlersParams {
   signOut: () => void;
   setTheme: (theme: Theme) => void;
   supportEmail: string;
+  navigation?: StackNavigationProp<MobileStackParamList>;
 }
 
 /**
@@ -15,6 +19,7 @@ export const createSettingsHandlers = ({
   signOut,
   setTheme,
   supportEmail,
+  navigation,
 }: CreateSettingsHandlersParams): SettingsHandlers => {
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -206,6 +211,14 @@ export const createSettingsHandlers = ({
     ]);
   };
 
+  const handleSyncQueue = () => {
+    if (navigation) {
+      navigation.navigate("SyncQueue" as never);
+    } else {
+      Alert.alert("Navigation Error", "Navigation not available");
+    }
+  };
+
   return {
     handleSignOut,
     handleThemeChange,
@@ -219,5 +232,6 @@ export const createSettingsHandlers = ({
     handleDashboardSettings,
     handleAnalyticsSettings,
     handleGoalsSettings,
+    handleSyncQueue,
   };
 };

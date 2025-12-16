@@ -11,7 +11,7 @@
  * JSON fields are stored as TEXT and parsed when needed.
  */
 
-export const LOCAL_SCHEMA_VERSION = 1;
+export const LOCAL_SCHEMA_VERSION = 2;
 
 /**
  * Sync status values
@@ -69,6 +69,26 @@ export const LOCAL_SCHEMA = {
     
     CREATE INDEX IF NOT EXISTS idx_sync_jobs_table_record 
     ON sync_jobs (table_name, record_id);
+  `,
+
+  // =============================================================================
+  // PERFORMANCE METRICS TABLE
+  // =============================================================================
+  performance_metrics: `
+    CREATE TABLE IF NOT EXISTS performance_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      metric_type TEXT NOT NULL,
+      metric_name TEXT NOT NULL,
+      value REAL NOT NULL,
+      metadata TEXT,
+      timestamp INTEGER NOT NULL
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_performance_metrics_type_time 
+    ON performance_metrics (metric_type, timestamp DESC);
+    
+    CREATE INDEX IF NOT EXISTS idx_performance_metrics_name_time 
+    ON performance_metrics (metric_name, timestamp DESC);
   `,
 
   // =============================================================================

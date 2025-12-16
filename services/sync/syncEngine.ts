@@ -17,6 +17,7 @@ import { TransactionsRepository } from '../repositories/transactionsRepository';
 import { AccountsRepository } from '../repositories/accountsRepository';
 import { BudgetCategoriesRepository } from '../repositories/budgetRepository';
 import { NetWorthEntriesRepository } from '../repositories/netWorthRepository';
+import metricsCollector from '../performance/metricsCollector';
 
 export interface SyncResult {
   success: boolean;
@@ -127,6 +128,7 @@ class SyncEngine {
     }
 
     this.isSyncing = true;
+    const syncStartTime = Date.now();
     const result: SyncResult = {
       success: true,
       pushed: 0,
@@ -137,21 +139,49 @@ class SyncEngine {
 
     try {
       // Phase 1: Push local changes to server
+      const pushStartTime = Date.now();
       const pushResult = await this.pushChanges(userId, options);
+      const pushDuration = Date.now() - pushStartTime;
       result.pushed = pushResult.pushed;
       result.errors.push(...pushResult.errors);
 
+      // Record push metrics
+      metricsCollector.recordSync('push', pushDuration, {
+        records_processed: pushResult.pushed,
+      }).catch(() => {});
+
       // Phase 2: Pull server changes to local
+      const pullStartTime = Date.now();
       const pullResult = await this.pullChanges(userId, options);
+      const pullDuration = Date.now() - pullStartTime;
       result.pulled = pullResult.pulled;
       result.conflicts = pullResult.conflicts;
       result.errors.push(...pullResult.errors);
 
+      // Record pull metrics
+      metricsCollector.recordSync('pull', pullDuration, {
+        records_processed: pullResult.pulled,
+        conflicts: pullResult.conflicts,
+      }).catch(() => {});
+
       result.success = result.errors.length === 0;
+
+      // Record overall sync metrics
+      const totalDuration = Date.now() - syncStartTime;
+      metricsCollector.recordSync('complete', totalDuration, {
+        records_processed: result.pushed + result.pulled,
+        conflicts: result.conflicts,
+      }).catch(() => {});
     } catch (error: any) {
       console.error('Sync error:', error);
       result.success = false;
       result.errors.push(error.message || 'Unknown sync error');
+
+      // Record sync error
+      const totalDuration = Date.now() - syncStartTime;
+      metricsCollector.recordSync('error', totalDuration, {
+        records_processed: result.pushed + result.pulled,
+      }).catch(() => {});
     } finally {
       this.isSyncing = false;
     }
@@ -335,6 +365,7 @@ class SyncEngine {
 
     let pulled = 0;
     let conflicts = 0;
+    let conflictResolutionTime = 0;
 
     // Process each server record
     for (const serverRecord of serverRecords) {
@@ -347,7 +378,9 @@ class SyncEngine {
           
           if (conflict) {
             // Resolve conflict
+            const conflictStartTime = Date.now();
             const resolved = conflictResolver.autoResolve(conflict, localTableName);
+            conflictResolutionTime += Date.now() - conflictStartTime;
             await this.saveRecord(localTableName, resolved.record);
             conflicts++;
           } else {
@@ -363,6 +396,14 @@ class SyncEngine {
       } catch (error: any) {
         console.error(`Error processing record ${serverRecord.id}:`, error);
       }
+    }
+
+    // Record conflict resolution metrics if conflicts occurred
+    if (conflicts > 0) {
+      metricsCollector.recordSync('conflict_resolution', conflictResolutionTime, {
+        conflicts,
+        records_processed: conflicts,
+      }).catch(() => {});
     }
 
     // Update sync metadata

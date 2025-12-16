@@ -8,7 +8,7 @@
  */
 
 import { LocalDB } from '../localDb';
-import { BaseRepository, BaseFilter } from './baseRepository';
+import { BaseRepository, BaseFilter, DEFAULT_PAGE_SIZE, PaginationResult } from './baseRepository';
 import { Transaction } from '../../types/transactions';
 import { SyncStatus } from '../database/localSchema';
 
@@ -288,6 +288,64 @@ export class TransactionsRepository extends BaseRepository<
       orderBy: 'date',
       orderDirection: 'DESC',
     });
+  }
+
+  /**
+   * Find recent transactions (last 30 days by default) with optimized query
+   */
+  async findRecent(days: number = 30, limit?: number): Promise<Transaction[]> {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    return this.findAll({
+      user_id: this.userId,
+      dateRange: { start: startDate, end: endDate },
+      orderBy: 'date',
+      orderDirection: 'DESC',
+      limit: limit || DEFAULT_PAGE_SIZE,
+    });
+  }
+
+  /**
+   * Find transactions by date range with pagination
+   */
+  async findByDateRangePaginated(
+    startDate: Date,
+    endDate: Date,
+    page: number = 1,
+    pageSize: number = DEFAULT_PAGE_SIZE
+  ): Promise<PaginationResult<Transaction>> {
+    return this.findPage({
+      user_id: this.userId,
+      dateRange: { start: startDate, end: endDate },
+      orderBy: 'date',
+      orderDirection: 'DESC',
+      page,
+      pageSize,
+    });
+  }
+
+  /**
+   * Override findAll to enforce reasonable defaults for transactions
+   * Defaults to last 30 days if no date range specified
+   */
+  async findAll(filter?: TransactionFilters): Promise<Transaction[]> {
+    // If no date range specified and no explicit limit, default to last 30 days
+    if (!filter?.dateRange && !filter?.limit) {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+
+      return super.findAll({
+        ...filter,
+        dateRange: { start: startDate, end: endDate },
+        orderBy: filter?.orderBy || 'date',
+        orderDirection: filter?.orderDirection || 'DESC',
+      });
+    }
+
+    return super.findAll(filter);
   }
 
   /**

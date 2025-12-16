@@ -253,11 +253,11 @@ const GeneralSettingsSection: React.FC<GeneralSettingsSectionProps> = ({
         subtitle="View pending and failed sync jobs"
         colors={colors}
         onPress={() => {
-          Alert.alert(
-            "Sync Queue",
-            "Sync queue viewer will open in a modal or new screen. This feature is ready to integrate.",
-            [{ text: "OK" }]
-          );
+          if (handlers.handleSyncQueue) {
+            handlers.handleSyncQueue();
+          } else {
+            Alert.alert("Error", "Sync queue navigation not available");
+          }
         }}
       />
       <SettingsSeparator colors={colors} />

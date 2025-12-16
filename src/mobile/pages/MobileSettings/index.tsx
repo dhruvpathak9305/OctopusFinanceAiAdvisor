@@ -1,11 +1,14 @@
 import React from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import {
   useTheme,
   lightTheme,
   darkTheme,
 } from "../../../../contexts/ThemeContext";
 import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
+import { MobileStackParamList } from "../../navigation/MobileRouter";
 
 // Components
 import SettingsHeader from "./components/SettingsHeader";
@@ -39,6 +42,7 @@ import { settingsConfig } from "./config/settingsConfig";
 const MobileSettings: React.FC = () => {
   const { theme, isDark, setTheme } = useTheme();
   const { signOut, user } = useUnifiedAuth();
+  const navigation = useNavigation<StackNavigationProp<MobileStackParamList>>();
   const colors = isDark ? darkTheme : lightTheme;
 
   // Settings state management
@@ -49,6 +53,7 @@ const MobileSettings: React.FC = () => {
     signOut,
     setTheme,
     supportEmail: settingsConfig.supportEmail,
+    navigation,
   });
 
   return (
