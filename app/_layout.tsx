@@ -1,3 +1,4 @@
+import 'react-native-get-random-values'; // Must be imported before any uuid usage
 import React from "react";
 import { Stack } from "expo-router";
 import { Platform } from "react-native";

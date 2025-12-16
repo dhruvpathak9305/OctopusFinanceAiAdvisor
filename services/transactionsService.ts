@@ -279,33 +279,42 @@ export const fetchTransactionById = async (
   isDemo: boolean = false
 ): Promise<Transaction | null> => {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-
-    const tableMap = getTableMapping(isDemo);
-    const selectQuery = buildTransactionSelectQuery(tableMap);
-
-    const { data, error } = await (supabase as any)
-      .from(tableMap.transactions)
-      .select(selectQuery)
-      .eq("user_id", user.id)
-      .eq("id", id)
-      .single();
-
-    if (error) {
-      console.error("Error fetching transaction:", error);
-      if (error.code !== "PGRST116") {
-        // Let caller handle error notifications
+      if (!user) {
+        throw new Error("User not authenticated");
       }
-      throw error;
+
+      const tableMap = getTableMapping(isDemo);
+      const selectQuery = buildTransactionSelectQuery(tableMap);
+
+      const { data, error } = await (supabase as any)
+        .from(tableMap.transactions)
+        .select(selectQuery)
+        .eq("user_id", user.id)
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching transaction:", error);
+        if (error.code !== "PGRST116") {
+          // Let caller handle error notifications
+        }
+        throw error;
+      }
+
+      return data ? transformTransactionResponse(data) : null;
     }
 
-    return data ? transformTransactionResponse(data) : null;
+    // For real mode, use offline-first repository
+    const { getTransactionsRepository } = await import('./repositories/repositoryAdapter');
+    const repo = await getTransactionsRepository();
+    
+    return await repo.findById(id);
   } catch (error) {
     console.error("Error in fetchTransactionById:", error);
     throw error;
@@ -318,134 +327,111 @@ export const fetchTransactions = async (
   isDemo: boolean = false
 ): Promise<Transaction[]> => {
   try {
-    // Get the current user - try session first, then getUser
-    let user = null;
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      user = session?.user || null;
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      // Get the current user - try session first, then getUser
+      let user = null;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        user = session?.user || null;
+
+        if (!user) {
+          const {
+            data: { user: authUser },
+          } = await supabase.auth.getUser();
+          user = authUser;
+        }
+      } catch (authError) {
+        console.error("fetchTransactions - auth error:", authError);
+      }
 
       if (!user) {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-        user = authUser;
+        throw new Error("User not authenticated");
       }
-    } catch (authError) {
-      console.error("fetchTransactions - auth error:", authError);
-    }
 
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
+      const tableMap = getTableMapping(isDemo);
+      const selectQuery = buildTransactionSelectQuery(tableMap);
 
-    const tableMap = getTableMapping(isDemo);
-    const selectQuery = buildTransactionSelectQuery(tableMap);
+      // Use type assertion to handle dynamic table names
+      let query = (supabase as any)
+        .from(tableMap.transactions)
+        .select(selectQuery)
+        .eq("user_id", user.id);
 
-    // Use type assertion to handle dynamic table names
-    let query = (supabase as any)
-      .from(tableMap.transactions)
-      .select(selectQuery)
-      .eq("user_id", user.id);
-
-    // Apply type filter
-    if (filters.type && filters.type !== "all") {
-      query = query.eq("type", filters.type);
-    }
-
-    // Apply date range filter (UTC, end-exclusive)
-    if (filters.dateRange) {
-      const dateFilter = buildDateRangeFilter(filters.dateRange) as {
-        gte?: string;
-        lt?: string;
-      };
-      if (dateFilter.gte) query = query.gte("date", dateFilter.gte);
-      if (dateFilter.lt) query = query.lt("date", dateFilter.lt);
-    }
-
-    // Apply institution filter
-    if (filters.institution) {
-      query = query.eq("institution", filters.institution);
-    }
-
-    // Apply category filter
-    if (filters.category) {
-      query = query.eq("category", filters.category);
-    }
-
-    // Apply subcategory filter
-    if (filters.subcategory) {
-      query = query.eq("subcategory", filters.subcategory);
-    }
-
-    // Apply account filter
-    // For income: filter by destination_account_id (money coming IN to account)
-    // For expenses/transfers: filter by source_account_id (money going OUT of account)
-    if (filters.accountId) {
-      if (filters.type === "income") {
-        query = query.eq("destination_account_id", filters.accountId);
-      } else {
-        query = query.eq("source_account_id", filters.accountId);
+      // Apply filters (existing logic)
+      if (filters.type && filters.type !== "all") {
+        query = query.eq("type", filters.type);
       }
-    }
 
-    // Apply credit card filter
-    if (filters.isCreditCard !== undefined) {
-      query = query.eq("is_credit_card", filters.isCreditCard);
-    }
+      if (filters.dateRange) {
+        const dateFilter = buildDateRangeFilter(filters.dateRange) as {
+          gte?: string;
+          lt?: string;
+        };
+        if (dateFilter.gte) query = query.gte("date", dateFilter.gte);
+        if (dateFilter.lt) query = query.lt("date", dateFilter.lt);
+      }
 
-    // Apply amount range filter
-    if (filters.amountRange?.min !== undefined) {
-      query = query.gte("amount", filters.amountRange.min);
-    }
-    if (filters.amountRange?.max !== undefined) {
-      query = query.lte("amount", filters.amountRange.max);
-    }
+      if (filters.institution) {
+        query = query.eq("institution", filters.institution);
+      }
 
-    // Apply search filter
-    if (filters.searchQuery) {
-      query = query.or(
-        `description.ilike.%${filters.searchQuery}%,category.ilike.%${filters.searchQuery}%,subcategory.ilike.%${filters.searchQuery}%`
-      );
-    }
+      if (filters.category) {
+        query = query.eq("category", filters.category);
+      }
 
-    // Order by date descending (default sorting)
-    query = query.order("date", { ascending: false });
+      if (filters.subcategory) {
+        query = query.eq("subcategory", filters.subcategory);
+      }
 
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error fetching transactions:", error);
-
-      // Handle specific relationship errors for better UX
-      if (error.code === "PGRST200" && error.message.includes("relationship")) {
-        console.warn("Foreign key relationship error detected:", error.message);
-        // Try a fallback query without relationships
-        const fallbackQuery = (supabase as any)
-          .from(tableMap.transactions)
-          .select("*")
-          .eq("user_id", user.id);
-
-        const { data: fallbackData, error: fallbackError } =
-          await fallbackQuery;
-
-        if (fallbackError) {
-          throw fallbackError;
+      if (filters.accountId) {
+        if (filters.type === "income") {
+          query = query.eq("destination_account_id", filters.accountId);
+        } else {
+          query = query.eq("source_account_id", filters.accountId);
         }
-
-        // Transform without relationship data
-        return (fallbackData || []).map((item: any) => ({
-          ...item,
-          category_name: null,
-          subcategory_name: null,
-        }));
       }
 
-      throw error;
+      if (filters.isCreditCard !== undefined) {
+        query = query.eq("is_credit_card", filters.isCreditCard);
+      }
+
+      if (filters.amountRange?.min !== undefined) {
+        query = query.gte("amount", filters.amountRange.min);
+      }
+      if (filters.amountRange?.max !== undefined) {
+        query = query.lte("amount", filters.amountRange.max);
+      }
+
+      if (filters.searchQuery) {
+        query = query.or(
+          `description.ilike.%${filters.searchQuery}%,category.ilike.%${filters.searchQuery}%,subcategory.ilike.%${filters.searchQuery}%`
+        );
+      }
+
+      query = query.order("date", { ascending: false });
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching transactions:", error);
+        throw error;
+      }
+
+      const transactions = (data || []).map(transformTransactionResponse);
+      return transactions;
     }
 
-    const transactions = (data || []).map(transformTransactionResponse);
+    // For real mode, use offline-first repository
+    const { getTransactionsRepository, convertTransactionFilters, getRepositoryContext } = await import('./repositories/repositoryAdapter');
+    const context = await getRepositoryContext();
+    const repo = await getTransactionsRepository();
+    
+    const repoFilters = convertTransactionFilters(filters, context.userId);
+    const transactions = await repo.findAll(repoFilters);
+    
     return transactions;
   } catch (error) {
     console.error("Error in fetchTransactions:", error);
@@ -669,82 +655,64 @@ export const addTransaction = async (
   isDemo: boolean = false
 ): Promise<Transaction> => {
   try {
-    // Get the current user - try session first, then getUser
-    let user = null;
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      user = session?.user || null;
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      // Get the current user - try session first, then getUser
+      let user = null;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        user = session?.user || null;
+
+        if (!user) {
+          const {
+            data: { user: authUser },
+          } = await supabase.auth.getUser();
+          user = authUser;
+        }
+      } catch (authError) {
+        console.error("addTransaction - auth error:", authError);
+      }
 
       if (!user) {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-        user = authUser;
+        throw new Error("User not authenticated");
       }
-    } catch (authError) {
-      console.error("addTransaction - auth error:", authError);
-    }
 
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
+      const tableMap = getTableMapping(isDemo);
+      const selectQuery = buildTransactionSelectQuery(tableMap);
+      const transactionData = prepareTransactionForInsert(transaction, user.id);
 
-    const tableMap = getTableMapping(isDemo);
-    const selectQuery = buildTransactionSelectQuery(tableMap);
-    const transactionData = prepareTransactionForInsert(transaction, user.id);
+      // Insert the transaction using dynamic table name
+      const { data, error } = await (supabase as any)
+        .from(tableMap.transactions)
+        .insert([transactionData])
+        .select(selectQuery)
+        .single();
 
-    // Insert the transaction using dynamic table name
-    const { data, error } = await (supabase as any)
-      .from(tableMap.transactions)
-      .insert([transactionData])
-      .select(selectQuery)
-      .single();
-
-    if (error) {
-      console.error("Error adding transaction:", error);
-      throw error;
-    }
-
-    const newTransaction = transformTransactionResponse(data);
-
-    // Note: Balance updates are handled automatically by database triggers
-    // Real-time subscriptions in BalanceContext will detect changes
-    console.log(
-      "✅ Transaction added successfully, balances will update via triggers"
-    );
-
-    // Dispatch a custom event to ensure UI updates (fallback mechanism)
-    if (
-      typeof window !== "undefined" &&
-      typeof window.dispatchEvent === "function"
-    ) {
-      try {
-        window.dispatchEvent(
-          new CustomEvent("balanceUpdateNeeded", {
-            detail: {
-              type: "transaction-added",
-              transactionId: newTransaction.id,
-            },
-          })
-        );
-        console.log(
-          "🔔 TransactionService: Custom event dispatched for transaction-added"
-        );
-      } catch (error) {
-        console.warn(
-          "⚠️ TransactionService: Could not dispatch custom event (React Native environment)",
-          error
-        );
+      if (error) {
+        console.error("Error adding transaction:", error);
+        throw error;
       }
-    } else {
-      console.log(
-        "📱 TransactionService: Custom events not supported, relying on real-time subscriptions"
-      );
+
+      const newTransaction = transformTransactionResponse(data);
+      emitBalanceUpdate("transaction-added", newTransaction.id);
+      return newTransaction;
     }
 
-    // Always emit React Native compatible event as additional fallback
+    // For real mode, use offline-first repository
+    const { getTransactionsRepository, getRepositoryContext } = await import('./repositories/repositoryAdapter');
+    const context = await getRepositoryContext();
+    const repo = await getTransactionsRepository();
+    
+    const transactionData = {
+      ...transaction,
+      user_id: context.userId,
+    };
+
+    const newTransaction = await repo.create(transactionData as any);
+    
+    // Emit balance update event
     emitBalanceUpdate("transaction-added", newTransaction.id);
 
     return newTransaction;
@@ -761,79 +729,58 @@ export const updateTransaction = async (
   isDemo: boolean = false
 ): Promise<Transaction> => {
   try {
-    // Get the current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      throw new Error("User not authenticated");
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      const tableMap = getTableMapping(isDemo);
+      const selectQuery = buildTransactionSelectQuery(tableMap);
+
+      const updateData: Record<string, any> = { ...updates };
+      delete updateData.id;
+      delete updateData.user_id;
+      delete updateData.created_at;
+      delete updateData.category_name;
+      delete updateData.subcategory_name;
+      delete updateData.budget_categories;
+      delete updateData.budget_subcategories;
+
+      const { data, error } = await (supabase as any)
+        .from(tableMap.transactions)
+        .update(updateData)
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .select(selectQuery)
+        .single();
+
+      if (error) {
+        console.error("Error updating transaction:", error);
+        throw error;
+      }
+
+      const updatedTransaction = transformTransactionResponse(data);
+      emitBalanceUpdate("transaction-updated", updatedTransaction.id);
+      return updatedTransaction;
     }
 
-    const tableMap = getTableMapping(isDemo);
-    const selectQuery = buildTransactionSelectQuery(tableMap);
-
-    // Prepare update data (exclude read-only fields)
-    const updateData: Record<string, any> = { ...updates };
+    // For real mode, use offline-first repository
+    const { getTransactionsRepository } = await import('./repositories/repositoryAdapter');
+    const repo = await getTransactionsRepository();
+    
+    const updateData: any = { ...updates };
     delete updateData.id;
     delete updateData.user_id;
     delete updateData.created_at;
-    delete updateData.category_name;
-    delete updateData.subcategory_name;
-    delete updateData.budget_categories;
-    delete updateData.budget_subcategories;
-
-    // Update the transaction using dynamic table name
-    const { data, error } = await (supabase as any)
-      .from(tableMap.transactions)
-      .update(updateData)
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .select(selectQuery)
-      .single();
-
-    if (error) {
-      console.error("Error updating transaction:", error);
-      throw error;
-    }
-
-    const updatedTransaction = transformTransactionResponse(data);
-    console.log(
-      "✅ Transaction updated successfully, balances will update via triggers"
-    );
-
-    // Dispatch a custom event to ensure UI updates (fallback mechanism)
-    if (
-      typeof window !== "undefined" &&
-      typeof window.dispatchEvent === "function"
-    ) {
-      try {
-        window.dispatchEvent(
-          new CustomEvent("balanceUpdateNeeded", {
-            detail: {
-              type: "transaction-updated",
-              transactionId: updatedTransaction.id,
-            },
-          })
-        );
-        console.log(
-          "🔔 TransactionService: Custom event dispatched for transaction-updated"
-        );
-      } catch (error) {
-        console.warn(
-          "⚠️ TransactionService: Could not dispatch custom event (React Native environment)",
-          error
-        );
-      }
-    } else {
-      console.log(
-        "📱 TransactionService: Custom events not supported, relying on real-time subscriptions"
-      );
-    }
-
-    // Always emit React Native compatible event as additional fallback
+    
+    const updatedTransaction = await repo.update(id, updateData);
+    
     emitBalanceUpdate("transaction-updated", updatedTransaction.id);
-
     return updatedTransaction;
   } catch (error) {
     console.error("Error in updateTransaction:", error);
@@ -847,60 +794,39 @@ export const deleteTransaction = async (
   isDemo: boolean = false
 ): Promise<void> => {
   try {
-    // Get the current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-
-    const tableMap = getTableMapping(isDemo);
-
-    // Delete the transaction using dynamic table name
-    const { error } = await (supabase as any)
-      .from(tableMap.transactions)
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id);
-
-    if (error) {
-      console.error("Error deleting transaction:", error);
-      throw error;
-    }
-
-    console.log(
-      "✅ Transaction deleted successfully, balances will update via triggers"
-    );
-
-    // Dispatch a custom event to ensure UI updates (fallback mechanism)
-    if (
-      typeof window !== "undefined" &&
-      typeof window.dispatchEvent === "function"
-    ) {
-      try {
-        window.dispatchEvent(
-          new CustomEvent("balanceUpdateNeeded", {
-            detail: { type: "transaction-deleted", transactionId: id },
-          })
-        );
-        console.log(
-          "🔔 TransactionService: Custom event dispatched for transaction-deleted"
-        );
-      } catch (error) {
-        console.warn(
-          "⚠️ TransactionService: Could not dispatch custom event (React Native environment)",
-          error
-        );
+      if (!user) {
+        throw new Error("User not authenticated");
       }
-    } else {
-      console.log(
-        "📱 TransactionService: Custom events not supported, relying on real-time subscriptions"
-      );
+
+      const tableMap = getTableMapping(isDemo);
+
+      const { error } = await (supabase as any)
+        .from(tableMap.transactions)
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error deleting transaction:", error);
+        throw error;
+      }
+
+      emitBalanceUpdate("transaction-deleted", id);
+      return;
     }
 
-    // Always emit React Native compatible event as additional fallback
+    // For real mode, use offline-first repository
+    const { getTransactionsRepository } = await import('./repositories/repositoryAdapter');
+    const repo = await getTransactionsRepository();
+    
+    await repo.delete(id);
+    
     emitBalanceUpdate("transaction-deleted", id);
   } catch (error) {
     console.error("Error in deleteTransaction:", error);

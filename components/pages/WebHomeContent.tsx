@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Logo } from '../common/Logo';
 
 export const WebHomeContent: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
@@ -32,7 +33,7 @@ export const WebHomeContent: React.FC = () => {
       {/* Header with Theme Toggle */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
-          <Text style={[styles.logo, { color: colors.text }]}>🐙 OctopusFinancer</Text>
+          <Logo size={56} showText={true} animated={true} />
           <TouchableOpacity 
             style={[styles.themeToggle, { backgroundColor: colors.surface, borderColor: colors.border }]} 
             onPress={toggleTheme}

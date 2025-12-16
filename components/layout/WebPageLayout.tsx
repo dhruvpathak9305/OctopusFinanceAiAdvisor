@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Logo } from '../common/Logo';
 
 interface WebPageLayoutProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ export const WebPageLayout: React.FC<WebPageLayoutProps> = ({
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.headerLeft}>
-              <Text style={styles.logo}>📈 OctopusFinancer</Text>
+              <Logo size={52} showText={true} animated={true} />
             </View>
             <View style={styles.headerRight}>
               <TouchableOpacity style={styles.loadingButton}>

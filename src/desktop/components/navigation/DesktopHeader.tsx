@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Logo } from '../../../../components/common/Logo';
 
 const DesktopHeader: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.leftSection}>
-          <Text style={styles.logo}>📈 OctopusFinancer</Text>
+          <Logo size={52} showText={true} animated={true} />
           
           <View style={styles.breadcrumb}>
             <Text style={styles.breadcrumbText}>Dashboard</Text>

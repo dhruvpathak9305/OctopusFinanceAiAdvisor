@@ -19,6 +19,8 @@ import {
   darkTheme,
   lightTheme,
 } from "../../../../contexts/ThemeContext";
+import { Logo } from "../../../../components/common/Logo";
+import { NetworkStatusDot } from "../../../../components/common/NetworkStatusDot";
 
 interface MobileHeaderProps {
   title?: string;
@@ -90,10 +92,9 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
   };
 
   const handleLogoPress = () => {
-    // Navigate to Home if not already on Home
-    if (route.name !== "Home") {
-      navigation.navigate("Home" as never);
-    }
+    // Logo press handler - can be used for future features
+    // Navigation is handled by the bottom tab navigator
+    // No action needed for now
   };
 
   return (
@@ -135,7 +136,10 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
               style={styles.logoSection}
               onPress={handleLogoPress}
             >
-              <Text style={styles.icon}>{pageInfo.icon}</Text>
+              <View style={styles.logoWithStatus}>
+                <Logo size={52} animated={true} />
+                <NetworkStatusDot size={10} />
+              </View>
               <Text
                 style={[styles.title, { color: theme.primary }]}
                 numberOfLines={1}
@@ -241,6 +245,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    gap: 8,
+  },
+  logoWithStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
   },
   icon: {
     fontSize: 20,

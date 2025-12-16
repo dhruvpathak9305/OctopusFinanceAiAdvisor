@@ -92,49 +92,70 @@ export const fetchAccounts = async (
   isDemo: boolean = false
 ): Promise<Account[]> => {
   try {
-    // Get the current user - try session first, then getUser
-    let user = null;
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      user = session?.user || null;
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      let user = null;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        user = session?.user || null;
+
+        if (!user) {
+          const {
+            data: { user: authUser },
+          } = await supabase.auth.getUser();
+          user = authUser;
+        }
+      } catch (authError) {
+        console.error("fetchAccounts - auth error:", authError);
+      }
 
       if (!user) {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-        user = authUser;
+        throw new Error("User not authenticated");
       }
-    } catch (authError) {
-      console.error("fetchAccounts - auth error:", authError);
+
+      const tableMap = getTableMapping(isDemo);
+
+      const { data, error } = await (supabase as any)
+        .from(tableMap.accounts)
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching accounts:", error);
+        Toast.show({
+          type: "error",
+          text1: "Failed to fetch accounts",
+          text2: error.message,
+        });
+        return [];
+      }
+
+      return (data || []).map((account: any) => mapDbAccountToModel(account));
     }
 
-    if (!user) {
-      console.error("fetchAccounts - no user found in session or getUser");
-      throw new Error("User not authenticated");
-    }
-
-    const tableMap = getTableMapping(isDemo);
-
-    // Fetch accounts from the database using dynamic table name
-    const { data, error } = await (supabase as any)
-      .from(tableMap.accounts)
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching accounts:", error);
-      Toast.show({
-        type: "error",
-        text1: "Failed to fetch accounts",
-        text2: error.message,
-      });
-      return [];
-    }
-
-    return (data || []).map((account: any) => mapDbAccountToModel(account));
+    // For real mode, use offline-first repository
+    const { getAccountsRepository, getRepositoryContext } = await import('./repositories/repositoryAdapter');
+    const context = await getRepositoryContext();
+    const repo = await getAccountsRepository();
+    
+    const accounts = await repo.findAll({ user_id: context.userId });
+    
+    // Map repository accounts to service Account format
+    return accounts.map(acc => ({
+      id: acc.id,
+      name: acc.name,
+      type: acc.type,
+      institution: acc.institution || "",
+      balance: acc.current_balance || acc.balance || 0,
+      account_number: acc.account_number || undefined,
+      logo_url: acc.logo_url || undefined,
+      user_id: acc.user_id,
+      created_at: acc.created_at,
+      updated_at: acc.updated_at,
+    }));
   } catch (error) {
     console.error("Error in fetchAccounts:", error);
     Toast.show({
@@ -152,52 +173,78 @@ export const addAccount = async (
   isDemo: boolean = false
 ): Promise<Account> => {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-
-    const tableMap = getTableMapping(isDemo);
-    const dbAccount = mapModelToDbAccount(account, user.id);
-
-    const { data, error } = await (supabase as any)
-      .from(tableMap.accounts)
-      .insert([dbAccount])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error adding account:", error);
-      Toast.show({
-        type: "error",
-        text1: "Failed to add account",
-        text2: error.message,
-      });
-      throw error;
-    }
-
-    // Update balance record created by trigger with actual opening balance (only in production mode)
-    if (!isDemo && account.balance && account.balance !== 0) {
-      try {
-        // The trigger automatically created a balance record with 0 values
-        // Now update it with the actual opening balance
-        await BalanceService.setOpeningBalance(data.id, account.balance, false);
-      } catch (balanceError) {
-        console.error("Error setting opening balance:", balanceError);
-        // Don't throw error - account creation was successful
-        // Balance can be updated manually later
+      if (!user) {
+        throw new Error("User not authenticated");
       }
+
+      const tableMap = getTableMapping(isDemo);
+      const dbAccount = mapModelToDbAccount(account, user.id);
+
+      const { data, error } = await (supabase as any)
+        .from(tableMap.accounts)
+        .insert([dbAccount])
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error adding account:", error);
+        Toast.show({
+          type: "error",
+          text1: "Failed to add account",
+          text2: error.message,
+        });
+        throw error;
+      }
+
+      Toast.show({
+        type: "success",
+        text1: "Account added successfully",
+      });
+
+      return mapDbAccountToModel(data);
     }
 
+    // For real mode, use offline-first repository
+    const { getAccountsRepository, getRepositoryContext } = await import('./repositories/repositoryAdapter');
+    const context = await getRepositoryContext();
+    const repo = await getAccountsRepository();
+    
+    const accountData = {
+      name: account.name,
+      type: account.type,
+      institution: account.institution || null,
+      account_number: account.account_number || null,
+      logo_url: account.logo_url || null,
+      initial_balance: account.balance || 0,
+      current_balance: account.balance || 0,
+      user_id: context.userId,
+    };
+
+    const newAccount = await repo.create(accountData);
+    
     Toast.show({
       type: "success",
       text1: "Account added successfully",
     });
 
-    return mapDbAccountToModel(data);
+    return {
+      id: newAccount.id,
+      name: newAccount.name,
+      type: newAccount.type,
+      institution: newAccount.institution || "",
+      balance: newAccount.current_balance || newAccount.balance || 0,
+      account_number: newAccount.account_number || undefined,
+      logo_url: newAccount.logo_url || undefined,
+      user_id: newAccount.user_id,
+      created_at: newAccount.created_at,
+      updated_at: newAccount.updated_at,
+    };
   } catch (error) {
     console.error("Error in addAccount:", error);
     Toast.show({
@@ -215,41 +262,80 @@ export const updateAccount = async (
   isDemo: boolean = false
 ): Promise<Account> => {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // For demo mode, use existing Supabase flow
+    if (isDemo) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
 
-    const tableMap = getTableMapping(isDemo);
-    const dbAccount = mapModelToDbAccount(account, user.id);
+      const tableMap = getTableMapping(isDemo);
+      const dbAccount = mapModelToDbAccount(account, user.id);
 
-    const { data, error } = await (supabase as any)
-      .from(tableMap.accounts)
-      .update(dbAccount)
-      .eq("id", account.id)
-      .eq("user_id", user.id)
-      .select()
-      .single();
+      const { data, error } = await (supabase as any)
+        .from(tableMap.accounts)
+        .update(dbAccount)
+        .eq("id", account.id)
+        .eq("user_id", user.id)
+        .select()
+        .single();
 
-    if (error) {
-      console.error("Error updating account:", error);
+      if (error) {
+        console.error("Error updating account:", error);
+        Toast.show({
+          type: "error",
+          text1: "Failed to update account",
+          text2: error.message,
+        });
+        throw error;
+      }
+
       Toast.show({
-        type: "error",
-        text1: "Failed to update account",
-        text2: error.message,
+        type: "success",
+        text1: "Account updated successfully",
       });
-      throw error;
+
+      return mapDbAccountToModel(data);
     }
 
+    // For real mode, use offline-first repository
+    const { getAccountsRepository } = await import('./repositories/repositoryAdapter');
+    const repo = await getAccountsRepository();
+    
+    const updateData: any = {
+      name: account.name,
+      type: account.type,
+      institution: account.institution || null,
+      account_number: account.account_number || null,
+      logo_url: account.logo_url || null,
+    };
+
+    if (account.balance !== undefined) {
+      updateData.current_balance = account.balance;
+    }
+
+    const updatedAccount = await repo.update(account.id, updateData);
+    
     Toast.show({
       type: "success",
       text1: "Account updated successfully",
     });
 
-    return mapDbAccountToModel(data);
+    return {
+      id: updatedAccount.id,
+      name: updatedAccount.name,
+      type: updatedAccount.type,
+      institution: updatedAccount.institution || "",
+      balance: updatedAccount.current_balance || updatedAccount.balance || 0,
+      account_number: updatedAccount.account_number || undefined,
+      logo_url: updatedAccount.logo_url || undefined,
+      user_id: updatedAccount.user_id,
+      created_at: updatedAccount.created_at,
+      updated_at: updatedAccount.updated_at,
+    };
   } catch (error) {
     console.error("Error in updateAccount:", error);
     Toast.show({

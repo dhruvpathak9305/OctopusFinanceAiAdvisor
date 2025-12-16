@@ -9,7 +9,8 @@ export default {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
+    // Disable new architecture for Expo Go / managed workflow stability
+    newArchEnabled: false,
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",
@@ -38,7 +39,9 @@ export default {
         {
           root: "./app"
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-sqlite"
     ],
     extra: {
       // EAS Build configuration
