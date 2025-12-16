@@ -94,46 +94,46 @@ export const fetchAccounts = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      let user = null;
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        user = session?.user || null;
-
-        if (!user) {
-          const {
-            data: { user: authUser },
-          } = await supabase.auth.getUser();
-          user = authUser;
-        }
-      } catch (authError) {
-        console.error("fetchAccounts - auth error:", authError);
-      }
+    let user = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user || null;
 
       if (!user) {
-        throw new Error("User not authenticated");
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+        user = authUser;
       }
+    } catch (authError) {
+      console.error("fetchAccounts - auth error:", authError);
+    }
 
-      const tableMap = getTableMapping(isDemo);
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-      const { data, error } = await (supabase as any)
-        .from(tableMap.accounts)
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+    const tableMap = getTableMapping(isDemo);
 
-      if (error) {
-        console.error("Error fetching accounts:", error);
-        Toast.show({
-          type: "error",
-          text1: "Failed to fetch accounts",
-          text2: error.message,
-        });
-        return [];
-      }
+    const { data, error } = await (supabase as any)
+      .from(tableMap.accounts)
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
-      return (data || []).map((account: any) => mapDbAccountToModel(account));
+    if (error) {
+      console.error("Error fetching accounts:", error);
+      Toast.show({
+        type: "error",
+        text1: "Failed to fetch accounts",
+        text2: error.message,
+      });
+      return [];
+    }
+
+    return (data || []).map((account: any) => mapDbAccountToModel(account));
     }
 
     // For real mode, use offline-first repository
@@ -175,32 +175,32 @@ export const addAccount = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-      const tableMap = getTableMapping(isDemo);
-      const dbAccount = mapModelToDbAccount(account, user.id);
+    const tableMap = getTableMapping(isDemo);
+    const dbAccount = mapModelToDbAccount(account, user.id);
 
-      const { data, error } = await (supabase as any)
-        .from(tableMap.accounts)
-        .insert([dbAccount])
-        .select()
-        .single();
+    const { data, error } = await (supabase as any)
+      .from(tableMap.accounts)
+      .insert([dbAccount])
+      .select()
+      .single();
 
-      if (error) {
-        console.error("Error adding account:", error);
-        Toast.show({
-          type: "error",
-          text1: "Failed to add account",
-          text2: error.message,
-        });
-        throw error;
-      }
+    if (error) {
+      console.error("Error adding account:", error);
+      Toast.show({
+        type: "error",
+        text1: "Failed to add account",
+        text2: error.message,
+      });
+      throw error;
+    }
 
       Toast.show({
         type: "success",
@@ -227,7 +227,7 @@ export const addAccount = async (
     };
 
     const newAccount = await repo.create(accountData);
-    
+
     Toast.show({
       type: "success",
       text1: "Account added successfully",
@@ -264,41 +264,41 @@ export const updateAccount = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-      const tableMap = getTableMapping(isDemo);
-      const dbAccount = mapModelToDbAccount(account, user.id);
+    const tableMap = getTableMapping(isDemo);
+    const dbAccount = mapModelToDbAccount(account, user.id);
 
-      const { data, error } = await (supabase as any)
-        .from(tableMap.accounts)
-        .update(dbAccount)
-        .eq("id", account.id)
-        .eq("user_id", user.id)
-        .select()
-        .single();
+    const { data, error } = await (supabase as any)
+      .from(tableMap.accounts)
+      .update(dbAccount)
+      .eq("id", account.id)
+      .eq("user_id", user.id)
+      .select()
+      .single();
 
-      if (error) {
-        console.error("Error updating account:", error);
-        Toast.show({
-          type: "error",
-          text1: "Failed to update account",
-          text2: error.message,
-        });
-        throw error;
-      }
-
+    if (error) {
+      console.error("Error updating account:", error);
       Toast.show({
-        type: "success",
-        text1: "Account updated successfully",
+        type: "error",
+        text1: "Failed to update account",
+        text2: error.message,
       });
+      throw error;
+    }
 
-      return mapDbAccountToModel(data);
+    Toast.show({
+      type: "success",
+      text1: "Account updated successfully",
+    });
+
+    return mapDbAccountToModel(data);
     }
 
     // For real mode, use offline-first repository

@@ -137,7 +137,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
               onPress={handleLogoPress}
             >
               <View style={styles.logoWithStatus}>
-                <Logo size={52} animated={true} />
+              <Logo size={52} animated={true} />
                 <NetworkStatusDot size={10} />
               </View>
               <Text

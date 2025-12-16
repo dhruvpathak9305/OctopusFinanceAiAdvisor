@@ -33,9 +33,9 @@ function AppContent() {
   // Use different apps for mobile vs web
   if (Platform.OS === "web") {
     return (
-      <WebPageLayout>
-        <WebHomeContent />
-      </WebPageLayout>
+                    <WebPageLayout>
+                      <WebHomeContent />
+                    </WebPageLayout>
     );
   }
 
@@ -50,13 +50,13 @@ export default function HomePage() {
         <DemoModeProvider>
           <UnifiedAuthProvider>
             <SubscriptionProvider>
-              <AccountsProvider>
-                <BalanceProvider>
-                  <NetWorthProvider>
+          <AccountsProvider>
+            <BalanceProvider>
+              <NetWorthProvider>
                     <AppContent />
-                  </NetWorthProvider>
-                </BalanceProvider>
-              </AccountsProvider>
+              </NetWorthProvider>
+            </BalanceProvider>
+          </AccountsProvider>
             </SubscriptionProvider>
           </UnifiedAuthProvider>
         </DemoModeProvider>

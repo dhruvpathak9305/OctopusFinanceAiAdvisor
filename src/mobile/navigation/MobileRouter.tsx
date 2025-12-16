@@ -30,6 +30,7 @@ import MobileDateFilter from "../pages/MobileDateFilter";
 import FinancialRelationshipsScreen from "../screens/FinancialRelationshipsScreen";
 import ScrollableBottomNav from "../components/navigation/ScrollableBottomNav";
 import { SyncQueueView } from "../../../components/sync/SyncQueueView";
+import { PerformanceDashboard } from "../../../components/performance/PerformanceDashboard";
 
 // Navigation Types
 export type MobileTabParamList = {
@@ -53,6 +54,7 @@ export type MobileStackParamList = {
   MobileTravel: undefined;
   MobileDateFilter: undefined;
   SyncQueue: undefined;
+  PerformanceDashboard: undefined;
 };
 
 const Tab = createBottomTabNavigator<MobileTabParamList>();
@@ -257,6 +259,21 @@ const RootStackNavigator: React.FC = () => {
         options={{
           headerShown: true,
           headerTitle: "Sync Queue",
+          headerStyle: {
+            backgroundColor: "#0B1426",
+          },
+          headerTintColor: "#10B981",
+          headerTitleStyle: {
+            color: "#FFFFFF",
+          },
+        }}
+      />
+      <Stack.Screen
+        name="PerformanceDashboard"
+        component={PerformanceDashboard}
+        options={{
+          headerShown: true,
+          headerTitle: "Performance Metrics",
           headerStyle: {
             backgroundColor: "#0B1426",
           },

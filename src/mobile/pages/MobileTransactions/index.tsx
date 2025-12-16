@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -25,6 +25,11 @@ import SearchModal from "../../components/SearchModal";
 import QuickAddButton from "../../components/QuickAddButton";
 import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
 import { useRealAccountsData } from "../MobileAccounts/useRealAccountsData";
+import { usePaginatedQuery } from "../../../../hooks/usePaginatedQuery";
+import { TransactionsRepository } from "../../../../services/repositories/transactionsRepository";
+import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
+import { useSubscription } from "../../../../contexts/SubscriptionContext";
+import networkMonitor from "../../../../services/sync/networkMonitor";
 
 interface MobileTransactionsProps {
   className?: string;
@@ -276,6 +281,50 @@ const mapParsedTransactionType = (
   }
 };
 
+// Transform repository transaction to component transaction
+const transformRepositoryTransaction = (
+  repoTransaction: any
+): Transaction => {
+  try {
+    return {
+      id: repoTransaction.id || "",
+      title: repoTransaction.name || "Transaction",
+      source: repoTransaction.source_account_name || "Unknown Account",
+      tags: [
+        // Note: category/subcategory names would need to be fetched separately
+        // For now, we'll use IDs or leave empty
+        repoTransaction.is_recurring ? "Recurring" : undefined,
+      ].filter(Boolean) as string[],
+      description: repoTransaction.description || "",
+      amount: typeof repoTransaction.amount === "number" ? repoTransaction.amount : 0,
+      type: (repoTransaction.type as "income" | "expense" | "transfer") || "expense",
+      icon: repoTransaction.icon || null,
+      category_ring_color: null, // Would need to fetch from category
+      category_bg_color: null,
+      subcategory_color: null,
+      date: repoTransaction.date || new Date().toISOString().split("T")[0],
+      source_account_id: repoTransaction.source_account_id,
+      source_account_name: repoTransaction.source_account_name,
+      destination_account_id: repoTransaction.destination_account_id,
+      destination_account_name: repoTransaction.destination_account_name,
+      metadata: repoTransaction.metadata || null,
+    } as Transaction;
+  } catch (error) {
+    console.error("Error transforming repository transaction:", error, repoTransaction);
+    return {
+      id: "error-" + Date.now(),
+      title: "Error Loading Transaction",
+      source: "Unknown",
+      tags: ["Error"],
+      description: "Failed to load transaction data",
+      amount: 0,
+      type: "expense",
+      icon: "⚠️",
+      date: new Date().toISOString().split("T")[0],
+    };
+  }
+};
+
 // Transform Supabase transaction to component transaction
 const transformSupabaseTransaction = (
   supabaseTransaction: SupabaseTransaction
@@ -463,6 +512,9 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const { isDemo } = useDemoMode();
+  const { user } = useUnifiedAuth();
+  const { isPremium } = useSubscription();
+  const isOnline = networkMonitor.isCurrentlyOnline();
   
   // Fetch accounts data for filtering
   const { accounts: realAccounts } = useRealAccountsData();
@@ -491,12 +543,11 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   const [selectedSort, setSelectedSort] = useState("Oldest First");
   const [selectedAccount, setSelectedAccount] = useState("All Accounts");
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [groupedTransactions, setGroupedTransactions] = useState<
-    GroupedTransactions[]
-  >([]);
+  // State variables removed - using memoized values directly to avoid infinite loops
+  // const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState<string | null>(null);
+  // const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // const [groupedTransactions, setGroupedTransactions] = useState<GroupedTransactions[]>([]);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
 
@@ -525,263 +576,248 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         filterBackground: "#F3F4F6",
       };
 
-  // Fetch transactions from Supabase or use parsed transactions
-  const fetchTransactionsData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Helper function to parse date range from selectedFilter
+  const parseDateRange = useCallback((filter: string): { startDate: Date; endDate: Date } => {
+    const now = new Date();
+    let startDate = new Date();
+    let endDate = new Date();
 
-      // If in confirmation mode, use parsed transactions
-      if (isConfirmationMode && parsedTransactions.length > 0) {
-        const transformedTransactions = parsedTransactions.map(
-          transformParsedTransaction
-        );
-        setTransactions(transformedTransactions);
-        setGroupedTransactions(
-          groupTransactionsByDate(transformedTransactions)
-        );
+    const monthNames = [
+      "jan", "feb", "mar", "apr", "may", "jun",
+      "jul", "aug", "sep", "oct", "nov", "dec",
+    ];
 
-        // Auto-select all transactions in confirmation mode
-        const allIds = new Set(transformedTransactions.map((t) => t.id));
-        setSelectedTransactions(allIds);
-        setLoading(false);
-        return;
-      }
+    const specificDateMatch = filter.match(/(\w+)\s+(\d{1,2})\s+(\d{4})/);
+    const monthRangeMatch = filter.match(/(\w+)\s+(\d{4})/);
+    const yearOnlyMatch = filter.match(/^(\d{4})$/);
+    
+    if (specificDateMatch) {
+      const monthName = specificDateMatch[1];
+      const day = parseInt(specificDateMatch[2]);
+      const year = parseInt(specificDateMatch[3]);
+      const monthIndex = monthNames.indexOf(monthName.toLowerCase());
 
-      // Calculate date range based on selected filter
-      const now = new Date();
-      let startDate = new Date();
-      let endDate = new Date();
-
-      // Handle month name parsing
-      const monthNames = [
-        "jan",
-        "feb",
-        "mar",
-        "apr",
-        "may",
-        "jun",
-        "jul",
-        "aug",
-        "sep",
-        "oct",
-        "nov",
-        "dec",
-      ];
-
-      // Parse the filter - handle three formats:
-      // - "Oct 8 2025" (specific date, 3 parts)
-      // - "Oct 2025" (month range, 2 parts)
-      // - "2025" (entire year, 1 part)
-      const specificDateMatch = selectedFilter.match(/(\w+)\s+(\d{1,2})\s+(\d{4})/);
-      const monthRangeMatch = selectedFilter.match(/(\w+)\s+(\d{4})/);
-      const yearOnlyMatch = selectedFilter.match(/^(\d{4})$/);
-      
-      if (specificDateMatch) {
-        // Format: "Oct 8 2025" - filter to specific date
-        const monthName = specificDateMatch[1];
-        const day = parseInt(specificDateMatch[2]);
-        const year = parseInt(specificDateMatch[3]);
-        const monthIndex = monthNames.indexOf(monthName.toLowerCase());
-
-        if (monthIndex !== -1) {
-          // Set both start and end to the same specific date
-          startDate = new Date(year, monthIndex, day, 0, 0, 0, 0);
-          endDate = new Date(year, monthIndex, day, 23, 59, 59, 999);
-          
-          console.log(
-            "📅 Filtering by specific date:",
-            `${monthName} ${day}, ${year}`
-          );
-        } else {
-          // Fallback to current day if parsing fails
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-        }
-      } else if (monthRangeMatch) {
-        // Format: "Oct 2025" - filter to entire month
-        const monthName = monthRangeMatch[1];
-        const year = parseInt(monthRangeMatch[2]);
-        const monthIndex = monthNames.indexOf(monthName.toLowerCase());
-
-        if (monthIndex !== -1) {
-          startDate = new Date(year, monthIndex, 1, 0, 0, 0, 0);
-          endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-          
-          console.log(
-            "📅 Filtering by month range:",
-            `${monthName} ${year}`
-          );
-        } else {
-          // Fallback to current month if month parsing fails
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-        }
-      } else if (yearOnlyMatch) {
-        // Format: "2025" - filter to entire year
-        const year = parseInt(yearOnlyMatch[1]);
-        
-        if (!isNaN(year)) {
-          startDate = new Date(year, 0, 1, 0, 0, 0, 0); // January 1st
-          endDate = new Date(year, 11, 31, 23, 59, 59, 999); // December 31st
-          
-          console.log(
-            "📅 Filtering by entire year:",
-            `${year}`
-          );
-        } else {
-          // Fallback to current year
-          startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-          endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-        }
+      if (monthIndex !== -1) {
+        startDate = new Date(year, monthIndex, day, 0, 0, 0, 0);
+        endDate = new Date(year, monthIndex, day, 23, 59, 59, 999);
       } else {
-        // Fallback to current month if filter parsing fails
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      }
+    } else if (monthRangeMatch) {
+      const monthName = monthRangeMatch[1];
+      const year = parseInt(monthRangeMatch[2]);
+      const monthIndex = monthNames.indexOf(monthName.toLowerCase());
+
+      if (monthIndex !== -1) {
+        startDate = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+        endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+      } else {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       }
+    } else if (yearOnlyMatch) {
+      const year = parseInt(yearOnlyMatch[1]);
+      if (!isNaN(year)) {
+        startDate = new Date(year, 0, 1, 0, 0, 0, 0);
+        endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+      } else {
+        startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      }
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
 
-      // Debug: Log the date range being used
-      console.log(
-        "🗓️ MobileTransactions: Fetching transactions with date filter:",
-        {
-          selectedFilter,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          dateRange: `${startDate.toDateString()} to ${endDate.toDateString()}`,
-        }
+    return { startDate, endDate };
+  }, []);
+
+  // Get user ID for repository
+  const userId = user?.id || 'offline_user';
+
+  // Parse date range from selected filter
+  const { startDate, endDate } = useMemo(() => parseDateRange(selectedFilter), [selectedFilter, parseDateRange]);
+
+  // Memoize fetchPage function to prevent infinite loops
+  const fetchPage = useCallback(async (page: number, pageSize: number) => {
+    if (!userId || isConfirmationMode) {
+      return { data: [], total: 0, page: 1, pageSize, totalPages: 1, hasMore: false };
+    }
+
+    const repo = new TransactionsRepository(userId, isPremium, isOnline);
+    return repo.findByDateRangePaginated(startDate, endDate, page, pageSize);
+  }, [userId, isConfirmationMode, isPremium, isOnline, startDate, endDate]);
+
+  // Use paginated query hook - fetch all transactions for date range (using large page size)
+  // Note: We use a large page size to get all transactions, then filter client-side
+  // This is a hybrid approach until we can move filtering to repository level
+  const paginatedQuery = usePaginatedQuery({
+    fetchPage,
+    pageSize: 1000, // Large page size to get all transactions for the date range
+    enabled: !isConfirmationMode && !!userId,
+    onError: useCallback((err: Error) => {
+      console.error('Error fetching paginated transactions:', err);
+      // Error is handled by paginatedQuery.error state
+    }, []),
+  });
+
+  // Transform repository transactions to component format
+  const repositoryTransactions = useMemo(() => {
+    if (!paginatedQuery.data || paginatedQuery.data.length === 0) {
+      return [];
+    }
+    return paginatedQuery.data.map(transformRepositoryTransaction);
+  }, [paginatedQuery.data]);
+
+  // Process transactions: apply filtering and sorting
+  const processTransactions = useCallback((
+    rawTransactions: Transaction[]
+  ): Transaction[] => {
+    // Apply account filtering first (if account is selected)
+    let accountFilteredTransactions = [...rawTransactions];
+    if (selectedAccount && selectedAccount !== "All Accounts") {
+      // Find the selected account ID from realAccounts
+      const selectedAccountData = realAccounts.find(
+        (acc) => acc.name === selectedAccount
       );
-
-      // Fetch transactions for the selected month
-      const supabaseTransactions = await fetchTransactions(
-        {
-          dateRange: { start: startDate, end: endDate },
-        },
-        isDemo
-      );
-
-      // Transform Supabase transactions to component format
-      const transformedTransactions = supabaseTransactions.map(
-        transformSupabaseTransaction
-      );
-
-      // Apply account filtering first (if account is selected)
-      let accountFilteredTransactions = [...transformedTransactions];
-      if (selectedAccount && selectedAccount !== "All Accounts") {
-        // Find the selected account ID from realAccounts
-        const selectedAccountData = realAccounts.find(
-          (acc) => acc.name === selectedAccount
+      
+      if (selectedAccountData) {
+        console.log(
+          `🏦 Filtering by account: ${selectedAccount} (ID: ${selectedAccountData.id})`
         );
         
-        if (selectedAccountData) {
-          console.log(
-            `🏦 Filtering by account: ${selectedAccount} (ID: ${selectedAccountData.id})`
+        accountFilteredTransactions = rawTransactions.filter((t) => {
+          // For income, the account is the DESTINATION (money coming in)
+          if (t.type === "income") {
+            if (t.destination_account_id === selectedAccountData.id) {
+              return true;
+            }
+          }
+
+          // For expenses, the account is the SOURCE (money going out)
+          if (t.type === "expense") {
+            if (t.source_account_id === selectedAccountData.id) {
+              return true;
+            }
+          }
+
+          // For transfers, either side can match
+          if (t.type === "transfer") {
+            if (
+              t.source_account_id === selectedAccountData.id ||
+              t.destination_account_id === selectedAccountData.id
+            ) {
+              return true;
+            }
+          }
+
+          // Fallback: Match by account name if IDs are missing
+          const names = [
+            t.source_account_name,
+            t.destination_account_name,
+            t.source,
+          ].filter(Boolean) as string[];
+          return names.some((n) =>
+            n === selectedAccount ||
+            n.includes(selectedAccount) ||
+            selectedAccount.includes(n)
           );
-          
-          accountFilteredTransactions = transformedTransactions.filter((t) => {
-            // For income, the account is the DESTINATION (money coming in)
-            if (t.type === "income") {
-              if (t.destination_account_id === selectedAccountData.id) {
-                return true;
-              }
-            }
-
-            // For expenses, the account is the SOURCE (money going out)
-            if (t.type === "expense") {
-              if (t.source_account_id === selectedAccountData.id) {
-                return true;
-              }
-            }
-
-            // For transfers, either side can match
-            if (t.type === "transfer") {
-              if (
-                t.source_account_id === selectedAccountData.id ||
-                t.destination_account_id === selectedAccountData.id
-              ) {
-                return true;
-              }
-            }
-
-            // Fallback: Match by account name if IDs are missing
-            const names = [
-              t.source_account_name,
-              t.destination_account_name,
-              t.source,
-            ].filter(Boolean) as string[];
-            return names.some((n) =>
-              n === selectedAccount ||
-              n.includes(selectedAccount) ||
-              selectedAccount.includes(n)
-            );
-          });
-          
-          console.log(
-            `🏦 Account filter applied: ${transformedTransactions.length} → ${accountFilteredTransactions.length} transactions (including incoming transfers)`
-          );
-        } else {
-          console.warn(`⚠️ Account not found: ${selectedAccount}`);
-        }
+        });
+        
+        console.log(
+          `🏦 Account filter applied: ${rawTransactions.length} → ${accountFilteredTransactions.length} transactions`
+        );
+      } else {
+        console.warn(`⚠️ Account not found: ${selectedAccount}`);
       }
-
-      // Apply sorting and type filtering
-      let sortedTransactions = [...accountFilteredTransactions];
-      switch (selectedSort) {
-        case "Newest First":
-          sortedTransactions.sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-          break;
-        case "Oldest First":
-          sortedTransactions.sort(
-            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-          );
-          break;
-        case "Largest Amount":
-          sortedTransactions.sort(
-            (a, b) => Math.abs(b.amount) - Math.abs(a.amount)
-          );
-          break;
-        case "Smallest Amount":
-          sortedTransactions.sort(
-            (a, b) => Math.abs(a.amount) - Math.abs(b.amount)
-          );
-          break;
-        case "Income":
-          sortedTransactions = sortedTransactions.filter(
-            (t) => t.type === "income"
-          );
-          break;
-        case "Expense":
-          sortedTransactions = sortedTransactions.filter(
-            (t) => t.type === "expense"
-          );
-          break;
-        case "Transfer":
-          sortedTransactions = sortedTransactions.filter(
-            (t) => t.type === "transfer"
-          );
-          break;
-        case "Recurring":
-          sortedTransactions = sortedTransactions.filter(
-            (t) => t.tags && t.tags.includes("Recurring")
-          );
-          break;
-        // 'ALL' case - no filtering needed
-      }
-
-      setTransactions(sortedTransactions);
-      setGroupedTransactions(groupTransactionsByDate(sortedTransactions));
-    } catch (err) {
-      console.error("Error fetching transactions:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to load transactions"
-      );
-      setTransactions([]);
-      setGroupedTransactions([]);
-    } finally {
-      setLoading(false);
     }
-  }, [selectedFilter, selectedSort, selectedAccount, isDemo, realAccounts]);
+
+    // Apply sorting and type filtering
+    let sortedTransactions = [...accountFilteredTransactions];
+    switch (selectedSort) {
+      case "Newest First":
+        sortedTransactions.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        break;
+      case "Oldest First":
+        sortedTransactions.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        break;
+      case "Largest Amount":
+        sortedTransactions.sort(
+          (a, b) => Math.abs(b.amount) - Math.abs(a.amount)
+        );
+        break;
+      case "Smallest Amount":
+        sortedTransactions.sort(
+          (a, b) => Math.abs(a.amount) - Math.abs(b.amount)
+        );
+        break;
+      case "Income":
+        sortedTransactions = sortedTransactions.filter(
+          (t) => t.type === "income"
+        );
+        break;
+      case "Expense":
+        sortedTransactions = sortedTransactions.filter(
+          (t) => t.type === "expense"
+        );
+        break;
+      case "Transfer":
+        sortedTransactions = sortedTransactions.filter(
+          (t) => t.type === "transfer"
+        );
+        break;
+      case "Recurring":
+        sortedTransactions = sortedTransactions.filter(
+          (t) => t.tags && t.tags.includes("Recurring")
+        );
+        break;
+      // 'ALL' case - no filtering needed
+    }
+
+    return sortedTransactions;
+  }, [selectedAccount, selectedSort, realAccounts]);
+
+  // Process transactions when paginated data or filters change
+  const processedTransactions = useMemo(() => {
+    if (isConfirmationMode && parsedTransactions.length > 0) {
+      return parsedTransactions.map(transformParsedTransaction);
+    }
+    return processTransactions(repositoryTransactions);
+  }, [isConfirmationMode, parsedTransactions, repositoryTransactions, processTransactions]);
+
+  // Group transactions by date
+  const groupedTransactionsMemo = useMemo(() => {
+    return groupTransactionsByDate(processedTransactions);
+  }, [processedTransactions]);
+
+  // Use processedTransactions and groupedTransactionsMemo directly instead of storing in state
+  // This avoids infinite loops from state updates
+  const transactions = processedTransactions;
+  const groupedTransactions = groupedTransactionsMemo;
+  const loading = paginatedQuery.isLoading;
+  const error = paginatedQuery.isError ? (paginatedQuery.error?.message || 'Failed to load transactions') : null;
+
+  // Auto-select all transactions in confirmation mode
+  useEffect(() => {
+    if (isConfirmationMode && processedTransactions.length > 0) {
+      const allIds = new Set(processedTransactions.map((t) => t.id));
+      setSelectedTransactions(allIds);
+    }
+  }, [isConfirmationMode, processedTransactions.length]); // Only depend on length to avoid loops
+
+  // Legacy fetchTransactionsData for backward compatibility (used by refresh handlers)
+  const fetchTransactionsData = useCallback(async () => {
+    if (isConfirmationMode && parsedTransactions.length > 0) {
+      return;
+    }
+    // Refresh paginated query
+    await paginatedQuery.refresh();
+  }, [isConfirmationMode, parsedTransactions.length, paginatedQuery.refresh]);
 
   // Load transactions when component mounts or filters change
   useEffect(() => {
@@ -1747,6 +1783,39 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
             </View>
           ))
         )}
+
+        {/* Pagination Controls */}
+        {!isConfirmationMode && paginatedQuery.totalPages > 1 && (
+          <View style={[styles.paginationContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                { backgroundColor: colors.filterBackground },
+                paginatedQuery.currentPage === 1 && styles.paginationButtonDisabled
+              ]}
+              onPress={() => paginatedQuery.previousPage()}
+              disabled={paginatedQuery.currentPage === 1}
+            >
+              <Text style={[styles.paginationButtonText, { color: colors.text }]}>Previous</Text>
+            </TouchableOpacity>
+            
+            <Text style={[styles.paginationInfo, { color: colors.textSecondary }]}>
+              Page {paginatedQuery.currentPage} of {paginatedQuery.totalPages}
+            </Text>
+            
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                { backgroundColor: colors.filterBackground },
+                !paginatedQuery.hasMore && styles.paginationButtonDisabled
+              ]}
+              onPress={() => paginatedQuery.nextPage()}
+              disabled={!paginatedQuery.hasMore}
+            >
+              <Text style={[styles.paginationButtonText, { color: colors.text }]}>Next</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* Search Modal */}
@@ -2190,6 +2259,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
     fontWeight: "600",
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    marginTop: 16,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  paginationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  paginationButtonDisabled: {
+    opacity: 0.5,
+  },
+  paginationButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paginationInfo: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

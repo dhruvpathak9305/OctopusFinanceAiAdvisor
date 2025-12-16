@@ -67,10 +67,10 @@ export const PerformanceDashboard: React.FC = () => {
         Date.now() - 24 * 60 * 60 * 1000
       );
 
-      // Get sync metrics (last 24 hours)
+      // Get sync metrics (last 24 hours) - use total_sync metric name
       const syncMetrics = await metricsCollector.getAggregatedMetrics(
         MetricType.SYNC,
-        'sync.complete',
+        'sync.total_sync',
         Date.now() - 24 * 60 * 60 * 1000
       );
 
@@ -92,7 +92,7 @@ export const PerformanceDashboard: React.FC = () => {
         syncAvg: syncMetrics.avg || 0,
         syncMax: syncMetrics.max || 0,
         syncCount: syncMetrics.count || 0,
-        cacheHitRate: 0, // Would need hit/miss tracking for accurate rate
+        cacheHitRate: cacheStats.hitRate, // Now using actual hit rate from cache
         databaseSize: databaseSize / 1024 / 1024, // Convert to MB
       });
     } catch (error) {
@@ -197,6 +197,18 @@ export const PerformanceDashboard: React.FC = () => {
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Max Size</Text>
             <Text style={[styles.statValue, { color: colors.text }]}>
               {getQueryCache().getStats().maxSize} entries
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Hit Rate</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>
+              {stats?.cacheHitRate.toFixed(1) || '0.0'}%
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Hits / Misses</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>
+              {getQueryCache().getStats().hits} / {getQueryCache().getStats().misses}
             </Text>
           </View>
         </View>

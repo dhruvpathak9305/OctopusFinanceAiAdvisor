@@ -281,33 +281,33 @@ export const fetchTransactionById = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        throw new Error("User not authenticated");
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    const tableMap = getTableMapping(isDemo);
+    const selectQuery = buildTransactionSelectQuery(tableMap);
+
+    const { data, error } = await (supabase as any)
+      .from(tableMap.transactions)
+      .select(selectQuery)
+      .eq("user_id", user.id)
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching transaction:", error);
+      if (error.code !== "PGRST116") {
+        // Let caller handle error notifications
       }
+      throw error;
+    }
 
-      const tableMap = getTableMapping(isDemo);
-      const selectQuery = buildTransactionSelectQuery(tableMap);
-
-      const { data, error } = await (supabase as any)
-        .from(tableMap.transactions)
-        .select(selectQuery)
-        .eq("user_id", user.id)
-        .eq("id", id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching transaction:", error);
-        if (error.code !== "PGRST116") {
-          // Let caller handle error notifications
-        }
-        throw error;
-      }
-
-      return data ? transformTransactionResponse(data) : null;
+    return data ? transformTransactionResponse(data) : null;
     }
 
     // For real mode, use offline-first repository
@@ -329,94 +329,94 @@ export const fetchTransactions = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      // Get the current user - try session first, then getUser
-      let user = null;
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        user = session?.user || null;
-
-        if (!user) {
-          const {
-            data: { user: authUser },
-          } = await supabase.auth.getUser();
-          user = authUser;
-        }
-      } catch (authError) {
-        console.error("fetchTransactions - auth error:", authError);
-      }
+    // Get the current user - try session first, then getUser
+    let user = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user || null;
 
       if (!user) {
-        throw new Error("User not authenticated");
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+        user = authUser;
       }
+    } catch (authError) {
+      console.error("fetchTransactions - auth error:", authError);
+    }
 
-      const tableMap = getTableMapping(isDemo);
-      const selectQuery = buildTransactionSelectQuery(tableMap);
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-      // Use type assertion to handle dynamic table names
-      let query = (supabase as any)
-        .from(tableMap.transactions)
-        .select(selectQuery)
-        .eq("user_id", user.id);
+    const tableMap = getTableMapping(isDemo);
+    const selectQuery = buildTransactionSelectQuery(tableMap);
+
+    // Use type assertion to handle dynamic table names
+    let query = (supabase as any)
+      .from(tableMap.transactions)
+      .select(selectQuery)
+      .eq("user_id", user.id);
 
       // Apply filters (existing logic)
-      if (filters.type && filters.type !== "all") {
-        query = query.eq("type", filters.type);
+    if (filters.type && filters.type !== "all") {
+      query = query.eq("type", filters.type);
+    }
+
+    if (filters.dateRange) {
+      const dateFilter = buildDateRangeFilter(filters.dateRange) as {
+        gte?: string;
+        lt?: string;
+      };
+      if (dateFilter.gte) query = query.gte("date", dateFilter.gte);
+      if (dateFilter.lt) query = query.lt("date", dateFilter.lt);
+    }
+
+    if (filters.institution) {
+      query = query.eq("institution", filters.institution);
+    }
+
+    if (filters.category) {
+      query = query.eq("category", filters.category);
+    }
+
+    if (filters.subcategory) {
+      query = query.eq("subcategory", filters.subcategory);
+    }
+
+    if (filters.accountId) {
+      if (filters.type === "income") {
+        query = query.eq("destination_account_id", filters.accountId);
+      } else {
+        query = query.eq("source_account_id", filters.accountId);
       }
+    }
 
-      if (filters.dateRange) {
-        const dateFilter = buildDateRangeFilter(filters.dateRange) as {
-          gte?: string;
-          lt?: string;
-        };
-        if (dateFilter.gte) query = query.gte("date", dateFilter.gte);
-        if (dateFilter.lt) query = query.lt("date", dateFilter.lt);
-      }
+    if (filters.isCreditCard !== undefined) {
+      query = query.eq("is_credit_card", filters.isCreditCard);
+    }
 
-      if (filters.institution) {
-        query = query.eq("institution", filters.institution);
-      }
+    if (filters.amountRange?.min !== undefined) {
+      query = query.gte("amount", filters.amountRange.min);
+    }
+    if (filters.amountRange?.max !== undefined) {
+      query = query.lte("amount", filters.amountRange.max);
+    }
 
-      if (filters.category) {
-        query = query.eq("category", filters.category);
-      }
+    if (filters.searchQuery) {
+      query = query.or(
+        `description.ilike.%${filters.searchQuery}%,category.ilike.%${filters.searchQuery}%,subcategory.ilike.%${filters.searchQuery}%`
+      );
+    }
 
-      if (filters.subcategory) {
-        query = query.eq("subcategory", filters.subcategory);
-      }
+    query = query.order("date", { ascending: false });
 
-      if (filters.accountId) {
-        if (filters.type === "income") {
-          query = query.eq("destination_account_id", filters.accountId);
-        } else {
-          query = query.eq("source_account_id", filters.accountId);
-        }
-      }
+    const { data, error } = await query;
 
-      if (filters.isCreditCard !== undefined) {
-        query = query.eq("is_credit_card", filters.isCreditCard);
-      }
-
-      if (filters.amountRange?.min !== undefined) {
-        query = query.gte("amount", filters.amountRange.min);
-      }
-      if (filters.amountRange?.max !== undefined) {
-        query = query.lte("amount", filters.amountRange.max);
-      }
-
-      if (filters.searchQuery) {
-        query = query.or(
-          `description.ilike.%${filters.searchQuery}%,category.ilike.%${filters.searchQuery}%,subcategory.ilike.%${filters.searchQuery}%`
-        );
-      }
-
-      query = query.order("date", { ascending: false });
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Error fetching transactions:", error);
+    if (error) {
+      console.error("Error fetching transactions:", error);
         throw error;
       }
 
@@ -657,45 +657,45 @@ export const addTransaction = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      // Get the current user - try session first, then getUser
-      let user = null;
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        user = session?.user || null;
-
-        if (!user) {
-          const {
-            data: { user: authUser },
-          } = await supabase.auth.getUser();
-          user = authUser;
-        }
-      } catch (authError) {
-        console.error("addTransaction - auth error:", authError);
-      }
+    // Get the current user - try session first, then getUser
+    let user = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user || null;
 
       if (!user) {
-        throw new Error("User not authenticated");
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+        user = authUser;
       }
+    } catch (authError) {
+      console.error("addTransaction - auth error:", authError);
+    }
 
-      const tableMap = getTableMapping(isDemo);
-      const selectQuery = buildTransactionSelectQuery(tableMap);
-      const transactionData = prepareTransactionForInsert(transaction, user.id);
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-      // Insert the transaction using dynamic table name
-      const { data, error } = await (supabase as any)
-        .from(tableMap.transactions)
-        .insert([transactionData])
-        .select(selectQuery)
-        .single();
+    const tableMap = getTableMapping(isDemo);
+    const selectQuery = buildTransactionSelectQuery(tableMap);
+    const transactionData = prepareTransactionForInsert(transaction, user.id);
 
-      if (error) {
-        console.error("Error adding transaction:", error);
-        throw error;
-      }
+    // Insert the transaction using dynamic table name
+    const { data, error } = await (supabase as any)
+      .from(tableMap.transactions)
+      .insert([transactionData])
+      .select(selectQuery)
+      .single();
 
-      const newTransaction = transformTransactionResponse(data);
+    if (error) {
+      console.error("Error adding transaction:", error);
+      throw error;
+    }
+
+    const newTransaction = transformTransactionResponse(data);
       emitBalanceUpdate("transaction-added", newTransaction.id);
       return newTransaction;
     }
@@ -731,40 +731,40 @@ export const updateTransaction = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-      const tableMap = getTableMapping(isDemo);
-      const selectQuery = buildTransactionSelectQuery(tableMap);
+    const tableMap = getTableMapping(isDemo);
+    const selectQuery = buildTransactionSelectQuery(tableMap);
 
-      const updateData: Record<string, any> = { ...updates };
-      delete updateData.id;
-      delete updateData.user_id;
-      delete updateData.created_at;
-      delete updateData.category_name;
-      delete updateData.subcategory_name;
-      delete updateData.budget_categories;
-      delete updateData.budget_subcategories;
+    const updateData: Record<string, any> = { ...updates };
+    delete updateData.id;
+    delete updateData.user_id;
+    delete updateData.created_at;
+    delete updateData.category_name;
+    delete updateData.subcategory_name;
+    delete updateData.budget_categories;
+    delete updateData.budget_subcategories;
 
-      const { data, error } = await (supabase as any)
-        .from(tableMap.transactions)
-        .update(updateData)
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .select(selectQuery)
-        .single();
+    const { data, error } = await (supabase as any)
+      .from(tableMap.transactions)
+      .update(updateData)
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select(selectQuery)
+      .single();
 
-      if (error) {
-        console.error("Error updating transaction:", error);
-        throw error;
-      }
+    if (error) {
+      console.error("Error updating transaction:", error);
+      throw error;
+    }
 
-      const updatedTransaction = transformTransactionResponse(data);
+    const updatedTransaction = transformTransactionResponse(data);
       emitBalanceUpdate("transaction-updated", updatedTransaction.id);
       return updatedTransaction;
     }
@@ -796,26 +796,26 @@ export const deleteTransaction = async (
   try {
     // For demo mode, use existing Supabase flow
     if (isDemo) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-      const tableMap = getTableMapping(isDemo);
+    const tableMap = getTableMapping(isDemo);
 
-      const { error } = await (supabase as any)
-        .from(tableMap.transactions)
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
+    const { error } = await (supabase as any)
+      .from(tableMap.transactions)
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
 
-      if (error) {
-        console.error("Error deleting transaction:", error);
-        throw error;
-      }
+    if (error) {
+      console.error("Error deleting transaction:", error);
+      throw error;
+    }
 
       emitBalanceUpdate("transaction-deleted", id);
       return;

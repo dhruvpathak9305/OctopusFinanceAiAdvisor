@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  FlatList,
+  RefreshControl,
 } from "react-native";
 import TransactionItem from "../../components/TransactionItem";
 import { useTheme } from "../../../../contexts/ThemeContext";
@@ -22,6 +24,12 @@ import { Transaction as SupabaseTransaction } from "../../../../types/transactio
 import { Ionicons } from "@expo/vector-icons";
 import QuickAddButton from "../../components/QuickAddButton";
 import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
+import { useInfiniteScroll } from "../../../../hooks/useInfiniteScroll";
+import { TransactionsRepository } from "../../../../services/repositories/transactionsRepository";
+import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
+import { useSubscription } from "../../../../contexts/SubscriptionContext";
+import networkMonitor from "../../../../services/sync/networkMonitor";
+import { getLocalDb } from "../../../../services/localDb";
 
 interface RecentTransactionsSectionProps {
   className?: string;
@@ -357,9 +365,9 @@ const TransactionGroup: React.FC<{
       </View>
 
       {/* Transactions */}
-      {dayData.transactions.map((transaction) => (
+      {dayData.transactions.map((transaction, index) => (
         <TransactionItem
-          key={transaction.id}
+          key={`${transaction.id}-${date}-${index}`}
           transaction={transaction}
           onPress={() => onEditTransaction(transaction.id)}
           onEdit={() => onEditTransaction(transaction.id)}
@@ -377,16 +385,149 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const { isDemo } = useDemoMode();
+  const { user } = useUnifiedAuth();
+  const { isPremium } = useSubscription();
+  const isOnline = networkMonitor.isCurrentlyOnline();
   const [selectedFilter, setSelectedFilter] = useState("This Week");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<
     number | string | null
   >(null);
+
+  // Get user ID for repository
+  const userId = user?.id || 'offline_user';
+
+  // Helper function to format date as YYYY-MM-DD in local timezone (not UTC)
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+      // Calculate date range based on selected filter
+  const dateRange = useMemo(() => {
+      const now = new Date();
+      let startDate = new Date();
+
+      switch (selectedFilter.toLowerCase()) {
+        case "this week":
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case "monthly":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "quarterly":
+          const currentMonth = now.getMonth();
+          const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
+          startDate = new Date(now.getFullYear(), quarterStartMonth, 1);
+          break;
+        case "this year":
+        // Set to January 1st of current year at midnight local time
+          startDate = new Date(now.getFullYear(), 0, 1);
+        startDate.setHours(0, 0, 0, 0); // Ensure it's at midnight
+          break;
+        default:
+          startDate.setDate(now.getDate() - 7);
+      }
+
+    // Normalize endDate to end of today
+    const endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999); // End of today
+
+    return { startDate, endDate };
+  }, [selectedFilter]);
+
+  // Memoize fetchNext to include dateRange in dependencies
+  const fetchNext = useCallback(async (cursor?: string) => {
+    if (!userId) {
+      return { data: [], nextCursor: undefined, hasMore: false };
+    }
+
+    console.log(`📅 RecentTransactions: Fetching page ${cursor || 1} for date range:`, {
+      start: formatLocalDate(dateRange.startDate),
+      end: formatLocalDate(dateRange.endDate),
+      filter: selectedFilter
+    });
+
+    const repo = new TransactionsRepository(userId, isPremium, isOnline);
+    const page = cursor ? parseInt(cursor, 10) : 1;
+    const pageSize = 20; // Load 20 transactions at a time
+    
+    const result = await repo.findByDateRangePaginated(
+      dateRange.startDate,
+      dateRange.endDate,
+      page,
+      pageSize
+    );
+
+    console.log(`✅ RecentTransactions: Fetched ${result.data.length} transactions (page ${page}, total: ${result.total})`);
+    
+    // Debug: Check if there are any transactions at all in the database (only on first page, wrapped in try-catch to prevent errors)
+    if (result.total === 0 && page === 1) {
+      try {
+        const db = await getLocalDb();
+        
+        // Check transactions for this user
+        const allTransactions = await repo.findAll({ user_id: userId });
+        console.log(`🔍 Debug: Total transactions in DB for user ${userId}: ${allTransactions.length}`);
+        
+        // Check ALL transactions (any user_id) to see if sync worked
+        const allTransactionsResult = await db.getFirstAsync<{ count: number }>(
+          `SELECT COUNT(*) as count FROM transactions_local WHERE deleted_offline = 0`
+        );
+        console.log(`🔍 Debug: Total transactions in DB (all users): ${allTransactionsResult?.count || 0}`);
+        
+        // Check distinct user_ids in the database
+        const distinctUsers = await db.getAllAsync<{ user_id: string; count: number }>(
+          `SELECT user_id, COUNT(*) as count FROM transactions_local WHERE deleted_offline = 0 GROUP BY user_id`
+        );
+        console.log(`🔍 Debug: Distinct user_ids in transactions_local:`, distinctUsers);
+        
+        if (allTransactions.length > 0) {
+          const sampleDate = allTransactions[0]?.date;
+          console.log(`🔍 Debug: Sample transaction date: ${sampleDate}`);
+          console.log(`🔍 Debug: Date range query: ${formatLocalDate(dateRange.startDate)} to ${formatLocalDate(dateRange.endDate)}`);
+          // Check date range of all transactions
+          const dates = allTransactions.map(t => t.date).sort();
+          console.log(`🔍 Debug: Transaction date range in DB: ${dates[0]} to ${dates[dates.length - 1]}`);
+        } else if ((allTransactionsResult?.count || 0) > 0) {
+          // If there are transactions but not for this user, show sample
+          const sampleTransactions = await db.getAllAsync<{ date: string; user_id: string; name: string }>(
+            `SELECT date, user_id, name FROM transactions_local WHERE deleted_offline = 0 ORDER BY date DESC LIMIT 5`
+          );
+          console.log(`🔍 Debug: Sample transactions (any user):`, sampleTransactions.map(t => ({ date: t.date, user_id: t.user_id, name: t.name })));
+          console.log(`⚠️ Warning: Transactions exist but with different user_id! Expected: ${userId}, Found: ${distinctUsers.map(u => u.user_id).join(', ')}`);
+        }
+      } catch (debugError) {
+        // Silently fail debug logging - don't break the main flow
+        console.warn('Debug logging failed:', debugError);
+      }
+    }
+
+    // Transform repository transactions to component format
+    const transformed = result.data.map((tx: any) => transformSupabaseTransaction(tx as SupabaseTransaction));
+
+    return {
+      data: transformed,
+      nextCursor: result.hasMore ? (page + 1).toString() : undefined,
+      hasMore: result.hasMore,
+    };
+  }, [userId, isPremium, isOnline, dateRange.startDate, dateRange.endDate, selectedFilter, formatLocalDate]);
+
+  // Use infinite scroll hook to fetch transactions
+  const infiniteScroll = useInfiniteScroll({
+    fetchNext,
+    pageSize: 20,
+    enabled: !!userId,
+    onError: (err) => {
+      console.error('Error fetching transactions:', err);
+      setError(err.message);
+    },
+  });
 
   const colors = isDark
     ? {
@@ -408,87 +549,40 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
         primary: "#10B981", // Added primary color for quick add button
       };
 
-  // Fetch transactions from Supabase
+  // Legacy fetchTransactionsData for backward compatibility (used by refresh handlers)
   const fetchTransactionsData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    await infiniteScroll.refresh();
+  }, [infiniteScroll]);
 
-      // Calculate date range based on selected filter
-      const now = new Date();
-      let startDate = new Date();
-
-      switch (selectedFilter.toLowerCase()) {
-        case "this week":
-          // Last 7 days from today
-          startDate.setDate(now.getDate() - 7);
-          break;
-        case "monthly":
-          // Start of current month
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case "quarterly":
-          // Start of current quarter (last 3 months)
-          const currentMonth = now.getMonth();
-          const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
-          startDate = new Date(now.getFullYear(), quarterStartMonth, 1);
-          break;
-        case "this year":
-          // Start of current year (January 1st)
-          startDate = new Date(now.getFullYear(), 0, 1);
-          break;
-        default:
-          // Default to last 7 days
-          startDate.setDate(now.getDate() - 7);
-      }
-
-      // Fetch transactions from Supabase
-      const supabaseTransactions = await fetchTransactions(
-        {
-          dateRange: { start: startDate, end: now },
-        },
-        isDemo
-      );
-
-      // Transform Supabase transactions to component format
-      const transformedTransactions = supabaseTransactions.map(
-        transformSupabaseTransaction
-      );
-
-      setTransactions(transformedTransactions);
-    } catch (err) {
-      console.error("Error fetching transactions:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to load transactions"
-      );
-      // Fallback to empty array
-      setTransactions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedFilter, isDemo]);
-
-  // Load transactions when component mounts or filter changes
+  // Reset and reload when filter changes
   useEffect(() => {
-    fetchTransactionsData();
-  }, [fetchTransactionsData]);
+    console.log(`🔄 RecentTransactions: Filter changed to "${selectedFilter}", resetting...`);
+    infiniteScroll.reset();
+    // reset() now automatically triggers loadMore(), so no need to call it manually
+  }, [selectedFilter]); // Reset when filter changes - reset() will trigger reload
 
   // Listen for bulk transaction uploads to refresh data
   useEffect(() => {
     const handleTransactionEvent = (event: {
       type: string;
       transactionId?: string;
+      source?: string;
     }) => {
       console.log("🔔 RecentTransactions: Received transaction event:", event);
 
-      // Refresh transaction data for any transaction-related event
-      if (event.type.includes("transaction") || event.type.includes("bulk")) {
+      // Refresh transaction data for any transaction-related event or sync completion
+      if (
+        event.type.includes("transaction") || 
+        event.type.includes("bulk") ||
+        event.type === "sync-complete" ||
+        event.source === "supabase-to-local"
+      ) {
         console.log(
           "🔄 RecentTransactions: Refreshing transactions due to event:",
           event.type
         );
         setTimeout(() => {
-          fetchTransactionsData();
+          infiniteScroll.refresh(); // Use infiniteScroll.refresh() directly
         }, 500); // Small delay to allow database operations to complete
       }
     };
@@ -502,10 +596,14 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
         "🔔 RecentTransactions: Received custom event:",
         event.detail
       );
-      if (event.detail?.type === "bulk-upload") {
-        console.log("🔄 RecentTransactions: Refreshing due to bulk upload");
+      if (
+        event.detail?.type === "bulk-upload" ||
+        event.detail?.type === "sync-complete" ||
+        event.detail?.source === "supabase-to-local"
+      ) {
+        console.log("🔄 RecentTransactions: Refreshing due to event:", event.detail.type);
         setTimeout(() => {
-          fetchTransactionsData();
+          infiniteScroll.refresh(); // Use infiniteScroll.refresh() directly
         }, 500);
       }
     };
@@ -534,8 +632,23 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     };
   }, [fetchTransactionsData]);
 
-  const filteredTransactions = transactions;
+  // Use transactions from infinite scroll and deduplicate by ID
+  const transactions = infiniteScroll.data;
+  // Deduplicate transactions by ID to prevent duplicate keys
+  const uniqueTransactions = React.useMemo(() => {
+    const seen = new Set<string | number>();
+    return transactions.filter((tx) => {
+      if (seen.has(tx.id)) {
+        return false;
+      }
+      seen.add(tx.id);
+      return true;
+    });
+  }, [transactions]);
+  
+  const filteredTransactions = uniqueTransactions;
   const groupedTransactions = groupTransactionsByDate(filteredTransactions);
+  const loading = infiniteScroll.isLoading;
 
   const handleFilterChange = (filter: string) => {
     setSelectedFilter(filter);
@@ -743,6 +856,23 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
               style={styles.transactionsList}
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={infiniteScroll.isLoading && !infiniteScroll.isLoadingMore}
+                  onRefresh={infiniteScroll.refresh}
+                  tintColor={colors.primary}
+                />
+              }
+              onScroll={({ nativeEvent }) => {
+                const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+                const paddingToBottom = 20;
+                const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+                
+                if (isCloseToBottom && infiniteScroll.hasMore && !infiniteScroll.isLoadingMore) {
+                  infiniteScroll.loadMore();
+                }
+              }}
+              scrollEventThrottle={400}
             >
               {Object.entries(groupedTransactions).map(([date, dayData]) => (
                 <TransactionGroup
@@ -753,6 +883,14 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
                   onDeleteTransaction={showDeleteConfirmation}
                 />
               ))}
+              {infiniteScroll.isLoadingMore && (
+                <View style={styles.loadingMoreContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.loadingMoreText, { color: colors.textSecondary }]}>
+                    Loading more...
+                  </Text>
+                </View>
+              )}
             </ScrollView>
           )}
         </View>

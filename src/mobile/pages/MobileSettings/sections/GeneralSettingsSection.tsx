@@ -12,6 +12,7 @@ import { syncSupabaseToLocal } from "../../../../../services/testing/syncSupabas
 import { useUnifiedAuth } from "../../../../../contexts/UnifiedAuthContext";
 import networkMonitor from "../../../../../services/sync/networkMonitor";
 import { getLocalDb } from "../../../../../services/localDb";
+import { balanceEventEmitter } from "../../../../../utils/balanceEventEmitter";
 
 interface GeneralSettingsSectionProps {
   colors: ThemeColors;
@@ -174,6 +175,20 @@ const GeneralSettingsSection: React.FC<GeneralSettingsSectionProps> = ({
       setLastPullTime(pullResult?.last_pulled_at || Date.now());
       
       const totalSynced = Object.values(result.synced).reduce((sum, count) => sum + count, 0);
+      
+      // Emit event to refresh transaction lists and other components
+      balanceEventEmitter.emit({
+        type: 'sync-complete',
+        source: 'supabase-to-local',
+      });
+      
+      // Also trigger custom event for web compatibility
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('transactionsRefreshNeeded', {
+          detail: { type: 'sync-complete', source: 'supabase-to-local' }
+        }));
+      }
+      
       if (result.errors.length > 0) {
         Alert.alert(
           "Sync Complete with Errors",
@@ -257,6 +272,20 @@ const GeneralSettingsSection: React.FC<GeneralSettingsSectionProps> = ({
             handlers.handleSyncQueue();
           } else {
             Alert.alert("Error", "Sync queue navigation not available");
+          }
+        }}
+      />
+      <SettingsSeparator colors={colors} />
+      <SettingsItem
+        icon="speedometer-outline"
+        title="Performance Metrics"
+        subtitle="View query and sync performance"
+        colors={colors}
+        onPress={() => {
+          if (handlers.handlePerformanceMetrics) {
+            handlers.handlePerformanceMetrics();
+          } else {
+            Alert.alert("Error", "Performance metrics navigation not available");
           }
         }}
       />

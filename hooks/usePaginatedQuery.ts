@@ -88,8 +88,10 @@ export function usePaginatedQuery<T>(
   );
 
   useEffect(() => {
-    loadPage(initialPage);
-  }, [initialPage]); // Only run on mount or initialPage change
+    if (enabled) {
+      loadPage(initialPage);
+    }
+  }, [initialPage, enabled, loadPage]); // Include loadPage but it's memoized with fetchPage
 
   const goToPage = useCallback(
     async (page: number) => {

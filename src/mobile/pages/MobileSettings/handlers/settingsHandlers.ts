@@ -219,6 +219,14 @@ export const createSettingsHandlers = ({
     }
   };
 
+  const handlePerformanceMetrics = () => {
+    if (navigation) {
+      navigation.navigate("PerformanceDashboard" as never);
+    } else {
+      Alert.alert("Navigation Error", "Navigation not available");
+    }
+  };
+
   return {
     handleSignOut,
     handleThemeChange,
@@ -233,5 +241,6 @@ export const createSettingsHandlers = ({
     handleAnalyticsSettings,
     handleGoalsSettings,
     handleSyncQueue,
+    handlePerformanceMetrics,
   };
 };

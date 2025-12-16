@@ -39,12 +39,16 @@ export class QueryCache<T = any> {
   private maxSize: number;
   private defaultTTL: number;
   private accessOrder: string[]; // Track access order for LRU eviction
+  private hits: number = 0;
+  private misses: number = 0;
 
   constructor(options: CacheOptions = {}) {
     this.maxSize = options.maxSize || DEFAULT_OPTIONS.maxSize;
     this.defaultTTL = options.defaultTTL || DEFAULT_OPTIONS.defaultTTL;
     this.cache = new Map();
     this.accessOrder = [];
+    this.hits = 0;
+    this.misses = 0;
   }
 
   /**
@@ -54,6 +58,7 @@ export class QueryCache<T = any> {
     const entry = this.cache.get(key);
 
     if (!entry) {
+      this.misses++;
       return null;
     }
 
@@ -61,11 +66,13 @@ export class QueryCache<T = any> {
     const now = Date.now();
     if (now - entry.timestamp > entry.ttl) {
       this.delete(key);
+      this.misses++;
       return null;
     }
 
     // Update access order (move to end)
     this.updateAccessOrder(key);
+    this.hits++;
     return entry.data;
   }
 
@@ -105,6 +112,9 @@ export class QueryCache<T = any> {
   clear(): void {
     this.cache.clear();
     this.accessOrder = [];
+    // Optionally reset stats, but keeping them for historical tracking
+    // this.hits = 0;
+    // this.misses = 0;
   }
 
   /**
@@ -121,6 +131,14 @@ export class QueryCache<T = any> {
   }
 
   /**
+   * Get cache hit rate (percentage)
+   */
+  getHitRate(): number {
+    const total = this.hits + this.misses;
+    return total > 0 ? (this.hits / total) * 100 : 0;
+  }
+
+  /**
    * Get cache statistics
    */
   getStats(): {
@@ -128,12 +146,16 @@ export class QueryCache<T = any> {
     maxSize: number;
     hitRate: number;
     entries: number;
+    hits: number;
+    misses: number;
   } {
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
-      hitRate: 0, // Would need to track hits/misses for accurate rate
+      hitRate: this.getHitRate(),
       entries: this.cache.size,
+      hits: this.hits,
+      misses: this.misses,
     };
   }
 

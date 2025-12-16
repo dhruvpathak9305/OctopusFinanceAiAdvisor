@@ -43,19 +43,19 @@ export const Logo: React.FC<LogoProps> = ({
     // Animated border pulse - only opacity (borderWidth doesn't work well with native driver)
     // Use separate animations to avoid mixing native and non-native drivers
     const opacityAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(borderOpacityAnim, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(borderOpacityAnim, {
-          toValue: 0.6,
-          duration: 2000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
+        Animated.sequence([
+          Animated.timing(borderOpacityAnim, {
+            toValue: 1,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(borderOpacityAnim, {
+            toValue: 0.6,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
       ])
     );
 

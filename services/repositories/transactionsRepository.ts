@@ -86,13 +86,20 @@ export class TransactionsRepository extends BaseRepository<
    * Convert database row to Transaction entity
    */
   protected rowToEntity(row: any): Transaction {
+    // Convert date from timestamp (if stored as number) to ISO string
+    let dateValue = row.date;
+    if (typeof dateValue === 'number' || (typeof dateValue === 'string' && /^\d+$/.test(dateValue))) {
+      // It's a timestamp, convert to ISO date string
+      dateValue = new Date(Number(dateValue)).toISOString().split('T')[0];
+    }
+    
     return {
       id: row.id,
       user_id: row.user_id,
       name: row.name,
       description: row.description,
       amount: row.amount,
-      date: row.date,
+      date: dateValue,
       type: row.type,
       category_id: row.category_id,
       subcategory_id: row.subcategory_id,
@@ -170,10 +177,20 @@ export class TransactionsRepository extends BaseRepository<
 
     // Filter by date range
     if (filter.dateRange) {
-      conditions.push('date >= ?');
-      params.push(filter.dateRange.start.toISOString().split('T')[0]);
-      conditions.push('date <= ?');
-      params.push(filter.dateRange.end.toISOString().split('T')[0]);
+      // Dates in the database are stored as timestamps (milliseconds as strings)
+      // Convert date range to timestamps for comparison
+      const startTimestamp = filter.dateRange.start.getTime();
+      const endTimestamp = filter.dateRange.end.getTime() + (24 * 60 * 60 * 1000) - 1; // End of day
+      
+      // Compare timestamps: CAST date to INTEGER to handle string timestamps
+      // This works for both numeric strings (timestamps) and actual numbers
+      // Use +0 to convert string to number in SQLite (more reliable than CAST)
+      conditions.push(`(date + 0) >= ?`);
+      params.push(startTimestamp);
+      conditions.push(`(date + 0) <= ?`);
+      params.push(endTimestamp);
+      
+      console.log(`🔍 Date range query: start=${startTimestamp} (${new Date(startTimestamp).toISOString()}), end=${endTimestamp} (${new Date(endTimestamp).toISOString()})`);
     }
 
     // Filter by amount range
@@ -262,10 +279,10 @@ export class TransactionsRepository extends BaseRepository<
             const rows = [];
             for (let i = 0; i < result.rows.length; i++) {
                 rows.push(this.rowToEntity(result.rows.item(i)));
-              }
+            }
               resolve(rows);
-            },
-            (_, error) => {
+          },
+          (_, error) => {
               console.error(`Error in findByAccount for ${this.tableName}:`, error);
               reject(error);
             }
@@ -400,5 +417,5 @@ export class TransactionsRepository extends BaseRepository<
     // This will be handled by the instance method
     // For now, return empty array
     return [];
-  }
+          }
 }

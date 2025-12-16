@@ -91,7 +91,16 @@ export function useInfiniteScroll<T>(
     if (enabled && isInitialLoad) {
       loadMore();
     }
-  }, [enabled]); // Only run on mount or enabled change
+  }, [enabled, isInitialLoad, loadMore]); // Include loadMore to re-fetch when fetchNext changes
+
+  // Also reload when fetchNext changes (for filter changes)
+  useEffect(() => {
+    if (enabled && !isInitialLoad && data.length === 0) {
+      // If fetchNext changed and we have no data, reload
+      setIsInitialLoad(true);
+      loadMore();
+    }
+  }, [fetchNext]); // Reload when fetchNext function changes
 
   const refresh = useCallback(async () => {
     setData([]);
@@ -108,7 +117,14 @@ export function useInfiniteScroll<T>(
     setIsInitialLoad(true);
     setIsError(false);
     setError(null);
-  }, [initialCursor]);
+    // Trigger reload by calling loadMore after reset
+    // Use setTimeout to ensure state updates complete first
+    setTimeout(() => {
+      if (enabled) {
+        loadMore();
+      }
+    }, 0);
+  }, [initialCursor, enabled, loadMore]);
 
   // Prefetch when near bottom
   const handleScroll = useCallback(

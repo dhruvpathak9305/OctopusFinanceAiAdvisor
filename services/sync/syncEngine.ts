@@ -228,7 +228,7 @@ class SyncEngine {
 
     if (pendingJobs.length === 0) {
       return 0;
-    }
+  }
 
     // Group by operation type
     const creates = pendingJobs.filter(j => j.operation === 'create');
@@ -324,7 +324,7 @@ class SyncEngine {
       } catch (error: any) {
         console.error(`Error pulling ${supabaseTableName}:`, error);
         errors.push(`Failed to pull ${supabaseTableName}: ${error.message}`);
-      }
+  }
     }
 
     return { pulled, conflicts, errors };
@@ -580,7 +580,7 @@ class SyncEngine {
       ...clean,
           user_id: userId,
     };
-  }
+    }
 
   /**
    * Prepare server record for local storage (add sync metadata)
@@ -628,7 +628,7 @@ class SyncEngine {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user?.id) {
     return;
-    }
+  }
 
     await this.sync(session.user.id, { tables });
   }

@@ -53,12 +53,14 @@ export async function syncSupabaseToLocal(options: SyncOptions = {}): Promise<{
 
     const db = await getLocalDb();
 
+    console.log(`🔄 Starting sync for user_id: ${userId}`);
+    
     for (const supabaseTable of tables) {
       try {
         const localTable = supabaseTable.replace('_real', '_local');
         const count = await syncTable(db, supabaseTable, localTable, userId, options.limit);
         result.synced[supabaseTable] = count;
-        console.log(`✅ Synced ${count} records from ${supabaseTable} to ${localTable}`);
+        console.log(`✅ Synced ${count} records from ${supabaseTable} to ${localTable} for user ${userId}`);
       } catch (error: any) {
         const errorMsg = `Failed to sync ${supabaseTable}: ${error.message}`;
         result.errors.push(errorMsg);
@@ -200,6 +202,16 @@ async function syncTable(
       for (const [key, value] of Object.entries(record)) {
         if (validColumns.includes(key)) {
           filteredRecord[key] = value;
+        }
+      }
+      
+      // CRITICAL: Ensure user_id is set correctly (use the userId parameter, not the record's user_id)
+      // This ensures consistency even if Supabase record has a different user_id
+      if (validColumns.includes('user_id')) {
+        const originalUserId = filteredRecord.user_id;
+        filteredRecord.user_id = userId;
+        if (originalUserId && originalUserId !== userId && inserted === 0) {
+          console.log(`⚠️ Warning: Record has user_id ${originalUserId}, but syncing with ${userId}. Using ${userId}.`);
         }
       }
 
