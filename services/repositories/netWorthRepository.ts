@@ -150,7 +150,7 @@ export class NetWorthCategoriesRepository extends BaseRepository<
     };
   }
 
-  protected buildWhereClause(filter: BaseFilter & { type?: NetWorthType }): { sql: string; params: any[] } {
+  protected buildWhereClause(filter: BaseFilter & { type?: NetWorthType | 'all' }): { sql: string; params: any[] } {
     const conditions: string[] = [];
     const params: any[] = [];
 

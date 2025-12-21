@@ -318,8 +318,12 @@ export const CreditCardItem: React.FC<CreditCardItemProps> = React.memo(({
   }));
 
   // Memoize expensive calculations
-  const bankName = useMemo(() => card.bank || card.institution || '', [card.bank, card.institution]);
-  const gradientColors = useMemo(() => getBankGradient(bankName), [bankName]);
+  const bankName = useMemo(() => card.bank || '', [card.bank]);
+  const gradientColors = useMemo(() => {
+    const colors = getBankGradient(bankName);
+    // Ensure at least 2 colors for LinearGradient
+    return colors.length >= 2 ? colors as [string, string, ...string[]] : ['#6366F1', '#8B5CF6'];
+  }, [bankName]);
 
   const formatCurrency = useCallback((amount: number) => {
     // Ensure amount is a valid number
@@ -366,8 +370,8 @@ export const CreditCardItem: React.FC<CreditCardItemProps> = React.memo(({
     ? Math.min((usedCredit / creditLimit) * 100, 100) 
     : 0;
 
-  // Safely format last four digits - handle undefined, null, or NaN
-  const lastFourDigits = card.lastFourDigits != null && !isNaN(card.lastFourDigits) 
+  // Safely format last four digits - handle undefined, null, or empty string
+  const lastFourDigits = card.lastFourDigits 
     ? String(card.lastFourDigits).slice(-4).padStart(4, '0')
     : '••••';
 
@@ -445,10 +449,10 @@ export const CreditCardItem: React.FC<CreditCardItemProps> = React.memo(({
 
             {/* Chip and Progress indicator (always visible, matching web) */}
               <View style={styles.chipProgressRow}>
-              <View style={getChipStyle(card.bank || card.institution || '')}>
+              <View style={getChipStyle(card.bank || '')}>
                   <View style={styles.chipInner}>
                     {[...Array(6)].map((_, i) => (
-                    <View key={i} style={getChipLineStyle(card.bank || card.institution || '')} />
+                    <View key={i} style={getChipLineStyle(card.bank || '')} />
                     ))}
                   </View>
                 </View>
