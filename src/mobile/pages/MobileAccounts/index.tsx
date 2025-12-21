@@ -38,7 +38,11 @@ import {
 } from "../../../../services/accountBalanceHistoryService";
 import { fetchTransactions, TransactionFilters } from "../../../../services/transactionsService";
 
-const MobileAccounts: React.FC = () => {
+interface MobileAccountsProps {
+  hideHeaderAndNav?: boolean;
+}
+
+const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = false }) => {
   const { isDark } = useTheme();
   const colors = isDark ? darkTheme : lightTheme;
   const navigation = useNavigation();
@@ -639,77 +643,82 @@ const MobileAccounts: React.FC = () => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: colors.card, borderBottomColor: colors.border },
-        ]}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Money
-          </Text>
-          <Text
-            style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-          >
-            Manage your accounts and cards
-          </Text>
-        </View>
-      </View>
-
-      {/* Full Width Navigation Buttons */}
-      <View
-        style={[
-          styles.fullNavContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <View
-          style={[styles.fullNavButtonGroup, { backgroundColor: colors.card }]}
-        >
-          <TouchableOpacity
+    <>
+      {!hideHeaderAndNav && (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          {/* Header */}
+          <View
             style={[
-              styles.fullNavButton,
-              styles.activeFullNav,
-              { backgroundColor: colors.primary },
+              styles.header,
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
             ]}
           >
-            <Ionicons name="wallet" size={14} color="white" />
-            <Text style={[styles.fullNavText, { color: "white" }]}>
-              Accounts
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.fullNavButton]}
-            onPress={() => (navigation as any).navigate("MobileCredit")}
-          >
-            <Ionicons name="card" size={14} color={colors.textSecondary} />
-            <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
-              Credit
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.fullNavButton]}
-            onPress={() => (navigation as any).navigate("MobileNetWorth")}
-          >
-            <Ionicons
-              name="trending-up"
-              size={14}
-              color={colors.textSecondary}
-            />
-            <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
-              Net
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                Money
+              </Text>
+              <Text
+                style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+              >
+                Manage your accounts and cards
+              </Text>
+            </View>
+          </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Full Width Navigation Buttons */}
+          <View
+            style={[
+              styles.fullNavContainer,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View
+              style={[styles.fullNavButtonGroup, { backgroundColor: colors.card }]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.fullNavButton,
+                  styles.activeFullNav,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Ionicons name="wallet" size={14} color="white" />
+                <Text style={[styles.fullNavText, { color: "white" }]}>
+                  Accounts
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fullNavButton]}
+                onPress={() => (navigation as any).navigate("MobileCredit")}
+              >
+                <Ionicons name="card" size={14} color={colors.textSecondary} />
+                <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
+                  Credit
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fullNavButton]}
+                onPress={() => (navigation as any).navigate("MobileNetWorth")}
+              >
+                <Ionicons
+                  name="trending-up"
+                  size={14}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
+                  Net
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      <View style={hideHeaderAndNav ? { flex: 1 } : [styles.container, { backgroundColor: colors.background }]}>
+        <ScrollView showsVerticalScrollIndicator={false}>
         {/* Inline Filter Row: label + chips on a single line */}
         <View style={styles.filtersContainer}>
           <Text style={[styles.filterLabel, { color: colors.text }]}>
@@ -1326,7 +1335,8 @@ const MobileAccounts: React.FC = () => {
           )}
         </View>
       </ScrollView>
-    </View>
+      </View>
+    </>
   );
 };
 
@@ -1384,7 +1394,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.2,
-    fontWeight: "600",
   },
   filtersContainer: {
     paddingHorizontal: 20,

@@ -25,6 +25,7 @@ import MobileAuth from "../pages/MobileAuth";
 import MobileNetWorth from "../pages/MobileNetWorth";
 import MobileAccounts from "../pages/MobileAccounts";
 import MobileCredit from "../pages/MobileCredit";
+import MoneyPage from "../pages/Money";
 import MobileTravel from "../pages/MobileTravel";
 import MobileDateFilter from "../pages/MobileDateFilter";
 import FinancialRelationshipsScreen from "../screens/FinancialRelationshipsScreen";
@@ -48,6 +49,7 @@ export type MobileStackParamList = {
   Auth: undefined;
   DashboardMain: undefined;
   Transactions: undefined;
+  Money: { initialTab?: 'accounts' | 'credit' | 'net'; showAddAssetModal?: boolean } | undefined;
   MobileNetWorth: { showAddAssetModal?: boolean } | undefined;
   MobileAccounts: undefined;
   MobileCredit: undefined;
@@ -201,6 +203,13 @@ const RootStackNavigator: React.FC = () => {
           headerTitleStyle: {
             color: "#FFFFFF",
           },
+        }}
+      />
+      <Stack.Screen
+        name="Money"
+        component={MoneyPage}
+        options={{
+          headerShown: false,
         }}
       />
       <Stack.Screen

@@ -86,7 +86,12 @@ interface AssetCategory {
   category?: string;
 }
 
-const MobileNetWorth: React.FC = () => {
+interface MobileNetWorthProps {
+  hideHeaderAndNav?: boolean;
+  showAddAssetModal?: boolean;
+}
+
+const MobileNetWorth: React.FC<MobileNetWorthProps> = ({ hideHeaderAndNav = false, showAddAssetModal: initialShowAddAssetModal = false }) => {
   const { isDark } = useTheme();
   const colors = isDark ? darkTheme : lightTheme;
   const navigation = useNavigation();
@@ -141,7 +146,7 @@ const MobileNetWorth: React.FC = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] =
     useState<AssetCategory | null>(null);
-  const [showAddAssetModal, setShowAddAssetModal] = useState(false);
+  const [showAddAssetModal, setShowAddAssetModal] = useState(initialShowAddAssetModal);
   const [sortOrder, setSortOrder] = useState<
     "largest" | "smallest" | "newest" | "oldest"
   >("largest");
@@ -2161,71 +2166,76 @@ const MobileNetWorth: React.FC = () => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: colors.card, borderBottomColor: colors.border },
-        ]}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Money
-          </Text>
-          <Text
-            style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-          >
-            Manage your accounts and cards
-          </Text>
-        </View>
-      </View>
-
-      {/* Full Width Navigation Buttons */}
-      <View
-        style={[
-          styles.fullNavContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <View
-          style={[styles.fullNavButtonGroup, { backgroundColor: colors.card }]}
-        >
-          <TouchableOpacity
-            style={[styles.fullNavButton]}
-            onPress={() => (navigation as any).navigate("MobileAccounts")}
-          >
-            <Ionicons name="wallet" size={14} color={colors.textSecondary} />
-            <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
-              Accounts
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.fullNavButton]}
-            onPress={() => (navigation as any).navigate("MobileCredit")}
-          >
-            <Ionicons name="card" size={14} color={colors.textSecondary} />
-            <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
-              Credit
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+    <>
+      {!hideHeaderAndNav && (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          {/* Header */}
+          <View
             style={[
-              styles.fullNavButton,
-              styles.activeFullNav,
-              { backgroundColor: colors.primary },
+              styles.header,
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
             ]}
           >
-            <Ionicons name="trending-up" size={14} color="white" />
-            <Text style={[styles.fullNavText, { color: "white" }]}>Net</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                Money
+              </Text>
+              <Text
+                style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+              >
+                Manage your accounts and cards
+              </Text>
+            </View>
+          </View>
 
-      {/* Scrollable Content */}
+          {/* Full Width Navigation Buttons */}
+          <View
+            style={[
+              styles.fullNavContainer,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View
+              style={[styles.fullNavButtonGroup, { backgroundColor: colors.card }]}
+            >
+              <TouchableOpacity
+                style={[styles.fullNavButton]}
+                onPress={() => (navigation as any).navigate("MobileAccounts")}
+              >
+                <Ionicons name="wallet" size={14} color={colors.textSecondary} />
+                <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
+                  Accounts
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fullNavButton]}
+                onPress={() => (navigation as any).navigate("MobileCredit")}
+              >
+                <Ionicons name="card" size={14} color={colors.textSecondary} />
+                <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
+                  Credit
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.fullNavButton,
+                  styles.activeFullNav,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Ionicons name="trending-up" size={14} color="white" />
+                <Text style={[styles.fullNavText, { color: "white" }]}>Net</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      <View style={hideHeaderAndNav ? { flex: 1 } : [styles.container, { backgroundColor: colors.background }]}>
+        {/* Scrollable Content */}
       <ScrollView
         style={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -4554,7 +4564,8 @@ const MobileNetWorth: React.FC = () => {
         visible={showFixedDepositsModal}
         onClose={() => setShowFixedDepositsModal(false)}
       />
-    </View>
+      </View>
+    </>
   );
 };
 

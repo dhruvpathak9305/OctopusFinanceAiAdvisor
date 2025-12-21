@@ -119,11 +119,11 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
   )}%`;
 
   const handleViewAll = () => {
-    (navigation as any).navigate("MobileNetWorth");
+    (navigation as any).navigate("Money", { initialTab: 'net' });
   };
 
   const handleAddNew = () => {
-    (navigation as any).navigate("MobileNetWorth", { showAddAssetModal: true });
+    (navigation as any).navigate("Money", { initialTab: 'net', showAddAssetModal: true });
   };
 
   const handleInfo = () => {

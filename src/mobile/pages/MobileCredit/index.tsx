@@ -16,7 +16,11 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { CreditCardStack } from '../../components/CreditCards/CreditCardStack';
 import { CreditCardBottomNav } from '../../components/CreditCards/CreditCardBottomNav';
 
-const MobileCredit: React.FC = () => {
+interface MobileCreditProps {
+  hideHeaderAndNav?: boolean;
+}
+
+const MobileCredit: React.FC<MobileCreditProps> = ({ hideHeaderAndNav = false }) => {
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const colors = isDark 
@@ -24,29 +28,31 @@ const MobileCredit: React.FC = () => {
     : require('../../../../contexts/ThemeContext').lightTheme;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Consistent Header - Matching Accounts and Net Worth */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: colors.card, borderBottomColor: colors.border },
-        ]}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Money
-          </Text>
-          <Text
-            style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+    <>
+      {!hideHeaderAndNav && (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          {/* Consistent Header - Matching Accounts and Net Worth */}
+          <View
+            style={[
+              styles.header,
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
+            ]}
           >
-            Manage your accounts and cards
-          </Text>
-        </View>
-        {/* Cashback Badge and Settings Icons - Right side */}
-        <View style={styles.headerRight}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                Money
+              </Text>
+              <Text
+                style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+              >
+                Manage your accounts and cards
+              </Text>
+            </View>
+            {/* Cashback Badge and Settings Icons - Right side */}
+            <View style={styles.headerRight}>
           <TouchableOpacity
             style={[styles.cashbackBadge, { borderColor: colors.primary + '40' }]}
             onPress={() => console.log('Cashback pressed')}
@@ -124,20 +130,24 @@ const MobileCredit: React.FC = () => {
             </TouchableOpacity>
         </View>
       </View>
+        </View>
+      )}
       
-      {/* Card Stack - Has its own ScrollView */}
-      <CreditCardStack />
-      
-      {/* Bottom Navigation */}
-      <CreditCardBottomNav
-        activeTab="cards"
-        onHomePress={() => console.log('Home pressed')}
-        onCardsPress={() => console.log('Cards pressed')}
-        onUPIPress={() => console.log('UPI pressed')}
-        onRewardsPress={() => console.log('Rewards pressed')}
-        onMorePress={() => console.log('More pressed')}
-      />
-    </View>
+      <View style={hideHeaderAndNav ? { flex: 1 } : [styles.container, { backgroundColor: colors.background }]}>
+        {/* Card Stack - Has its own ScrollView */}
+        <CreditCardStack />
+        
+        {/* Bottom Navigation */}
+        <CreditCardBottomNav
+          activeTab="cards"
+          onHomePress={() => console.log('Home pressed')}
+          onCardsPress={() => console.log('Cards pressed')}
+          onUPIPress={() => console.log('UPI pressed')}
+          onRewardsPress={() => console.log('Rewards pressed')}
+          onMorePress={() => console.log('More pressed')}
+        />
+      </View>
+    </>
   );
 };
 

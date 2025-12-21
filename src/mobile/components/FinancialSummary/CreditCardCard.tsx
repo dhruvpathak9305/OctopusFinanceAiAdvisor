@@ -111,8 +111,8 @@ const CreditCardCard: React.FC<CreditCardCardProps> = ({ backgroundImage }) => {
   const monthlyChange = `${percentChange > 0 ? '+' : ''}${percentChange.toFixed(1)}%`;
 
   const handleViewAll = () => {
-    // Navigate to credit card details page
-    (navigation as any).navigate('MobileCredit');
+    // Navigate to unified Money page with credit tab
+    (navigation as any).navigate('Money', { initialTab: 'credit' });
   };
 
   const handleAddNew = () => {
