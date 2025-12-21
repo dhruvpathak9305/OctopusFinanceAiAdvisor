@@ -27,6 +27,11 @@ import {
   initializeDefaultCategories,
   createSampleNetWorthEntries,
 } from "../../../../services/netWorthService";
+import { fetchFormattedCategoriesForUILocal } from "../../../../services/netWorthServiceLocal";
+import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
+import { useSubscription } from "../../../../contexts/SubscriptionContext";
+import networkMonitor from "../../../../services/sync/networkMonitor";
+import { getQueryCache, generateCacheKey } from "../../../../services/repositories/queryCache";
 
 // Import the new Add Net Worth Entry Modal
 import AddNetWorthEntryModal from "../../components/NetWorth/AddNetWorthEntryModal";
@@ -87,6 +92,10 @@ const MobileNetWorth: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { isDemo } = useDemoMode();
+  const { user } = useUnifiedAuth();
+  const { isPremium } = useSubscription();
+  const isOnline = networkMonitor.isCurrentlyOnline();
+  const userId = user?.id || 'offline_user';
   
   // Fixed Deposits Modal state
   const [showFixedDepositsModal, setShowFixedDepositsModal] = useState(false);
@@ -196,7 +205,7 @@ const MobileNetWorth: React.FC = () => {
     }
   }, [route.params]);
 
-  // Fetch real data from database
+  // Fetch real data from database (local-first)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -209,10 +218,17 @@ const MobileNetWorth: React.FC = () => {
         // DON'T create sample entries - let user add their own data
         // await createSampleNetWorthEntries(isDemo);
 
-        // Fetch assets and liabilities
+        // Use local-first service for faster loading
+        console.log("📊 Net Worth: Fetching from local DB (user:", userId, ", premium:", isPremium, ")");
         const [assets, liabilities] = await Promise.all([
-          fetchFormattedCategoriesForUI("asset", isDemo),
-          fetchFormattedCategoriesForUI("liability", isDemo),
+          fetchFormattedCategoriesForUILocal("asset", userId, isPremium).catch(err => {
+            console.error("❌ Error fetching assets from local:", err);
+            throw err;
+          }),
+          fetchFormattedCategoriesForUILocal("liability", userId, isPremium).catch(err => {
+            console.error("❌ Error fetching liabilities from local:", err);
+            throw err;
+          }),
         ]);
 
         console.log("🔍 Debug: Fetched assets:", assets);
@@ -224,20 +240,38 @@ const MobileNetWorth: React.FC = () => {
 
         setAssetCategories(assets);
         setLiabilityCategories(liabilities);
+        setLoading(false); // Set loading to false immediately after success
+        console.log("✅ Net Worth: Data loaded successfully from local DB");
       } catch (err) {
-        console.error("Error fetching net worth data:", err);
+        console.error("❌ Error fetching net worth data from local:", err);
+        console.error("❌ Error details:", err instanceof Error ? err.stack : err);
         setError(err instanceof Error ? err.message : "Failed to load data");
 
-        // Fallback to sample data if there's an error
-        setAssetCategories(sampleAssetCategories as any);
-        setLiabilityCategories(sampleLiabilityCategories as any);
-      } finally {
-        setLoading(false);
+        // Fallback: try Supabase service if local fails
+        try {
+          console.log("⚠️ Net Worth: Local fetch failed, trying Supabase fallback...");
+          const [assets, liabilities] = await Promise.all([
+            fetchFormattedCategoriesForUI("asset", isDemo),
+            fetchFormattedCategoriesForUI("liability", isDemo),
+          ]);
+          setAssetCategories(assets);
+          setLiabilityCategories(liabilities);
+          setLoading(false);
+          console.log("✅ Net Worth: Data loaded from Supabase fallback");
+        } catch (fallbackErr) {
+          console.error("❌ Error with Supabase fallback:", fallbackErr);
+          // Final fallback to sample data
+          setAssetCategories(sampleAssetCategories as any);
+          setLiabilityCategories(sampleLiabilityCategories as any);
+          setLoading(false);
+        }
       }
     };
 
-    fetchData();
-  }, [isDemo]);
+    if (userId) {
+      fetchData();
+    }
+  }, [isDemo, userId, isPremium]);
 
   // Handler for opening Add Entry Modal
   const handleAddEntry = (
@@ -254,6 +288,13 @@ const MobileNetWorth: React.FC = () => {
   const handleEntryModalSave = () => {
     // Refresh data after adding new entry
     setShowAddEntryModal(false);
+    
+    // Clear cache to force fresh data
+    const cache = getQueryCache();
+    cache.clearTable('net_worth_entries_local');
+    cache.delete(generateCacheKey('net_worth_asset', { userId, type: 'asset' }));
+    cache.delete(generateCacheKey('net_worth_liability', { userId, type: 'liability' }));
+    
     // Trigger data refresh
     const fetchData = async () => {
       try {
@@ -263,33 +304,38 @@ const MobileNetWorth: React.FC = () => {
         // Initialize default categories if needed
         await initializeDefaultCategories(isDemo);
 
-        // DON'T create sample entries - let user add their own data
-        // await createSampleNetWorthEntries(isDemo);
-
-        // Fetch formatted data for UI - get both assets and liabilities
-        const assetData = await fetchFormattedCategoriesForUI("asset", isDemo);
-        const liabilityData = await fetchFormattedCategoriesForUI(
-          "liability",
-          isDemo
-        );
-        const data = [...assetData, ...liabilityData];
-
-        // Separate assets and liabilities
-        const assets = data.filter((cat) => cat.type === "asset");
-        const liabilities = data.filter((cat) => cat.type === "liability");
+        // Use local-first service for faster loading
+        const [assets, liabilities] = await Promise.all([
+          fetchFormattedCategoriesForUILocal("asset", userId, isPremium),
+          fetchFormattedCategoriesForUILocal("liability", userId, isPremium),
+        ]);
 
         setAssetCategories(assets);
         setLiabilityCategories(liabilities);
       } catch (error) {
         console.error("Error fetching net worth data:", error);
         setError("Failed to load net worth data. Please try again.");
+        
+        // Fallback to Supabase if local fails
+        try {
+          const [assets, liabilities] = await Promise.all([
+            fetchFormattedCategoriesForUI("asset", isDemo),
+            fetchFormattedCategoriesForUI("liability", isDemo),
+          ]);
+          setAssetCategories(assets);
+          setLiabilityCategories(liabilities);
+        } catch (fallbackErr) {
+          console.error("Error with fallback fetch:", fallbackErr);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     // Actually call the fetchData function
-    fetchData();
+    if (userId) {
+      fetchData();
+    }
   };
 
   // Popup menu handlers

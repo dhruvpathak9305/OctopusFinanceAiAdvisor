@@ -35,6 +35,8 @@ export interface SyncOptions {
 
 class SyncEngine {
   private static instance: SyncEngine;
+  private periodicSyncInterval: NodeJS.Timeout | null = null;
+  private readonly PERIODIC_SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
   private isSyncing: boolean = false;
   private syncQueue: Set<string> = new Set();
   private batchSize: number = 50;
@@ -201,6 +203,7 @@ class SyncEngine {
       'accounts_local',
       'budget_categories_local',
       'net_worth_entries_local',
+      'credit_cards_local',
     ];
 
     for (const tableName of tables) {
@@ -314,6 +317,7 @@ class SyncEngine {
       'accounts_real',
       'budget_categories_real',
       'net_worth_entries_real',
+      'credit_cards_real',
     ];
 
     for (const supabaseTableName of tables) {
@@ -656,6 +660,63 @@ class SyncEngine {
     } catch (error) {
       console.error('Error enqueueing sync job:', error);
       // Don't throw - sync job failure shouldn't break the main operation
+    }
+  }
+
+  /**
+   * Start periodic sync (runs every 5 minutes when online)
+   */
+  startPeriodicSync(): void {
+    if (this.periodicSyncInterval) {
+      return; // Already started
+    }
+
+    this.periodicSyncInterval = setInterval(async () => {
+      if (!networkMonitor.isCurrentlyOnline()) {
+        return; // Skip if offline
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) {
+          return; // Skip if not authenticated
+        }
+
+        // Only sync if user is premium (subscription check)
+        try {
+          const subscriptionStatus = await subscriptionService.checkSubscriptionStatus();
+          if (!subscriptionStatus?.isPremium) {
+            return; // Skip if not premium
+          }
+        } catch (error) {
+          console.error('❌ Error checking subscription status:', error);
+          // Continue with sync if subscription check fails (fail open)
+          // This prevents blocking sync due to subscription service issues
+        }
+
+        console.log('🔄 Starting periodic sync...');
+        await this.sync(session.user.id, { 
+          tables: ['transactions_local', 'accounts_local', 'net_worth_entries_local', 'credit_cards_local'],
+          forceFullSync: false, // Incremental sync
+        });
+        console.log('✅ Periodic sync completed');
+      } catch (error) {
+        console.error('❌ Periodic sync error:', error);
+        // Don't throw - periodic sync failures shouldn't break the app
+      }
+    }, this.PERIODIC_SYNC_INTERVAL);
+
+    console.log('✅ Periodic sync started (every 5 minutes)');
+  }
+
+  /**
+   * Stop periodic sync
+   */
+  stopPeriodicSync(): void {
+    if (this.periodicSyncInterval) {
+      clearInterval(this.periodicSyncInterval);
+      this.periodicSyncInterval = null;
+      console.log('⏹️ Periodic sync stopped');
     }
   }
 }

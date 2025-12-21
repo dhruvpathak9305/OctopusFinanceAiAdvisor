@@ -90,8 +90,12 @@ export function useOfflineFirstInit(): OfflineFirstInitStatus {
 
         // 3. Initialize sync engine schema
         try {
-          syncEngine.initSchema();
+          await syncEngine.initSchema();
           console.log('✅ Sync engine initialized');
+          
+          // Start periodic sync (runs every 5 minutes when online)
+          syncEngine.startPeriodicSync();
+          console.log('✅ Periodic sync started');
         } catch (error: any) {
           console.error('❌ Failed to initialize sync engine:', error);
         }

@@ -331,34 +331,21 @@ export class NetWorthEntriesRepository extends BaseRepository<
   }
 
   async getTotalValue(filter?: NetWorthFilters): Promise<number> {
-    return new Promise((resolve, reject) => {
-      const where = filter ? this.buildWhereClause(filter) : { sql: 'user_id = ? AND is_included_in_net_worth = 1', params: [this.userId] };
+    const db = await this.getDb();
+    const where = filter ? this.buildWhereClause(filter) : { sql: 'user_id = ? AND is_included_in_net_worth = 1', params: [this.userId] };
 
-      const sql = `
-        SELECT SUM(value) as total FROM ${this.tableName}
-        WHERE ${where.sql}
-      `;
+    const sql = `
+      SELECT SUM(value) as total FROM ${this.tableName}
+      WHERE ${where.sql}
+    `;
 
-      this.db.transaction(
-        (tx) => {
-          tx.executeSql(
-            sql,
-            where.params,
-            (_, result) => {
-              const total = result.rows.item(0).total || 0;
-              resolve(total);
-            },
-            (_, error) => {
-              console.error(`Error in getTotalValue for ${this.tableName}:`, error);
-              reject(error);
-            }
-          );
-        },
-        (error) => {
-          reject(error);
-        }
-      );
-    });
+    try {
+      const result = await db.getFirstAsync<{ total: number }>(sql, where.params);
+      return result?.total || 0;
+    } catch (error) {
+      console.error(`Error in getTotalValue for ${this.tableName}:`, error);
+      throw error;
+    }
   }
 }
 

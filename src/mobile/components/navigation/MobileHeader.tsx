@@ -20,7 +20,7 @@ import {
   lightTheme,
 } from "../../../../contexts/ThemeContext";
 import { Logo } from "../../../../components/common/Logo";
-import { NetworkStatusDot } from "../../../../components/common/NetworkStatusDot";
+import { NetworkStatusIndicator } from "../../../../components/common/NetworkStatusIndicator";
 
 interface MobileHeaderProps {
   title?: string;
@@ -138,7 +138,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
             >
               <View style={styles.logoWithStatus}>
               <Logo size={52} animated={true} />
-                <NetworkStatusDot size={10} />
+                <NetworkStatusIndicator size={18} />
               </View>
               <Text
                 style={[styles.title, { color: theme.primary }]}

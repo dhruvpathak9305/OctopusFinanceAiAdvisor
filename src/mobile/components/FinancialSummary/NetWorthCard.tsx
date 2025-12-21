@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { Alert } from "react-native";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
-import { fetchFormattedCategoriesForUI } from "../../../../services/netWorthService";
+import { fetchFormattedCategoriesForUILocal } from "../../../../services/netWorthServiceLocal";
+import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
+import { useSubscription } from "../../../../contexts/SubscriptionContext";
 import FinancialSummaryCard from "./FinancialSummaryCard";
 
 interface NetWorthCardProps {
@@ -12,6 +14,9 @@ interface NetWorthCardProps {
 const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
   const navigation = useNavigation();
   const { isDemo } = useDemoMode();
+  const { user } = useUnifiedAuth();
+  const { isPremium } = useSubscription();
+  const userId = user?.id || 'offline_user';
   const [netWorthTotal, setNetWorthTotal] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
   const [totalLiabilities, setTotalLiabilities] = useState(0);
@@ -29,16 +34,27 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
         setLoading(true);
         setError(null);
 
-        // Fetch assets and liabilities using the same service as Money page
+        // Fetch assets and liabilities from local DB (optimized)
+        console.log("📊 NetWorthCard: Fetching from local DB...");
         const [assets, liabilities] = await Promise.all([
-          fetchFormattedCategoriesForUI("asset", isDemo),
-          fetchFormattedCategoriesForUI("liability", isDemo),
+          fetchFormattedCategoriesForUILocal("asset", userId, isPremium),
+          fetchFormattedCategoriesForUILocal("liability", userId, isPremium),
         ]);
 
         // Calculate totals (including bank accounts, investments, properties, etc.)
-        const assetsTotal = assets.reduce((sum, cat) => sum + cat.value, 0);
-        const liabilitiesTotal = liabilities.reduce((sum, cat) => sum + cat.value, 0);
+        const assetsTotal = assets.reduce((sum, cat) => sum + (cat.value || 0), 0);
+        const liabilitiesTotal = liabilities.reduce((sum, cat) => sum + (cat.value || 0), 0);
         const netWorth = assetsTotal - liabilitiesTotal;
+
+        console.log("📊 NetWorthCard Calculation:", {
+          assetsTotal,
+          liabilitiesTotal,
+          netWorth,
+          assetsCount: assets.length,
+          liabilitiesCount: liabilities.length,
+          assetsBreakdown: assets.map(cat => ({ name: cat.name, value: cat.value })),
+          liabilitiesBreakdown: liabilities.map(cat => ({ name: cat.name, value: cat.value })),
+        });
 
         setTotalAssets(assetsTotal);
         setTotalLiabilities(liabilitiesTotal);
@@ -51,8 +67,9 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
         // TODO: Calculate real percentage change from historical data
         const change = Math.random() * 8 - 2;
         setPercentChange(change);
+        console.log("✅ NetWorthCard: Net worth calculated:", netWorth);
       } catch (err) {
-        console.error("Error calculating net worth:", err);
+        console.error("❌ Error calculating net worth:", err);
         setError(
           err instanceof Error ? err.message : "Failed to calculate net worth"
         );
@@ -64,8 +81,10 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ backgroundImage }) => {
       }
     };
 
-    calculateNetWorth();
-  }, [isDemo]);
+    if (userId) {
+      calculateNetWorth();
+    }
+  }, [userId, isPremium]);
 
   // Generate chart data from net worth
   const generateChartDataFromNetWorth = (currentNetWorth: number) => {

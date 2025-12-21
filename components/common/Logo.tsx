@@ -25,8 +25,10 @@ export const Logo: React.FC<LogoProps> = ({
 }) => {
   const { isDark } = useTheme();
 
-  // Border animation values (only opacity - borderWidth doesn't support native driver)
-  const borderOpacityAnim = useRef(new Animated.Value(0.6)).current;
+  // Border animation values - only shadow animations (scale removed to avoid driver conflicts)
+  const shadowOpacityAnim = useRef(new Animated.Value(0.3)).current;
+  const shadowRadiusAnim = useRef(new Animated.Value(4)).current;
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Theme-specific logo images
   // Note: These files must exist in assets/ folder
@@ -34,37 +36,36 @@ export const Logo: React.FC<LogoProps> = ({
   const darkLogo: ImageSourcePropType = require('../../assets/octopus-logo-dark.webp');
 
   useEffect(() => {
-    if (!animated) {
-      // Set to final values if animation disabled
-      borderOpacityAnim.setValue(0.6);
-      return;
+    // Stop any existing animation first
+    if (animationRef.current) {
+      animationRef.current.stop();
+      animationRef.current = null;
     }
 
-    // Animated border pulse - only opacity (borderWidth doesn't work well with native driver)
-    // Use separate animations to avoid mixing native and non-native drivers
-    const opacityAnimation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(borderOpacityAnim, {
-            toValue: 1,
-            duration: 2000,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(borderOpacityAnim, {
-            toValue: 0.6,
-            duration: 2000,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-      ])
-    );
+    // Stop all animated values to clear any native driver flags
+    shadowOpacityAnim.stopAnimation();
+    shadowRadiusAnim.stopAnimation();
 
-    opacityAnimation.start();
+    // Set static values - animations disabled to avoid native driver conflicts
+    // The animated values may have been marked as native from previous runs
+    shadowOpacityAnim.setValue(0.5);
+    shadowRadiusAnim.setValue(8);
 
+    // Animation disabled to prevent native driver conflicts
+    // The animated values retain their native state from previous animations
+    // which causes conflicts when trying to use JS driver
+    
     return () => {
-      // Cleanup: stop all animations
-      opacityAnimation.stop();
-      borderOpacityAnim.stopAnimation();
+      // Cleanup: stop animation and reset values
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+      shadowOpacityAnim.stopAnimation();
+      shadowRadiusAnim.stopAnimation();
+      // Reset to static values
+      shadowOpacityAnim.setValue(0.5);
+      shadowRadiusAnim.setValue(8);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animated]);
@@ -79,9 +80,14 @@ export const Logo: React.FC<LogoProps> = ({
               width: size + 8, // Add padding for border
               height: size + 8,
               borderRadius: 12, // Square border with rounded corners (matches logo borderRadius)
-              borderWidth: 2, // Fixed border width (animation removed to avoid native driver conflict)
+              borderWidth: 2, // Fixed border width
               borderColor: '#10B981', // Green accent color
-              opacity: borderOpacityAnim,
+              // Static shadow effect (animations disabled to avoid native driver conflicts)
+              shadowColor: '#10B981',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: shadowOpacityAnim,
+              shadowRadius: shadowRadiusAnim,
+              elevation: 8, // Android shadow
             },
           ]}
         >
