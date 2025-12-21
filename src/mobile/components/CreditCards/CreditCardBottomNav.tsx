@@ -18,12 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   useSharedValue,
   withRepeat,
   withSequence,
   withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import { useTheme } from '../../../../contexts/ThemeContext';
 
@@ -43,8 +41,6 @@ interface CreditCardBottomNavProps {
   onUPIPress?: () => void;
 }
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
 export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
   navItems = [
     { icon: 'home-outline', label: 'HOME', active: false },
@@ -57,122 +53,35 @@ export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
   const { isDark } = useTheme();
   const colors = isDark ? require('../../../../contexts/ThemeContext').darkTheme : require('../../../../contexts/ThemeContext').lightTheme;
 
-  const upiScale = useSharedValue(1);
-  const upiGlowScale = useSharedValue(1.4);
-  const upiGlowOpacity = useSharedValue(0.3);
   const notificationScale = useSharedValue(1);
   
-  // Icon rotation animations (matching web whileHover)
-  const homeRotate = useSharedValue(0);
-  const cardsRotate = useSharedValue(0);
-  const rewardsRotate = useSharedValue(0);
-  const moreRotate = useSharedValue(0);
-  
-  // Icon scale animations
-  const homeScale = useSharedValue(1);
-  const cardsScale = useSharedValue(1);
-  const rewardsScale = useSharedValue(1);
-  const moreScale = useSharedValue(1);
-
-  // ENHANCED Pulsing glow animation for UPI - MORE DRAMATIC
+  // Simple notification animation only
   useEffect(() => {
-    upiGlowScale.value = withRepeat(
-      withSequence(
-        withTiming(1.8, { duration: 800, easing: Easing.inOut(Easing.ease) }), // Increased from 1.6 to 1.8, faster
-        withTiming(1.3, { duration: 800, easing: Easing.inOut(Easing.ease) }) // Decreased from 1.4 to 1.3 for more contrast
-      ),
-      -1,
-      false
-    );
-    
-    upiGlowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 800 }), // Increased from 0.6 to 0.8
-        withTiming(0.4, { duration: 800 }) // Increased from 0.3 to 0.4
-      ),
-      -1,
-      false
-    );
-
     notificationScale.value = withRepeat(
       withSequence(
-        withTiming(1.4, { duration: 650 }), // Increased from 1.3 to 1.4, faster
-        withTiming(1, { duration: 650 })
+        withTiming(1.2, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
       ),
       -1,
       false
     );
 
-    // Cleanup function to cancel animations on unmount
     return () => {
-      upiGlowScale.value = 1.4;
-      upiGlowOpacity.value = 0.3;
       notificationScale.value = 1;
     };
-  }, [upiGlowScale, upiGlowOpacity, notificationScale]);
-
-  const upiAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: upiScale.value }],
-  }));
-
-  const upiGlowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: upiGlowScale.value }],
-    opacity: upiGlowOpacity.value,
-  }));
+  }, [notificationScale]);
 
   const notificationAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: notificationScale.value }],
   }));
-  
-  // Icon animated styles
-  const homeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${homeRotate.value}deg` }, { scale: homeScale.value }],
-  }));
-  
-  const cardsAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${cardsRotate.value}deg` }, { scale: cardsScale.value }],
-  }));
-  
-  const rewardsAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rewardsRotate.value}deg` }, { scale: rewardsScale.value }],
-  }));
-  
-  const moreAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${moreRotate.value}deg` }, { scale: moreScale.value }],
-  }));
 
   const handleUPIPress = () => {
-    // Smooth, simple press animation (matching web whileTap)
-    upiScale.value = withSequence(
-      withTiming(0.95, { duration: 100, easing: Easing.out(Easing.ease) }),
-      withSpring(1, { damping: 15, stiffness: 400 })
-    );
+    // Simple press without animations
     onUPIPress?.();
   };
   
-  // Icon press handlers with rotation animation (matching web)
-  const handleIconPress = (iconName: 'home' | 'cards' | 'rewards' | 'more', callback?: () => void) => {
-    const rotateValue = iconName === 'home' ? homeRotate : 
-                        iconName === 'cards' ? cardsRotate :
-                        iconName === 'rewards' ? rewardsRotate : moreRotate;
-    const scaleValue = iconName === 'home' ? homeScale : 
-                       iconName === 'cards' ? cardsScale :
-                       iconName === 'rewards' ? rewardsScale : moreScale;
-    
-    // ENHANCED: Rotation wiggle animation (more visible)
-    rotateValue.value = withSequence(
-      withTiming(-15, { duration: 100, easing: Easing.out(Easing.cubic) }),
-      withTiming(15, { duration: 100, easing: Easing.inOut(Easing.cubic) }),
-      withSpring(0, { damping: 10, stiffness: 300 })
-    );
-    
-    // ENHANCED: Scale animation with more bounce
-    scaleValue.value = withSequence(
-      withTiming(0.85, { duration: 80, easing: Easing.out(Easing.cubic) }),
-      withSpring(1.1, { damping: 8, stiffness: 300 }),
-      withSpring(1, { damping: 12, stiffness: 400 })
-    );
-    
+  // Simple icon press handlers without animations
+  const handleIconPress = (callback?: () => void) => {
     callback?.();
   };
 
@@ -190,19 +99,19 @@ export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
           {/* HOME */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => handleIconPress('home', navItems[0]?.onPress)}
+            onPress={() => handleIconPress(navItems[0]?.onPress)}
             activeOpacity={0.7}
           >
             {navItems[0]?.active && (
               <View style={[styles.activeIndicator, { backgroundColor: colors.text }]} />
             )}
-            <Animated.View style={[styles.iconContainer, homeAnimatedStyle]}>
+            <View style={styles.iconContainer}>
               <Ionicons
                 name="home-outline"
                 size={19}
                 color={navItems[0]?.active ? colors.text : colors.textSecondary}
               />
-            </Animated.View>
+            </View>
             <Text
               style={[
                 styles.navLabel,
@@ -219,13 +128,13 @@ export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
           {/* CARDS */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => handleIconPress('cards', navItems[1]?.onPress)}
+            onPress={() => handleIconPress(navItems[1]?.onPress)}
             activeOpacity={0.7}
           >
             {navItems[1]?.active && (
               <View style={[styles.activeIndicator, { backgroundColor: colors.text }]} />
             )}
-            <Animated.View style={[styles.iconContainer, cardsAnimatedStyle]}>
+            <View style={styles.iconContainer}>
               <Ionicons
                 name="card-outline"
                 size={19}
@@ -240,7 +149,7 @@ export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
                   ]} 
                 />
               )}
-            </Animated.View>
+            </View>
             <Text
               style={[
                 styles.navLabel,
@@ -256,13 +165,10 @@ export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
 
           {/* UPI (CENTER) */}
           <View style={styles.upiContainer}>
-            {/* Pulsing glow effect */}
-            <Animated.View style={[styles.upiGlow, upiGlowStyle]} />
-            
-            <AnimatedTouchable
-              style={[styles.upiButton, upiAnimatedStyle]}
+            <TouchableOpacity
+              style={styles.upiButton}
               onPress={handleUPIPress}
-              activeOpacity={0.9}
+              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={['#FFFFFF', '#F5F5F5', '#E5E5E5']}
@@ -272,25 +178,25 @@ export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
               >
                 <Text style={styles.upiText}>UPI</Text>
               </LinearGradient>
-            </AnimatedTouchable>
+            </TouchableOpacity>
           </View>
 
           {/* REWARDS */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => handleIconPress('rewards', navItems[2]?.onPress)}
+            onPress={() => handleIconPress(navItems[2]?.onPress)}
             activeOpacity={0.7}
           >
             {navItems[2]?.active && (
               <View style={[styles.activeIndicator, { backgroundColor: colors.text }]} />
             )}
-            <Animated.View style={[styles.iconContainer, rewardsAnimatedStyle]}>
+            <View style={styles.iconContainer}>
               <Ionicons
                 name="gift-outline"
                 size={19}
                 color={navItems[2]?.active ? colors.text : colors.textSecondary}
               />
-            </Animated.View>
+            </View>
             <Text
               style={[
                 styles.navLabel,
@@ -307,19 +213,19 @@ export const CreditCardBottomNav: React.FC<CreditCardBottomNavProps> = ({
           {/* MORE */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => handleIconPress('more', navItems[3]?.onPress)}
+            onPress={() => handleIconPress(navItems[3]?.onPress)}
             activeOpacity={0.7}
           >
             {navItems[3]?.active && (
               <View style={[styles.activeIndicator, { backgroundColor: colors.text }]} />
             )}
-            <Animated.View style={[styles.iconContainer, moreAnimatedStyle]}>
+            <View style={styles.iconContainer}>
               <Ionicons
                 name="grid-outline"
                 size={19}
                 color={navItems[3]?.active ? colors.text : colors.textSecondary}
               />
-            </Animated.View>
+            </View>
             <Text
               style={[
                 styles.navLabel,
@@ -417,25 +323,16 @@ const styles = StyleSheet.create({
     width: 60,
     marginHorizontal: 4,
   },
-  upiGlow: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
   upiButton: {
     width: 60,
     height: 60,
     borderRadius: 30,
     overflow: 'hidden',
-    // Enhanced shadow matching web
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
-    // White glow effect
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
     borderWidth: 0.5,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },

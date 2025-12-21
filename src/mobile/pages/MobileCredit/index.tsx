@@ -22,10 +22,7 @@ const MobileCredit: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.container}>
-        {/* Ambient particle background */}
-        <ParticleField />
-        
-      {/* Header */}
+        {/* Header */}
         <CreditCardHeader
           cashbackAmount={41}
           onCashbackPress={() => console.log('Cashback pressed')}
