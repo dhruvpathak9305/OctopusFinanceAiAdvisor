@@ -97,8 +97,8 @@ export const CardFilterBar: React.FC<CardFilterBarProps> = ({
           style={[
             styles.allButton,
             selectedCardId === null && {
-              backgroundColor: colors.primary + '20',
-              borderColor: colors.primary,
+              backgroundColor: '#10B981' + '20',
+              borderColor: '#10B981',
             },
             selectedCardId !== null && {
               backgroundColor: 'transparent',
@@ -112,7 +112,7 @@ export const CardFilterBar: React.FC<CardFilterBarProps> = ({
             style={[
               styles.allButtonText,
               {
-                color: selectedCardId === null ? colors.primary : colors.textSecondary,
+                color: selectedCardId === null ? '#10B981' : colors.textSecondary,
                 fontWeight: selectedCardId === null ? '700' : '500',
               },
             ]}
@@ -129,8 +129,8 @@ export const CardFilterBar: React.FC<CardFilterBarProps> = ({
         >
           {safeCards.map((card, index) => {
             const isSelected = selectedCardId === card.id;
-            const gradientColors = getBankGradient(card.bank || card.institution || '');
-            const bankIcon = getBankIcon(card.bank || card.institution || '');
+            const gradientColors = getBankGradient(card.bank || '');
+            const bankIcon = getBankIcon(card.bank || '');
 
             return (
               <AnimatedTouchable
@@ -138,7 +138,7 @@ export const CardFilterBar: React.FC<CardFilterBarProps> = ({
                 style={[
                   styles.thumbnail,
                   isSelected && {
-                    borderColor: colors.primary,
+                    borderColor: '#10B981',
                     borderWidth: 2.5,
                   },
                   !isSelected && {
@@ -150,7 +150,7 @@ export const CardFilterBar: React.FC<CardFilterBarProps> = ({
                 activeOpacity={0.7}
               >
                 <LinearGradient
-                  colors={gradientColors}
+                  colors={gradientColors as [string, string, ...string[]]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.thumbnailGradient}
@@ -170,15 +170,15 @@ export const CardFilterBar: React.FC<CardFilterBarProps> = ({
           style={[
             styles.addButton,
             {
-              borderColor: colors.border,
-              backgroundColor: 'transparent',
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
             },
           ]}
           onPress={onAddCard}
           activeOpacity={0.8}
         >
-          <Ionicons name="add" size={14} color={colors.textSecondary} />
-          <Text style={[styles.addButtonText, { color: colors.textSecondary }]}>
+          <Ionicons name="add" size={14} color="#10B981" />
+          <Text style={[styles.addButtonText, { color: '#10B981' }]}>
             Add card
           </Text>
         </AnimatedTouchable>
@@ -193,53 +193,53 @@ const styles = StyleSheet.create({
     bottom: 85, // Proper spacing above bottom nav (matching web)
     left: 0,
     right: 0,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)', // Pure black matching image
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#1F2937', // Dark gray matching Financial Dashboard cards
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
     zIndex: 40, // Below bottom nav (50) but above content
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   allButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    minWidth: 70,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    minWidth: 65,
     backgroundColor: 'transparent',
   },
   allButtonText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   thumbnailsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     flex: 1,
   },
   thumbnail: {
-    width: 32,
-    height: 32,
-    borderRadius: 16, // Fully circular
+    width: 30,
+    height: 30,
+    borderRadius: 15, // Fully circular
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
   },
   thumbnailGradient: {
     flex: 1,
@@ -255,22 +255,22 @@ const styles = StyleSheet.create({
   },
   divider: {
     width: 1,
-    height: 24,
-    opacity: 0.3,
+    height: 22,
+    opacity: 0.25,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    gap: 5,
-    backgroundColor: 'transparent',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    gap: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
   addButtonText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.3,
   },

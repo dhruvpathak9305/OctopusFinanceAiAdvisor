@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)', // Darker background matching image
+    backgroundColor: '#1F2937', // Dark gray matching Financial Dashboard cards
   },
   navContent: {
     flexDirection: 'row',

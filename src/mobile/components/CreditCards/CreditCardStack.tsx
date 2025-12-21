@@ -113,8 +113,8 @@ export const CreditCardStack: React.FC = React.memo(() => {
   }, [shimmerOpacity]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
-    textShadowColor: `rgba(255, 140, 50, ${shimmerOpacity.value})`,
-    textShadowRadius: 30, // Increased from 20 to 30
+    textShadowColor: `rgba(16, 185, 129, ${shimmerOpacity.value})`,
+    textShadowRadius: 30,
     textShadowOffset: { width: 0, height: 0 },
   }));
 
@@ -150,6 +150,14 @@ export const CreditCardStack: React.FC = React.memo(() => {
 
   return (
     <View style={styles.container}>
+      {/* Subtle background gradient overlay for depth - more subtle */}
+      <LinearGradient
+        colors={['transparent', 'rgba(16, 185, 129, 0.008)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -174,19 +182,13 @@ export const CreditCardStack: React.FC = React.memo(() => {
           </View>
         </Animated.View>
 
-        {/* Divider with gradient */}
+        {/* Divider with gradient - more subtle */}
         <View style={styles.dividerContainer}>
           <LinearGradient
-            colors={['transparent', COLORS.border, 'transparent']}
+            colors={['transparent', COLORS.border + '80', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.dividerGradient}
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(250, 250, 250, 0.1)', 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.dividerGradient, { position: 'absolute', top: 0 }]}
           />
         </View>
 
@@ -235,7 +237,7 @@ export const CreditCardStack: React.FC = React.memo(() => {
         )}
 
         {/* Bottom spacer for filter bar + bottom nav */}
-        <View style={{ height: 180 }} />
+        <View style={{ height: 200 }} />
       </ScrollView>
 
       {/* Card Filter Bar - FIXED AT BOTTOM */}
@@ -266,52 +268,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: SPACING.xl,
+    paddingBottom: SPACING.xl + 20,
   },
   header: {
     alignItems: 'center',
-    paddingTop: SPACING.xl + 8,
-    paddingBottom: SPACING.lg + 4,
+    paddingTop: SPACING.lg + 8,
+    paddingBottom: SPACING.md + 4,
     paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   statementLabel: {
-    fontSize: TYPOGRAPHY.sizes.xs + 1,
+    fontSize: TYPOGRAPHY.sizes.xs - 1,
     color: COLORS.mutedForeground,
     fontWeight: TYPOGRAPHY.weights.medium,
-    letterSpacing: 0.5,
-    textTransform: 'none',
-    marginBottom: 4,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    opacity: 0.65,
   },
   totalAmountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    marginTop: SPACING.sm + 2,
-    gap: 4,
+    marginTop: SPACING.xs - 2,
+    gap: 5,
   },
   totalAmount: {
-    fontSize: 48,
+    fontSize: 42,
     fontWeight: TYPOGRAPHY.weights.bold || '700',
     color: COLORS.foreground,
-    lineHeight: 52,
-    letterSpacing: -0.5,
+    lineHeight: 46,
+    letterSpacing: -0.8,
+    textShadowColor: 'rgba(16, 185, 129, 0.12)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
   totalAmountDecimal: {
-    fontSize: TYPOGRAPHY.sizes.xl,
+    fontSize: TYPOGRAPHY.sizes.lg,
     color: COLORS.mutedForeground,
     fontWeight: TYPOGRAPHY.weights.regular,
     marginLeft: 0,
-    opacity: 0.8,
+    opacity: 0.6,
   },
   arrowDown: {
-    fontSize: TYPOGRAPHY.sizes.base,
-    color: 'rgba(115, 115, 115, 0.5)',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: 'rgba(115, 115, 115, 0.35)',
     marginLeft: 4,
     marginTop: 4,
   },
   dividerContainer: {
     position: 'relative',
-    width: '90%',
+    width: '80%',
     alignSelf: 'center',
     marginBottom: SPACING.md,
     marginTop: SPACING.sm,
@@ -321,67 +328,81 @@ const styles = StyleSheet.create({
   },
   toggleContainer: {
     alignItems: 'center',
-    paddingVertical: SPACING.lg + 4,
+    paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
+    marginTop: -SPACING.xs,
   },
   toggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: SPACING.xl + 4,
-    paddingVertical: 12,
+    gap: 8,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 8,
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.12)',
+    backgroundColor: 'rgba(16, 185, 129, 0.02)',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   toggleText: {
-    fontSize: TYPOGRAPHY.sizes.xs + 1,
+    fontSize: TYPOGRAPHY.sizes.xs - 1,
     color: COLORS.mutedForeground,
     fontWeight: TYPOGRAPHY.weights.medium,
-    letterSpacing: 0.3,
+    letterSpacing: 0.25,
+    opacity: 0.75,
+    textTransform: 'lowercase',
   },
   cardStack: {
     position: 'relative',
     flex: 1,
+    paddingHorizontal: SPACING.sm,
   },
   notificationContainer: {
     alignItems: 'center',
     marginBottom: 128,
-    marginTop: SPACING.md,
+    marginTop: SPACING.lg,
     paddingHorizontal: SPACING.md,
   },
   notification: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: SPACING.xl + 4,
-    paddingVertical: 12,
+    gap: 10,
+    paddingHorizontal: SPACING.lg + 2,
+    paddingVertical: 10,
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
+    borderColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(16, 185, 129, 0.04)',
   },
   notificationIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   notificationIconText: {
-    fontSize: TYPOGRAPHY.sizes.xs + 1,
-    color: '#60A5FA',
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: '#10B981',
     fontWeight: TYPOGRAPHY.weights.bold || '700',
   },
   notificationText: {
-    fontSize: TYPOGRAPHY.sizes.sm + 1,
+    fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.mutedForeground,
     fontWeight: TYPOGRAPHY.weights.medium,
     letterSpacing: 0.2,
+    opacity: 0.85,
+    textTransform: 'lowercase',
   },
   notificationArrow: {
-    fontSize: TYPOGRAPHY.sizes.lg,
-    color: 'rgba(115, 115, 115, 0.5)',
-    marginLeft: 2,
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: 'rgba(115, 115, 115, 0.4)',
+    marginLeft: 4,
   },
 });

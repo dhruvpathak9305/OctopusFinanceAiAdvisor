@@ -2198,7 +2198,7 @@ const MobileNetWorth: React.FC = () => {
             style={[styles.fullNavButton]}
             onPress={() => (navigation as any).navigate("MobileAccounts")}
           >
-            <Ionicons name="wallet" size={16} color={colors.textSecondary} />
+            <Ionicons name="wallet" size={14} color={colors.textSecondary} />
             <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
               Accounts
             </Text>
@@ -2207,7 +2207,7 @@ const MobileNetWorth: React.FC = () => {
             style={[styles.fullNavButton]}
             onPress={() => (navigation as any).navigate("MobileCredit")}
           >
-            <Ionicons name="card" size={16} color={colors.textSecondary} />
+            <Ionicons name="card" size={14} color={colors.textSecondary} />
             <Text style={[styles.fullNavText, { color: colors.textSecondary }]}>
               Credit
             </Text>
@@ -2219,7 +2219,7 @@ const MobileNetWorth: React.FC = () => {
               { backgroundColor: colors.primary },
             ]}
           >
-            <Ionicons name="trending-up" size={16} color="white" />
+            <Ionicons name="trending-up" size={14} color="white" />
             <Text style={[styles.fullNavText, { color: "white" }]}>Net</Text>
           </TouchableOpacity>
         </View>
@@ -4609,33 +4609,34 @@ const styles = StyleSheet.create({
   },
   fullNavContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
   },
   fullNavButtonGroup: {
     flexDirection: "row",
-    borderRadius: 25,
-    padding: 4,
+    borderRadius: 20,
+    padding: 3,
   },
   fullNavButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    gap: 5,
   },
   activeFullNav: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   fullNavText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
+    letterSpacing: 0.2,
   },
   headerActions: {
     flexDirection: "row",

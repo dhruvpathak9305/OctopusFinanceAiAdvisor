@@ -12,11 +12,12 @@ export const COLORS = {
   foreground: '#FAFAFA', // 0 0% 98%
   card: '#0D0D0D', // 0 0% 5%
   
-  // Accent colors
-  primary: '#FF8C32', // 32 95% 55% - Orange
-  primaryMuted: '#CC6F28',
-  gold: '#F5A623', // 45 90% 55%
-  goldMuted: '#B8841A', // 45 70% 40%
+  // Accent colors - Green/Teal theme matching Financial Dashboard
+  primary: '#10B981', // Emerald green - matches dashboard
+  primaryMuted: '#059669', // Darker green
+  primaryLight: '#34D399', // Lighter green
+  teal: '#14B8A6', // Teal accent
+  tealMuted: '#0D9488', // Darker teal
   
   // Neutral colors
   muted: '#1F1F1F', // 0 0% 12%
@@ -164,13 +165,18 @@ export const GRADIENTS = {
   ]),
   
   primary: createGradient([
-    '#FF8C32',
-    '#F5A623',
+    '#10B981', // Emerald green
+    '#14B8A6', // Teal
   ]),
   
-  gold: createGradient([
-    '#F5A623',
-    '#FF8C32',
+  primaryDark: createGradient([
+    '#059669', // Darker green
+    '#10B981', // Emerald
+  ]),
+  
+  teal: createGradient([
+    '#14B8A6', // Teal
+    '#06B6D4', // Cyan
   ]),
   
   amazonCard: createGradient([

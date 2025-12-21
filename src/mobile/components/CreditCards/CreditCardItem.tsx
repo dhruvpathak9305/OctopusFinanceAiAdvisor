@@ -482,7 +482,7 @@ export const CreditCardItem: React.FC<CreditCardItemProps> = React.memo(({
                 style={styles.payNowButton}
               >
                 <LinearGradient
-                  colors={['#FFFFFF', '#F5F5F5']}
+                  colors={['#10B981', '#14B8A6', '#059669']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
                   style={styles.payNowGradient}
@@ -540,65 +540,68 @@ const styles = StyleSheet.create({
   gradient: {
     flex: 1,
     height: 224, // Match web: h-56 = 224px
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
-    // Enhanced shadows matching web card-shadow
+    // Cleaner, more refined shadows
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 30 },
-    shadowOpacity: 0.6,
-    shadowRadius: 40,
-    elevation: 20,
-    // Inner glow effect
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.4,
+    shadowRadius: 30,
+    elevation: 15,
+    // Subtle inner glow effect
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   cardContent: {
     flex: 1,
-    padding: 24,
+    padding: 20,
     justifyContent: 'space-between',
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    marginBottom: 4,
   },
   bankName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.9)',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    color: 'rgba(255,255,255,0.95)',
+    letterSpacing: 0.4,
+    marginBottom: 6,
   },
   cardInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   cardInfo: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.75)',
     fontWeight: '500',
+    letterSpacing: 0.3,
   },
   amountSection: {
     alignItems: 'flex-end',
   },
   amountValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: 'white',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   dueDateText: {
-    fontSize: 11,
+    fontSize: 10,
     color: 'rgba(255,255,255,0.7)',
-    marginTop: 4,
+    marginTop: 3,
     fontWeight: '500',
+    letterSpacing: 0.2,
   },
   chipProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginVertical: 16,
+    gap: 14,
+    marginVertical: 18,
   },
   chip: {
     width: 40,
@@ -659,32 +662,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    marginTop: 4,
   },
   holderName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.9)',
-    letterSpacing: 1,
+    color: 'rgba(255,255,255,0.95)',
+    letterSpacing: 0.8,
   },
   payNowButton: {
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
   },
   payNowGradient: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    borderRadius: 10,
   },
   payNowText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#000',
-    letterSpacing: 0.3,
+    color: '#FFFFFF',
+    letterSpacing: 0.4,
   },
   progressText: {
     fontSize: 8,

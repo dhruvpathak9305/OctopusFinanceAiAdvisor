@@ -119,7 +119,7 @@ export const CreditCardHeader: React.FC<CreditCardHeaderProps> = ({
         )}
         
         <LinearGradient
-          colors={['#FFA500', '#FF6B35', '#FF8C32']}
+          colors={['#10B981', '#14B8A6', '#34D399']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.cashbackIcon}
@@ -174,14 +174,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 26,
     borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
     gap: 12,
-    shadowColor: '#FF8C32',
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
     position: 'relative',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
   glowPulse: {
     position: 'absolute',
@@ -190,8 +191,8 @@ const styles = StyleSheet.create({
     top: -8,
     bottom: -8,
     borderRadius: 32,
-    backgroundColor: '#FF8C32',
-    opacity: 0.5,
+    backgroundColor: '#10B981',
+    opacity: 0.4,
   },
   cashbackIcon: {
     width: 24,
@@ -199,11 +200,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FF8C32',
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 4,
   },
   cashbackIconText: {
     fontSize: 11,
