@@ -107,15 +107,11 @@ const MoneyPage: React.FC = () => {
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             Money
           </Text>
-          <Text
-            style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-          >
-            Manage your accounts and cards
-          </Text>
         </View>
-        {/* Cashback Badge and Settings Icons - Right side (only show on credit tab) */}
-        {activeTab === 'credit' && (
-          <View style={styles.headerRight}>
+        {/* Consistent Header Icons - Analytics and Settings (show on all tabs) */}
+        <View style={styles.headerRight}>
+          {/* Cashback Badge - Only show on credit tab */}
+          {activeTab === 'credit' && (
             <TouchableOpacity
               style={[styles.cashbackBadge, { borderColor: colors.primary + '40' }]}
               onPress={() => console.log('Cashback pressed')}
@@ -132,20 +128,22 @@ const MoneyPage: React.FC = () => {
                 41
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.headerIconButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => console.log('Analytics pressed')}
-            >
-              <Ionicons name="stats-chart-outline" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.headerIconButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => console.log('Settings pressed')}
-            >
-              <Ionicons name="settings-outline" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
+          )}
+          {/* Analytics Icon - Show on all tabs */}
+          <TouchableOpacity
+            style={[styles.headerIconButton, { backgroundColor: `${colors.primary}15` }]}
+            onPress={() => console.log('Analytics pressed')}
+          >
+            <Ionicons name="analytics" size={18} color={colors.primary} />
+          </TouchableOpacity>
+          {/* Settings Icon - Show on all tabs */}
+          <TouchableOpacity
+            style={[styles.headerIconButton, { backgroundColor: `${colors.border}30` }]}
+            onPress={() => console.log('Settings pressed')}
+          >
+            <Ionicons name="settings-outline" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Full Width Navigation Buttons - Always visible */}
@@ -268,7 +266,7 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     flexShrink: 0,
   },
   cashbackBadge: {
@@ -308,17 +306,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   headerIconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   fullNavContainer: {
     paddingHorizontal: 20,

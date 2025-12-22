@@ -66,6 +66,7 @@ const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = fals
     y: 0,
   });
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [isChartExpanded, setIsChartExpanded] = useState(false);
 
   // State for real historical data and MOM
   const [historicalChartData, setHistoricalChartData] = useState<number[]>([]);
@@ -660,11 +661,27 @@ const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = fals
               <Text style={[styles.headerTitle, { color: colors.text }]}>
                 Money
               </Text>
-              <Text
-                style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+            </View>
+            {/* Consistent Header Icons - Analytics and Settings */}
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={[styles.headerIconButton, { backgroundColor: `${colors.primary}15` }]}
+                onPress={() => {
+                  // Navigate to analytics or show analytics modal
+                  console.log('Analytics pressed');
+                }}
               >
-                Manage your accounts and cards
-              </Text>
+                <Ionicons name="analytics" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.headerIconButton, { backgroundColor: `${colors.border}30` }]}
+                onPress={() => {
+                  // Navigate to settings or show settings modal
+                  console.log('Settings pressed');
+                }}
+              >
+                <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -748,8 +765,30 @@ const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = fals
               </Text>
             </View>
             <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
             >
+              {/* Chart Toggle Icon - Better Placement */}
+              <TouchableOpacity
+                onPress={() => setIsChartExpanded(!isChartExpanded)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  backgroundColor: isChartExpanded ? `${colors.primary}20` : `${colors.border}40`,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: isChartExpanded ? colors.primary : colors.border,
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={isChartExpanded ? "chevron-up" : "analytics"} 
+                  size={18} 
+                  color={isChartExpanded ? colors.primary : colors.textSecondary} 
+                />
+              </TouchableOpacity>
+              
               {/* Only show distribution button when "All" is selected and there are multiple accounts */}
               {selectedFilter === "All" && accounts.length > 1 && (
                 <TouchableOpacity
@@ -877,16 +916,19 @@ const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = fals
             </Text>
           </View>
 
-          {/* Account Balance Trend Chart */}
-          <View
-            style={{
-              marginTop: 0,
-              marginBottom: 4,
-              height: 180,
-              backgroundColor: colors.card,
-              position: "relative",
-            }}
-          >
+          {/* Account Balance Trend Chart - Now controlled by icon in header */}
+          {isChartExpanded && (
+            <View
+              style={{
+                marginTop: 8,
+                marginBottom: 4,
+                height: 200,
+                backgroundColor: colors.card,
+                borderRadius: 12,
+                padding: 12,
+                position: "relative",
+              }}
+            >
             {chartLoading ? (
               <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
@@ -959,7 +1001,7 @@ const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = fals
             ) : (
               <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
                 <Ionicons 
-                  name="bar-chart-outline" 
+                  name="analytics-outline" 
                   size={32} 
                   color={colors.textSecondary}
                   style={{ marginBottom: 8, opacity: 0.5 }}
@@ -974,7 +1016,8 @@ const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = fals
                 </Text>
               </View>
             )}
-          </View>
+            </View>
+          )}
 
           {/* Account Distribution Section - Dashboard Style */}
           {/* Only show distribution when "All" is selected, there are multiple accounts, and it's expanded */}
@@ -1289,11 +1332,11 @@ const MobileAccounts: React.FC<MobileAccountsProps> = ({ hideHeaderAndNav = fals
           ) : (
             <MonthlyChart
                 data={{
-                  spend: spendData.length > 0 ? spendData : [0],
-                  invested: investedData.length > 0 ? investedData : [0],
-                  income: incomeData.length > 0 ? incomeData : [0],
+                  spend: spendData.length > 0 ? spendData : [],
+                  invested: investedData.length > 0 ? investedData : [],
+                  income: incomeData.length > 0 ? incomeData : [],
                 }}
-                labels={transactionLabels.length > 0 ? transactionLabels : ["1"]}
+                labels={transactionLabels.length > 0 ? transactionLabels : []}
                 activeChart={activeChart}
                 chartPeriod={chartPeriod}
                 title={getMonthTitle()}
@@ -1363,6 +1406,19 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     marginTop: 4,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fullNavContainer: {
     paddingHorizontal: 20,

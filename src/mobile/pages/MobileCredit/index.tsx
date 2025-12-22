@@ -45,11 +45,6 @@ const MobileCredit: React.FC<MobileCreditProps> = ({ hideHeaderAndNav = false })
               <Text style={[styles.headerTitle, { color: colors.text }]}>
                 Money
               </Text>
-              <Text
-                style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-              >
-                Manage your accounts and cards
-              </Text>
             </View>
             {/* Cashback Badge and Settings Icons - Right side */}
             <View style={styles.headerRight}>
@@ -70,16 +65,16 @@ const MobileCredit: React.FC<MobileCreditProps> = ({ hideHeaderAndNav = false })
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.headerIconButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.headerIconButton, { backgroundColor: `${colors.primary}15` }]}
             onPress={() => console.log('Analytics pressed')}
           >
-            <Ionicons name="stats-chart-outline" size={16} color={colors.textSecondary} />
+            <Ionicons name="analytics" size={18} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.headerIconButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.headerIconButton, { backgroundColor: `${colors.border}30` }]}
             onPress={() => console.log('Settings pressed')}
           >
-            <Ionicons name="settings-outline" size={16} color={colors.textSecondary} />
+            <Ionicons name="settings-outline" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>

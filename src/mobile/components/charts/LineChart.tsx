@@ -71,13 +71,32 @@ const LineChart: React.FC<LineChartProps> = ({
   }
 
   // Calculate the max and min values for the Y-axis scale
-  const maxValue = Math.max(...validData) * 1.1; // Add 10% padding
-  // Keep zeros within the chart so the line remains continuous.
-  // Use the smallest non-zero for sensitivity, but clamp to include 0.
-  const nonZero = validData.filter((v) => v > 0);
-  const smallestNonZero = nonZero.length > 0 ? Math.min(...nonZero) : 0;
-  const candidateMin = smallestNonZero * 0.9; // small padding
-  const minValue = Math.min(0, candidateMin); // ensure 0 stays visible
+  const dataMax = Math.max(...validData);
+  const dataMin = Math.min(...validData);
+  
+  // If all values are the same (including all zeros), create a small range
+  let maxValue: number;
+  let minValue: number;
+  
+  if (dataMax === dataMin) {
+    // All values are the same - create a small range around the value
+    if (dataMax === 0) {
+      // All zeros - show a small range from -1 to 1
+      maxValue = 1;
+      minValue = -1;
+    } else {
+      // All same non-zero value - create 10% range around it
+      maxValue = dataMax * 1.1;
+      minValue = dataMax * 0.9;
+    }
+  } else {
+    // Normal case - values vary
+    maxValue = dataMax * 1.1; // Add 10% padding
+    const nonZero = validData.filter((v) => v > 0);
+    const smallestNonZero = nonZero.length > 0 ? Math.min(...nonZero) : 0;
+    const candidateMin = smallestNonZero * 0.9; // small padding
+    minValue = Math.min(0, candidateMin); // ensure 0 stays visible
+  }
 
   // Ensure we have valid range
   const hasValidRange = 

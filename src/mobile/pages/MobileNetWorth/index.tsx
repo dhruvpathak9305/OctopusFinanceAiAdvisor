@@ -2183,11 +2183,27 @@ const MobileNetWorth: React.FC<MobileNetWorthProps> = ({ hideHeaderAndNav = fals
               <Text style={[styles.headerTitle, { color: colors.text }]}>
                 Money
               </Text>
-              <Text
-                style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+            </View>
+            {/* Consistent Header Icons - Analytics and Settings */}
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={[styles.headerIconButton, { backgroundColor: `${colors.primary}15` }]}
+                onPress={() => {
+                  // Navigate to analytics or show analytics modal
+                  console.log('Analytics pressed');
+                }}
               >
-                Manage your accounts and cards
-              </Text>
+                <Ionicons name="analytics" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.headerIconButton, { backgroundColor: `${colors.border}30` }]}
+                onPress={() => {
+                  // Navigate to settings or show settings modal
+                  console.log('Settings pressed');
+                }}
+              >
+                <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -4617,6 +4633,19 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     marginTop: 4,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fullNavContainer: {
     paddingHorizontal: 20,
