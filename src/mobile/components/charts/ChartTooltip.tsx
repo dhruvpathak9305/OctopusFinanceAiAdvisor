@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Dimensions, Animated } from "react-native";
 import { ChartTooltipProps } from "./types";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -22,8 +22,29 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
   secondaryLabel,
   formatValue,
 }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    // Animate tooltip entrance
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 100,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [x, y]);
+
   // Position the tooltip to ensure it stays within screen bounds
   const left = Math.min(Math.max(x - 50, 10), screenWidth - 120);
+  const topPosition = Math.max(y - 80, 10);
 
   // Format the value using custom formatter or default formatting
   const formattedValue = typeof value === "number" && formatValue
@@ -33,14 +54,16 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
     : value;
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.tooltip,
         {
           backgroundColor,
           borderColor,
           left,
-          top: y - 80,
+          top: topPosition,
+          opacity: fadeAnim,
+          transform: [{ scale: scaleAnim }],
         },
       ]}
     >
@@ -50,7 +73,7 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
       </Text>
 
       {secondaryValue && secondaryLabel && (
-        <View style={styles.secondaryContainer}>
+        <View style={[styles.secondaryContainer, { borderTopColor: borderColor }]}>
           <Text style={[styles.tooltipSecondary, { color: textColor }]}>
             {secondaryLabel}
           </Text>
@@ -59,22 +82,22 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
           </Text>
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   tooltip: {
     position: "absolute",
-    padding: 8,
-    borderRadius: 6,
+    padding: 10,
+    borderRadius: 8,
     borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    zIndex: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 1000,
     minWidth: 100,
   },
   tooltipTitle: {

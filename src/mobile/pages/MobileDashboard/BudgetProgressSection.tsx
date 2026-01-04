@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   InteractionManager,
+  Animated,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useDemoMode } from "../../../../contexts/DemoModeContext";
 import { budgetCategoryService } from "../../../../services/budgetCategoryService";
@@ -22,6 +24,159 @@ import BudgetCategoryDetailModal from "../../components/BudgetCategoryDetailModa
 import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
 import CircularProgress from "../../components/common/CircularProgress";
 import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
+
+// Budget Summary Component
+const BudgetSummaryCard: React.FC<{
+  categories: any[];
+  isDark: boolean;
+}> = ({ categories, isDark }) => {
+  const colors = isDark ? {
+    card: '#374151',
+    text: '#FFFFFF',
+    textSecondary: '#9CA3AF',
+    border: '#4B5563',
+  } : {
+    card: '#F3F4F6',
+    text: '#111827',
+    textSecondary: '#6B7280',
+    border: '#E5E7EB',
+  };
+
+  const totalBudget = categories.reduce((sum, c) => sum + (c.limit || 0), 0);
+  const totalSpent = categories.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const totalRemaining = totalBudget - totalSpent;
+  const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const overBudgetCount = categories.filter(c => (c.percentage || 0) > 100).length;
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const getHealthColor = () => {
+    if (overallPercentage > 100) return '#EF4444';
+    if (overallPercentage > 90) return '#F59E0B';
+    if (overallPercentage > 75) return '#FBBF24';
+    return '#10B981';
+  };
+
+  return (
+    <View style={[summaryStyles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {/* Progress Bar - Central Element */}
+      <View style={summaryStyles.progressSection}>
+        <View style={summaryStyles.progressWrapper}>
+          <View style={[summaryStyles.progressTrack, { backgroundColor: colors.border }]}>
+            <View 
+              style={[
+                summaryStyles.progressFill, 
+                { 
+                  width: `${Math.min(overallPercentage, 100)}%`,
+                  backgroundColor: getHealthColor() 
+                }
+              ]} 
+            />
+          </View>
+          <Text style={[summaryStyles.progressText, { color: getHealthColor() }]}>
+            {overallPercentage.toFixed(0)}%
+          </Text>
+        </View>
+      </View>
+      
+      {/* Stats around Progress Bar */}
+      <View style={summaryStyles.statsRow}>
+        <View style={summaryStyles.statItem}>
+          <Text style={[summaryStyles.statLabel, { color: colors.textSecondary }]}>Total Budget</Text>
+          <Text style={[summaryStyles.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.75}>
+            {formatCurrency(totalBudget)}
+          </Text>
+        </View>
+        <View style={summaryStyles.statItem}>
+          <Text style={[summaryStyles.statLabel, { color: colors.textSecondary }]}>Spent</Text>
+          <Text style={[summaryStyles.statValue, { color: getHealthColor() }]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.75}>
+            {formatCurrency(totalSpent)}
+          </Text>
+        </View>
+        <View style={summaryStyles.statItem}>
+          <Text style={[summaryStyles.statLabel, { color: colors.textSecondary }]}>Remaining</Text>
+          <Text style={[summaryStyles.statValue, { color: totalRemaining >= 0 ? '#10B981' : '#EF4444' }]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.75}>
+            {formatCurrency(Math.abs(totalRemaining))}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const summaryStyles = StyleSheet.create({
+  container: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  progressSection: {
+    marginBottom: 6,
+  },
+  progressWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    opacity: 0.25,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 10,
+    fontWeight: '800',
+    minWidth: 32,
+    textAlign: 'right',
+    letterSpacing: -0.2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  statLabel: {
+    fontSize: 8,
+    marginBottom: 2,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    opacity: 0.7,
+  },
+  statValue: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    lineHeight: 14,
+  },
+});
 
 // Mock data for budget categories
 const mockBudgetData = {
@@ -404,9 +559,23 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
           return hasChanges ? newData : prevData;
         });
       }
-    } catch (error) {
-      console.error("Error fetching budget progress data:", error);
-      // Only clear data if there was an actual error
+    } catch (error: any) {
+      // Check if it's a network error
+      const isNetworkError = 
+        error?.message?.includes("Network request failed") ||
+        error?.message?.includes("Failed to fetch") ||
+        error?.message?.includes("network") ||
+        error?.code === "ECONNREFUSED" ||
+        error?.code === "ETIMEDOUT";
+
+      // Use console.warn for network errors to avoid red error screen
+      if (isNetworkError) {
+        console.warn("Network error fetching budget progress (handled gracefully):", error?.message || "Network request failed");
+      } else {
+        console.error("Error fetching budget progress data:", error);
+      }
+      
+      // Only clear data if there was an actual error and we don't have previous data
       setBudgetProgressData((prevData) =>
         prevData.length > 0 ? prevData : []
       );
@@ -846,6 +1015,11 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
           />
         </View>
       </View>
+
+      {/* Budget Summary Card */}
+      {currentCategories.length > 0 && (
+        <BudgetSummaryCard categories={currentCategories} isDark={isDark} />
+      )}
 
       {/* Budget Categories Grid */}
       <View style={styles.categoriesGrid}>

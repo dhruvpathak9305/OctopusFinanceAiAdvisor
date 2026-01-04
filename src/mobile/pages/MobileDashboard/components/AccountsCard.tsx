@@ -69,15 +69,31 @@ const AccountsCard: React.FC<AccountsCardProps> = ({
           setMonthlyChange(momData.formattedChange);
           setMomTrend(momData.trend);
           
-          console.log("📊 MoM Growth data loaded:", {
-            change: momData.formattedChange,
-            trend: momData.trend,
-            currentTotal: momData.currentMonthTotal,
-            previousTotal: momData.previousMonthTotal,
-          });
+          if (__DEV__) {
+            console.log("📊 MoM Growth data loaded:", {
+              change: momData.formattedChange,
+              trend: momData.trend,
+              currentTotal: momData.currentMonthTotal,
+              previousTotal: momData.previousMonthTotal,
+            });
+          }
         }
-      } catch (error) {
-        console.error("Error fetching MoM growth:", error);
+      } catch (error: any) {
+        // Handle network errors gracefully
+        const isNetworkError = 
+          error instanceof Error && 
+          (error.message.includes("Network request failed") ||
+           error.message.includes("Failed to fetch") ||
+           error.message.includes("network") ||
+           error.name === "TypeError");
+        
+        // Only log non-network errors to prevent console spam
+        if (!isNetworkError) {
+          console.error("Error fetching MoM growth:", error);
+        } else if (__DEV__) {
+          console.warn("⚠️ Network error in MoM growth fetch, using defaults (suppressed)");
+        }
+        
         // Keep default values on error
       } finally {
         setMomLoading(false);
@@ -116,48 +132,96 @@ const AccountsCard: React.FC<AccountsCardProps> = ({
         // Import the function we need
         const { fetchMonthEndBalances } = await import("../../../../../services/accountBalanceHistoryService");
 
-        console.log("📊 Fetching historical balance data for last 12 months...");
+        if (__DEV__) {
+          console.log("📊 Fetching historical balance data for last 12 months...");
+        }
 
         // Fetch last 12 months of data
         let hasRealData = false;
         for (let i = 11; i >= 0; i--) {
-          const monthOffset = currentMonth - i;
-          const targetMonth = ((monthOffset % 12) + 12) % 12;
-          const targetYear = currentYear + Math.floor(monthOffset / 12);
+          try {
+            const monthOffset = currentMonth - i;
+            const targetMonth = ((monthOffset % 12) + 12) % 12;
+            const targetYear = currentYear + Math.floor(monthOffset / 12);
 
-          const monthBalances = await fetchMonthEndBalances(targetYear, targetMonth, isDemo);
-          const monthTotal = monthBalances.reduce((sum, b) => sum + b.balance, 0);
+            const monthBalances = await fetchMonthEndBalances(targetYear, targetMonth, isDemo);
+            const monthTotal = monthBalances.reduce((sum, b) => sum + b.balance, 0);
 
-          data.push({
-            month: monthNames[targetMonth],
-            value: monthTotal,
-          });
+            data.push({
+              month: monthNames[targetMonth],
+              value: monthTotal,
+            });
 
-          if (monthTotal > 0) {
-            hasRealData = true;
+            if (monthTotal > 0) {
+              hasRealData = true;
+            }
+          } catch (monthError: any) {
+            // Handle individual month fetch failures gracefully
+            const isNetworkError = 
+              monthError?.message?.includes("Network request failed") ||
+              monthError?.message?.includes("Failed to fetch") ||
+              monthError?.name === "TypeError" ||
+              monthError?.message?.includes("network");
+            
+            // Only log non-network errors to prevent console spam
+            if (!isNetworkError && __DEV__) {
+              console.warn(`⚠️ Failed to fetch data for month ${i}:`, monthError);
+            }
+            
+            // Continue with next month instead of breaking the entire loop
+            data.push({
+              month: monthNames[((currentMonth - i) % 12 + 12) % 12],
+              value: 0,
+            });
           }
         }
 
-        console.log("📊 Historical data fetched:", { 
-          months: data.length, 
-          hasRealData,
-          sample: data.slice(-3)
-        });
+        if (__DEV__) {
+          console.log("📊 Historical data fetched:", { 
+            months: data.length, 
+            hasRealData,
+            sample: data.slice(-3)
+          });
+        }
 
         // Only set chart data if we have REAL historical data
         if (hasRealData && data.some(d => d.value > 0)) {
-          console.log("✅ Real historical data found, displaying chart");
+          if (__DEV__) {
+            console.log("✅ Real historical data found, displaying chart");
+          }
           setChartData(data);
           setChartError(null);
         } else {
-          console.log("⚠️ No historical data available in database");
+          if (__DEV__) {
+            console.log("⚠️ No historical data available in database");
+          }
           setChartData(null);
           setChartError("No historical data available yet. Historical balance tracking will begin from this month.");
         }
-      } catch (error) {
-        console.error("❌ Error fetching historical chart data:", error);
+      } catch (error: any) {
+        // Check if it's a network error
+        const isNetworkError = 
+          error instanceof Error && 
+          (error.message.includes("Network request failed") ||
+           error.message.includes("Failed to fetch") ||
+           error.message.includes("network") ||
+           error.name === "TypeError");
+        
+        // Only log non-network errors to prevent console spam
+        if (!isNetworkError) {
+          console.error("❌ Error fetching historical chart data:", error);
+        } else if (__DEV__) {
+          // Suppress network error logs in production, only show in dev
+          console.warn("⚠️ Network error fetching historical chart data (suppressed)");
+        }
+        
+        if (isNetworkError) {
+          setChartError("Network connection issue. Please check your internet and try again.");
+        } else {
+          setChartError("Unable to load historical data. Please try again later.");
+        }
+        
         setChartData(null);
-        setChartError("Unable to load historical data. Please try again later.");
       }
     };
 

@@ -8,6 +8,7 @@
 // =====================================================
 
 import { supabase } from "./supabaseClient";
+import networkMonitor from "./sync/networkMonitor";
 
 // =====================================================
 // TYPE DEFINITIONS
@@ -115,6 +116,13 @@ export async function getBudgetProgress(
   retryCount: number = 0
 ): Promise<BudgetProgressItem[]> {
   try {
+    // Check network status before making request
+    const isOnline = networkMonitor.isCurrentlyOnline();
+    if (!isOnline) {
+      // Silently return empty array when offline - don't log as error
+      return [];
+    }
+
     // Add a small delay before retries to prevent overwhelming the server
     if (retryCount > 0) {
       await new Promise((resolve) => setTimeout(resolve, 500 * retryCount));
@@ -127,10 +135,16 @@ export async function getBudgetProgress(
     });
 
     if (error) {
-      console.error("Error fetching budget progress:", error);
+      // Check if it's a network error
+      const isNetworkError = 
+        error.message?.includes("Network request failed") ||
+        error.message?.includes("Failed to fetch") ||
+        error.message?.includes("network") ||
+        error.code === "ECONNREFUSED" ||
+        error.code === "ETIMEDOUT";
 
       // Retry logic for network errors (up to 2 retries)
-      if (error.message?.includes("Network request failed") && retryCount < 2) {
+      if (isNetworkError && retryCount < 2) {
         console.log(
           `Retrying getBudgetProgress (attempt ${retryCount + 1})...`
         );
@@ -142,19 +156,40 @@ export async function getBudgetProgress(
         );
       }
 
-      // For non-network errors or after max retries, return empty array instead of throwing
-      console.warn(
-        `Failed to fetch budget progress after ${retryCount} retries:`,
-        error.message
-      );
+      // Use console.warn instead of console.error for handled errors
+      // This prevents React Native from showing the red error screen
+      if (isNetworkError) {
+        console.warn(
+          `Network error fetching budget progress (offline or connection issue):`,
+          error.message
+        );
+      } else {
+        console.warn(
+          `Failed to fetch budget progress after ${retryCount} retries:`,
+          error.message
+        );
+      }
       return [];
     }
 
     return (data || []) as BudgetProgressItem[];
   } catch (error: any) {
-    console.error("getBudgetProgress error:", error);
+    // Check if it's a network error
+    const isNetworkError = 
+      error?.message?.includes("Network request failed") ||
+      error?.message?.includes("Failed to fetch") ||
+      error?.message?.includes("network") ||
+      error?.code === "ECONNREFUSED" ||
+      error?.code === "ETIMEDOUT";
 
-    // For uncaught errors, return empty array instead of throwing
+    // Use console.warn for network errors, console.error only for unexpected errors
+    if (isNetworkError) {
+      console.warn("Network error in getBudgetProgress (handled gracefully):", error?.message || "Network request failed");
+    } else {
+      console.error("Unexpected error in getBudgetProgress:", error);
+    }
+
+    // For all errors, return empty array instead of throwing
     // This prevents the UI from freezing due to unhandled exceptions
     return [];
   }

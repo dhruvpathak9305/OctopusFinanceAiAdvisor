@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Animated,
 } from "react-native";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { formatCurrency as formatINR } from "../../../../utils/currencyFormatter";
+import { LineChart as RNChartKitLineChart } from "react-native-chart-kit";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -48,6 +50,37 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
 }) => {
   const { isDark } = useTheme();
 
+
+  // Animation for trend badge - MUST be called before any early returns
+  const trendBadgeAnim = useRef(new Animated.Value(0)).current;
+
+  // Calculate trend from chart data
+  const calculateChartTrend = () => {
+    if (!data || data.length < 2) return null;
+    const firstValue = data[0]?.value || 0;
+    const lastValue = data[data.length - 1]?.value || 0;
+    if (firstValue === 0) return null;
+    const change = ((lastValue - firstValue) / firstValue) * 100;
+    return {
+      percentage: change,
+      isPositive: change >= 0,
+    };
+  };
+
+  const chartTrend = calculateChartTrend();
+
+  // Animate trend badge on mount - MUST be called before any early returns
+  useEffect(() => {
+    if (chartTrend) {
+      Animated.spring(trendBadgeAnim, {
+        toValue: 1,
+        tension: 100,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [chartTrend, trendBadgeAnim]);
+
   // Dynamic arrow icon based on trend
   const getArrowIcon = () => {
     if (trend === "up") return "↗"; // Up-right arrow for positive growth
@@ -62,6 +95,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
         textSecondary: "#9CA3AF",
         border: "#374151",
         card: "#1F2937",
+        error: "#EF4444",
       }
     : {
         background: "#FFFFFF",
@@ -69,6 +103,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
         textSecondary: "#6B7280",
         border: "#E5E7EB",
         card: "#FFFFFF",
+        error: "#DC2626",
       };
 
   if (loading) {
@@ -152,54 +187,119 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
 
     console.log("📊 FinancialSummaryCard: Rendering chart with REAL data:", data.length, "months");
 
-    // Show last 12 months
-    const chartData = data.slice(-12);
-    const maxValue = Math.max(...chartData.map((d) => d.value));
-    const minValue = Math.min(...chartData.map((d) => d.value));
-    const range = maxValue - minValue;
+    // Show last 6-12 months (prefer 6 for better visibility on cards)
+    const monthsToShow = Math.min(data.length, 6);
+    const chartData = data.slice(-monthsToShow);
+    const chartValues = chartData.map((d) => d.value);
+    const chartLabels = chartData.map((d) => d.month?.slice(0, 3) || "");
 
-    console.log("📊 Chart range:", { maxValue, minValue, range, dataPoints: chartData.length });
+    console.log("📊 Chart data:", { dataPoints: chartData.length, values: chartValues });
 
-    // Enhanced chart background color based on theme
-    const chartBgColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)";
+    // Calculate chart dimensions for card
+    const cardWidth = screenWidth * 0.7;
+    const chartWidth = cardWidth - 32; // Account for padding
+    const chartHeight = 80; // Increased height for better visibility
+
+    // Format function for Y-axis labels
+    const formatYLabel = (value: string) => {
+      const numValue = Number(value);
+      if (isNaN(numValue) || !isFinite(numValue)) return "0";
+      
+      // Format large numbers compactly
+      if (numValue >= 10000000) {
+        return `₹${(numValue / 10000000).toFixed(1)}Cr`;
+      } else if (numValue >= 100000) {
+        return `₹${(numValue / 100000).toFixed(1)}L`;
+      } else if (numValue >= 1000) {
+        return `₹${(numValue / 1000).toFixed(0)}K`;
+      }
+      return `₹${numValue.toFixed(0)}`;
+    };
 
     return (
-      <View style={[styles.chartContainer, { backgroundColor: chartBgColor, borderRadius: 8, padding: 8 }]}>
-        <View style={styles.chartBars}>
-          {chartData.map((dataPoint, index) => {
-            const height =
-              range > 0 ? ((dataPoint.value - minValue) / range) * 60 : 30;
-            return (
-              <View key={index} style={styles.chartBarContainer}>
-                <View
-                  style={[
-                    styles.chartBar,
-                    {
-                      height: Math.max(height, 8),
-                      backgroundColor: themeColor,
-                      opacity: 0.9,
-                      shadowColor: themeColor,
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.3,
-                      shadowRadius: 2,
-                      elevation: 2,
-                    },
-                  ]}
-                />
-              </View>
-            );
-          })}
-        </View>
-        <View style={styles.chartLabels}>
-          {chartData.map((dataPoint, index) => (
+      <View style={styles.chartContainer}>
+        {/* Trend indicator badge with animation */}
+        {chartTrend && (
+          <Animated.View
+            style={[
+              styles.trendBadge,
+              {
+                backgroundColor: chartTrend.isPositive ? `${themeColor}15` : `${colors.error}15`,
+                borderColor: chartTrend.isPositive ? `${themeColor}30` : `${colors.error}30`,
+                opacity: trendBadgeAnim,
+                transform: [
+                  {
+                    scale: trendBadgeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Ionicons
+              name={chartTrend.isPositive ? "trending-up" : "trending-down"}
+              size={11}
+              color={chartTrend.isPositive ? themeColor : colors.error}
+            />
             <Text
-              key={index}
-              style={[styles.chartLabel, { color: colors.textSecondary, fontSize: 9 }]}
+              style={[
+                styles.trendText,
+                {
+                  color: chartTrend.isPositive ? themeColor : colors.error,
+                },
+              ]}
             >
-              {index % 3 === 0 ? dataPoint.month?.slice(0, 3) || "" : ""}
+              {chartTrend.isPositive ? "+" : ""}
+              {chartTrend.percentage.toFixed(1)}%
             </Text>
-          ))}
-        </View>
+          </Animated.View>
+        )}
+
+        <RNChartKitLineChart
+          data={{
+            labels: chartLabels,
+            datasets: [
+              {
+                data: chartValues,
+                color: (opacity = 1) => themeColor,
+                strokeWidth: 2.5,
+              },
+            ],
+          }}
+          width={chartWidth}
+          height={chartHeight}
+          withInnerLines={true}
+          withOuterLines={false}
+          withDots={true}
+          withShadow={false}
+          bezier
+          chartConfig={{
+            backgroundColor: colors.card,
+            backgroundGradientFrom: colors.card,
+            backgroundGradientTo: colors.card,
+            decimalPlaces: 0,
+            color: (opacity = 1) => themeColor,
+            labelColor: (opacity = 1) => colors.textSecondary,
+            style: {
+              borderRadius: 8,
+            },
+            propsForDots: {
+              r: "4",
+              strokeWidth: "2",
+              stroke: colors.card,
+            },
+            propsForBackgroundLines: {
+              strokeDasharray: "", // solid lines
+              stroke: colors.border,
+              strokeWidth: 1,
+              strokeOpacity: 0.1,
+            },
+          }}
+          style={styles.chartWrapper}
+          formatYLabel={formatYLabel}
+        />
       </View>
     );
   };
@@ -386,7 +486,40 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     flex: 1,
-    minHeight: 80, // Ensure minimum height for chart
+    minHeight: 100, // Ensure minimum height for chart + labels
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingTop: 4,
+    position: "relative",
+  },
+  chartWrapper: {
+    marginVertical: 0,
+    marginHorizontal: 0,
+    paddingBottom: 0,
+    borderRadius: 8,
+  },
+  trendBadge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    zIndex: 10,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trendText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   chartMessageContainer: {
     justifyContent: "center",
@@ -399,34 +532,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 16,
     opacity: 0.8,
-  },
-  chartBars: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    height: 60, // Increased from 50 to 60
-    marginBottom: 6,
-  },
-  chartBarContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginHorizontal: 1,
-  },
-  chartBar: {
-    width: 5, // Increased from 4 to 5 for better visibility
-    borderRadius: 2.5,
-    minHeight: 8, // Increased from 5 to 8
-  },
-  chartLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 4,
-  },
-  chartLabel: {
-    fontSize: 10,
-    flex: 1,
-    textAlign: "center",
   },
 });
 

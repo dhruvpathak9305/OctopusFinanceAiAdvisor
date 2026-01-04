@@ -7,7 +7,9 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Share,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TransactionItem from "../../components/TransactionItem";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -501,6 +503,228 @@ const groupTransactionsByDate = (
     return [];
   }
 };
+
+// Quick Stats Component for Transaction Insights
+const TransactionQuickStats: React.FC<{
+  transactions: Transaction[];
+  isDark: boolean;
+  onExport: () => void;
+}> = ({ transactions, isDark, onExport }) => {
+  const [showStats, setShowStats] = useState(true);
+
+  const colors = isDark ? {
+    card: '#374151',
+    text: '#FFFFFF',
+    textSecondary: '#9CA3AF',
+    border: '#4B5563',
+  } : {
+    card: '#F9FAFB',
+    text: '#111827',
+    textSecondary: '#6B7280',
+    border: '#E5E7EB',
+  };
+
+  // Calculate quick statistics
+  const stats = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return null;
+    }
+
+    const expenses = transactions.filter(t => t.type === 'expense');
+    const incomes = transactions.filter(t => t.type === 'income');
+    
+    // Average transaction
+    const avgExpense = expenses.length > 0 
+      ? expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0) / expenses.length 
+      : 0;
+    
+    // Largest expense
+    const largestExpense = expenses.length > 0 
+      ? expenses.reduce((max, t) => Math.abs(t.amount) > max.amount ? { title: t.title, amount: Math.abs(t.amount) } : max, { title: '', amount: 0 })
+      : { title: '-', amount: 0 };
+    
+    // Top categories
+    const categoryMap: Record<string, number> = {};
+    expenses.forEach(t => {
+      const cat = t.tags?.[0] || 'Uncategorized';
+      categoryMap[cat] = (categoryMap[cat] || 0) + Math.abs(t.amount);
+    });
+    
+    const topCategories = Object.entries(categoryMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    return {
+      transactionCount: transactions.length,
+      expenseCount: expenses.length,
+      incomeCount: incomes.length,
+      avgExpense,
+      largestExpense,
+      topCategories,
+    };
+  }, [transactions]);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  if (!stats || !showStats) return null;
+
+  return (
+    <View style={[quickStatsStyles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={quickStatsStyles.header}>
+        <View style={quickStatsStyles.headerLeft}>
+          <Ionicons name="analytics" size={14} color="#3B82F6" />
+          <Text style={[quickStatsStyles.title, { color: colors.text }]}>Quick Stats</Text>
+        </View>
+        <View style={quickStatsStyles.headerRight}>
+          <TouchableOpacity onPress={onExport} style={quickStatsStyles.exportBtn}>
+            <Ionicons name="download-outline" size={14} color="#10B981" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowStats(false)}>
+            <Ionicons name="close" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={quickStatsStyles.statsRow}>
+        <View style={quickStatsStyles.statItem}>
+          <Text style={[quickStatsStyles.statValue, { color: colors.text }]}>{stats.transactionCount}</Text>
+          <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Transactions</Text>
+        </View>
+        <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
+        <View style={quickStatsStyles.statItem}>
+          <Text style={[quickStatsStyles.statValue, { color: colors.text }]}>{formatCurrency(stats.avgExpense)}</Text>
+          <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Avg Expense</Text>
+        </View>
+        <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
+        <View style={quickStatsStyles.statItem}>
+          <Text style={[quickStatsStyles.statValue, { color: '#EF4444' }]}>{formatCurrency(stats.largestExpense.amount)}</Text>
+          <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]} numberOfLines={1}>Largest</Text>
+        </View>
+      </View>
+
+      {stats.topCategories.length > 0 && (
+        <View style={quickStatsStyles.categoriesSection}>
+          <Text style={[quickStatsStyles.categoriesTitle, { color: colors.textSecondary }]}>Top Spending</Text>
+          <View style={quickStatsStyles.categoriesList}>
+            {stats.topCategories.map(([category, amount], index) => (
+              <View key={category} style={quickStatsStyles.categoryItem}>
+                <View style={[quickStatsStyles.categoryRank, { backgroundColor: index === 0 ? '#F59E0B20' : colors.border }]}>
+                  <Text style={[quickStatsStyles.categoryRankText, { color: index === 0 ? '#F59E0B' : colors.textSecondary }]}>
+                    {index + 1}
+                  </Text>
+                </View>
+                <Text style={[quickStatsStyles.categoryName, { color: colors.text }]} numberOfLines={1}>
+                  {category}
+                </Text>
+                <Text style={[quickStatsStyles.categoryAmount, { color: colors.textSecondary }]}>
+                  {formatCurrency(amount)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const quickStatsStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  exportBtn: {
+    padding: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  statLabel: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  divider: {
+    width: 1,
+    height: 28,
+  },
+  categoriesSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#37415150',
+    paddingTop: 10,
+  },
+  categoriesTitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  categoriesList: {
+    gap: 6,
+  },
+  categoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryRank: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryRankText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  categoryName: {
+    flex: 1,
+    fontSize: 12,
+  },
+  categoryAmount: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+});
 
 const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   className = "",
@@ -1090,7 +1314,73 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
   };
 
   const handleMoreOptions = () => {
-    Alert.alert("More Options", "More options menu will be implemented");
+    Alert.alert(
+      "Options",
+      "Choose an action",
+      [
+        {
+          text: "Export Transactions",
+          onPress: handleExportTransactions,
+        },
+        {
+          text: "Refresh",
+          onPress: fetchTransactionsData,
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
+    );
+  };
+
+  // Export transactions to CSV
+  const handleExportTransactions = async () => {
+    if (transactions.length === 0) {
+      Alert.alert("No Data", "No transactions to export");
+      return;
+    }
+
+    try {
+      const headers = ['Date', 'Title', 'Type', 'Amount', 'Category', 'Account'];
+      const rows = transactions.map(t => [
+        t.date,
+        `"${t.title.replace(/"/g, '""')}"`,
+        t.type,
+        t.amount.toString(),
+        t.tags?.[0] || 'Uncategorized',
+        t.source || 'Unknown',
+      ]);
+      
+      const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+      
+      // Generate report summary
+      const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      
+      const report = `📊 TRANSACTIONS REPORT
+Period: ${selectedFilter}
+Generated: ${new Date().toLocaleDateString()}
+${'='.repeat(40)}
+
+SUMMARY
+Total Transactions: ${transactions.length}
+Total Income: ₹${totalIncome.toLocaleString()}
+Total Expenses: ₹${totalExpense.toLocaleString()}
+Net: ₹${(totalIncome - totalExpense).toLocaleString()}
+
+${'='.repeat(40)}
+CSV DATA (for spreadsheets):
+${csv}`;
+
+      await Share.share({
+        message: report,
+        title: `Transactions - ${selectedFilter}`,
+      });
+    } catch (error) {
+      console.error("Export error:", error);
+      Alert.alert("Error", "Failed to export transactions");
+    }
   };
 
   const handleFilterChange = (filter: string) => {
@@ -1437,6 +1727,7 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
 
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       {/* Header */}
@@ -1446,6 +1737,8 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
           {
             backgroundColor: colors.background,
             borderBottomColor: colors.border,
+            marginTop: 0, // Ensure no top margin
+            paddingTop: 4, // Minimal top padding
           },
         ]}
       >
@@ -1627,6 +1920,15 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
         )}
       </View>
 
+      {/* Quick Stats */}
+      {!isConfirmationMode && transactions.length > 0 && (
+        <TransactionQuickStats 
+          transactions={transactions} 
+          isDark={isDark} 
+          onExport={handleExportTransactions}
+        />
+      )}
+
       {/* Transactions List */}
       <ScrollView
         style={styles.transactionsContainer}
@@ -1639,14 +1941,29 @@ const MobileTransactions: React.FC<MobileTransactionsProps> = ({
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <View style={styles.emptyIcon}>
-              <Text style={styles.emptyIconText}>📄</Text>
+            {/* Creative Empty State Icon - Wallet with sparkle */}
+            <View style={styles.emptyIconWrapper}>
+              <View style={[styles.emptyIconOuter, { backgroundColor: '#10B98115' }]}>
+                <View style={[styles.emptyIconInner, { backgroundColor: '#10B98125' }]}>
+                  {/* Wallet shape */}
+                  <View style={styles.walletIcon}>
+                    <View style={[styles.walletBody, { backgroundColor: '#10B981' }]}>
+                      <View style={[styles.walletFlap, { backgroundColor: '#0D9668' }]} />
+                      <View style={styles.walletClasp} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+              {/* Sparkle accents */}
+              <View style={[styles.sparkle, styles.sparkle1, { backgroundColor: '#10B981' }]} />
+              <View style={[styles.sparkle, styles.sparkle2, { backgroundColor: '#10B981' }]} />
+              <View style={[styles.sparkle, styles.sparkle3, { backgroundColor: '#34D399' }]} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              No Transactions Found
+              No Transactions Yet
             </Text>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No transactions found for the selected period.
+              Add your first transaction to start tracking.
             </Text>
           </View>
         ) : (
@@ -1912,19 +2229,83 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderStyle: "dashed",
-    marginTop: 20,
+    marginTop: 12,
   },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#10B98120",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
+  emptyIconWrapper: {
+    position: 'relative',
+    marginBottom: 20,
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  emptyIconText: {
-    fontSize: 24,
+  emptyIconOuter: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconInner: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletBody: {
+    width: 36,
+    height: 28,
+    borderRadius: 6,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  walletFlap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 10,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+  },
+  walletClasp: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFD700',
+  },
+  sparkle: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  sparkle1: {
+    top: 8,
+    right: 12,
+    opacity: 0.8,
+  },
+  sparkle2: {
+    bottom: 15,
+    left: 10,
+    width: 5,
+    height: 5,
+    opacity: 0.6,
+  },
+  sparkle3: {
+    top: 25,
+    left: 5,
+    width: 4,
+    height: 4,
+    opacity: 0.5,
   },
   emptyTitle: {
     fontSize: 16,
@@ -1941,8 +2322,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 4, // Minimal top padding
+    paddingBottom: 8,
     borderBottomWidth: 1,
+    marginTop: 0, // No top margin
   },
   headerLeft: {
     flexDirection: "row",

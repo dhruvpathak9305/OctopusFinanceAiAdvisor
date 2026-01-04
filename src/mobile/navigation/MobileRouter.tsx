@@ -17,6 +17,7 @@ import TransactionsErrorBoundary from "../pages/MobileTransactions/TransactionsE
 import MobileHome from "../pages/MobileHome";
 import MobileDashboard from "../pages/MobileDashboard";
 import MobileTransactions from "../pages/MobileTransactions";
+import MobileBills from "../pages/MobileBills";
 import MobilePortfolio from "../pages/MobilePortfolio";
 import MobileStockBrowser from "../pages/MobileStockBrowser";
 import MobileGoals from "../pages/MobileGoals";
@@ -49,6 +50,7 @@ export type MobileStackParamList = {
   Auth: undefined;
   DashboardMain: undefined;
   Transactions: undefined;
+  Bills: undefined;
   Money: { initialTab?: 'accounts' | 'credit' | 'net'; showAddAssetModal?: boolean } | undefined;
   MobileNetWorth: { showAddAssetModal?: boolean } | undefined;
   MobileAccounts: undefined;
@@ -91,6 +93,10 @@ const DashboardStack: React.FC = () => {
             <MobileTransactions />
           </TransactionsErrorBoundary>
         )}
+      />
+      <Stack.Screen
+        name="Bills"
+        component={MobileBills}
       />
     </Stack.Navigator>
   );

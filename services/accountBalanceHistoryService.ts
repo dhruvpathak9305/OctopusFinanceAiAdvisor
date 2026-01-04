@@ -43,13 +43,36 @@ export const fetchBalanceSnapshotsForDate = async (
       .order("snapshot_date", { ascending: false });
 
     if (error) {
-      console.error("Error fetching balance snapshots:", error);
+      const isNetworkError = 
+        error.message?.includes("Network request failed") ||
+        error.message?.includes("Failed to fetch") ||
+        error.message?.includes("network");
+      
+      if (isNetworkError) {
+        if (__DEV__) {
+          console.warn("⚠️ Network error fetching balance snapshots (suppressed)");
+        }
+      } else {
+        console.error("Error fetching balance snapshots:", error);
+      }
       return [];
     }
 
     return data || [];
-  } catch (error) {
-    console.error("Exception fetching balance snapshots:", error);
+  } catch (error: any) {
+    const isNetworkError = 
+      error?.message?.includes("Network request failed") ||
+      error?.message?.includes("Failed to fetch") ||
+      error?.name === "TypeError" ||
+      error?.message?.includes("network");
+    
+    if (isNetworkError) {
+      if (__DEV__) {
+        console.warn("⚠️ Network error in fetchBalanceSnapshots (suppressed)");
+      }
+    } else {
+      console.error("Exception fetching balance snapshots:", error);
+    }
     return [];
   }
 };
@@ -77,17 +100,41 @@ export const fetchMonthEndBalances = async (
     const startDateStr = formatDateLocal(startDate);
     const endDateStr = formatDateLocal(endDate);
 
-    console.log(`📅 Fetching balances for ${year}-${month + 1}: ${startDateStr} to ${endDateStr}`);
+    // Suppress console log in production to reduce noise
+    if (__DEV__) {
+      console.log(`📅 Fetching balances for ${year}-${month + 1}: ${startDateStr} to ${endDateStr}`);
+    }
 
-    const { data, error } = await supabase
+    // Add timeout to prevent hanging requests
+    const queryPromise = supabase
       .from(isDemo ? "account_balance_history" : "account_balance_history_real")
       .select("account_id, balance, snapshot_date")
       .gte("snapshot_date", startDateStr)
       .lte("snapshot_date", endDateStr)
       .order("snapshot_date", { ascending: false });
 
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+      setTimeout(() => {
+        resolve({ data: null, error: { message: "Request timeout" } });
+      }, 10000); // 10 second timeout
+    });
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
     if (error) {
-      console.error("Error fetching month-end balances:", error);
+      // Check if it's a network error
+      const isNetworkError = 
+        error.message?.includes("Network request failed") ||
+        error.message?.includes("Failed to fetch") ||
+        error.message?.includes("timeout") ||
+        error.message?.includes("network");
+      
+      if (isNetworkError && __DEV__) {
+        // Only log network errors in dev mode, and only once per session
+        console.warn(`⚠️ Network error fetching balances for ${year}-${month + 1} (suppressing further errors)`);
+      } else if (!isNetworkError) {
+        console.error("Error fetching month-end balances:", error);
+      }
       return [];
     }
 
@@ -101,8 +148,22 @@ export const fetchMonthEndBalances = async (
     });
 
     return Array.from(latestByAccount.values());
-  } catch (error) {
-    console.error("Exception fetching month-end balances:", error);
+  } catch (error: any) {
+    // Check if it's a network error
+    const isNetworkError = 
+      error?.message?.includes("Network request failed") ||
+      error?.message?.includes("Failed to fetch") ||
+      error?.name === "TypeError" ||
+      error?.message?.includes("network");
+    
+    if (isNetworkError) {
+      // Suppress network error logs to prevent console spam
+      if (__DEV__) {
+        console.warn(`⚠️ Network error in fetchMonthEndBalances (suppressed)`);
+      }
+    } else {
+      console.error("Exception fetching month-end balances:", error);
+    }
     return [];
   }
 };
@@ -126,16 +187,20 @@ export const calculateMoMGrowth = async (
     const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-    console.log(
-      `📊 Calculating MoM Growth: Today: ${currentYear}-${currentMonth + 1}-${currentDay}, Previous month end: ${previousYear}-${previousMonth + 1}`
-    );
+    if (__DEV__) {
+      console.log(
+        `📊 Calculating MoM Growth: Today: ${currentYear}-${currentMonth + 1}-${currentDay}, Previous month end: ${previousYear}-${previousMonth + 1}`
+      );
+    }
 
     // Fetch previous month's end balance (from history)
     const previousMonthBalances = await fetchMonthEndBalances(previousYear, previousMonth, isDemo);
 
-    console.log(
-      `📊 Previous month snapshots: ${previousMonthBalances.length}`
-    );
+    if (__DEV__) {
+      console.log(
+        `📊 Previous month snapshots: ${previousMonthBalances.length}`
+      );
+    }
 
     // Calculate previous month total
     const previousMonthTotal = previousMonthBalances.reduce(
@@ -145,7 +210,9 @@ export const calculateMoMGrowth = async (
 
     // If no previous month data, return neutral
     if (previousMonthTotal === 0 || previousMonthBalances.length === 0) {
-      console.log("⚠️ No previous month data available for MoM calculation");
+      if (__DEV__) {
+        console.log("⚠️ No previous month data available for MoM calculation");
+      }
       return {
         currentMonthTotal: currentTotalBalance,
         previousMonthTotal: 0,
@@ -184,15 +251,29 @@ export const calculateMoMGrowth = async (
       formattedChange,
     };
 
-    console.log("📊 MoM Growth calculated:", {
-      ...result,
-      currentDate: `${currentYear}-${currentMonth + 1}-${currentDay}`,
-      previousMonthEnd: `${previousYear}-${previousMonth + 1} (end)`
-    });
+    if (__DEV__) {
+      console.log("📊 MoM Growth calculated:", {
+        ...result,
+        currentDate: `${currentYear}-${currentMonth + 1}-${currentDay}`,
+        previousMonthEnd: `${previousYear}-${previousMonth + 1} (end)`
+      });
+    }
 
     return result;
-  } catch (error) {
-    console.error("Exception calculating MoM growth:", error);
+  } catch (error: any) {
+    const isNetworkError = 
+      error?.message?.includes("Network request failed") ||
+      error?.message?.includes("Failed to fetch") ||
+      error?.name === "TypeError" ||
+      error?.message?.includes("network");
+    
+    if (isNetworkError) {
+      if (__DEV__) {
+        console.warn("⚠️ Network error in calculateMoMGrowth (suppressed)");
+      }
+    } else {
+      console.error("Exception calculating MoM growth:", error);
+    }
     return null;
   }
 };
@@ -214,9 +295,11 @@ export const getMoMGrowthWithFallback = async (
   }
 
   // Fallback: if calculation fails, return neutral growth
-  console.log(
-    "⚠️ MoM calculation failed, using fallback with current balance"
-  );
+  if (__DEV__) {
+    console.log(
+      "⚠️ MoM calculation failed, using fallback with current balance"
+    );
+  }
 
   return {
     currentMonthTotal: currentBalance,
@@ -243,7 +326,9 @@ export const fetchAccountHistory = async (
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.error("User not authenticated");
+      if (__DEV__) {
+        console.error("User not authenticated");
+      }
       return [];
     }
 
@@ -268,10 +353,31 @@ export const fetchAccountHistory = async (
       query = query.eq("account_id", accountId);
     }
 
-    const { data, error } = await query;
+    // Add timeout
+    const queryPromise = query;
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+      setTimeout(() => {
+        resolve({ data: null, error: { message: "Request timeout" } });
+      }, 10000);
+    });
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
     if (error) {
-      console.error("Error fetching account history:", error);
+      const isNetworkError = 
+        error.message?.includes("Network request failed") ||
+        error.message?.includes("Failed to fetch") ||
+        error.message?.includes("timeout") ||
+        error.message?.includes("network");
+      
+      if (isNetworkError) {
+        // Suppress network error logs
+        if (__DEV__) {
+          console.warn("⚠️ Network error fetching account history (suppressed)");
+        }
+      } else {
+        console.error("Error fetching account history:", error);
+      }
       return [];
     }
 
@@ -287,8 +393,21 @@ export const fetchAccountHistory = async (
     return Array.from(balanceByDate.entries())
       .map(([date, balance]) => ({ date, value: balance }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  } catch (error) {
-    console.error("Exception fetching account history:", error);
+  } catch (error: any) {
+    const isNetworkError = 
+      error?.message?.includes("Network request failed") ||
+      error?.message?.includes("Failed to fetch") ||
+      error?.name === "TypeError" ||
+      error?.message?.includes("network");
+    
+    if (isNetworkError) {
+      // Suppress network error logs
+      if (__DEV__) {
+        console.warn("⚠️ Network error in fetchAccountHistory (suppressed)");
+      }
+    } else {
+      console.error("Exception fetching account history:", error);
+    }
     return [];
   }
 };

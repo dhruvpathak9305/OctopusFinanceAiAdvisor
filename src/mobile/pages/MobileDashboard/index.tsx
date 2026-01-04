@@ -236,7 +236,11 @@ export default function MobileDashboard() {
             <RecentTransactionsErrorBoundary>
               <RecentTransactionsSection />
             </RecentTransactionsErrorBoundary>
-            <UpcomingBillsSection useTestData={useTestData} />
+            <UpcomingBillsSection 
+              useTestData={useTestData} 
+              showSmartDetection={false}
+              showBudgetImpact={false}
+            />
           </>
         );
       case "sms":

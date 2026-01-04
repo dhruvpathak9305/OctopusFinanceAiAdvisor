@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import {
   useNavigation,
   useRoute,
@@ -20,7 +21,7 @@ import {
   lightTheme,
 } from "../../../../contexts/ThemeContext";
 import { Logo } from "../../../../components/common/Logo";
-import { NetworkStatusIndicator } from "../../../../components/common/NetworkStatusIndicator";
+import networkMonitor, { NetworkStatus } from "../../../../services/sync/networkMonitor";
 
 interface MobileHeaderProps {
   title?: string;
@@ -36,10 +37,37 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
   const { isAuthenticated, signOut } = useUnifiedAuth();
   const { isDark, toggleTheme } = useTheme();
   const theme = isDark ? darkTheme : lightTheme;
+  
+  // Network status state
+  const [networkStatus, setNetworkStatus] = useState<NetworkStatus>('unknown');
+  const [forceOffline, setForceOffline] = useState(false);
+  
+  // Notifications state
+  const [notificationCount, setNotificationCount] = useState(0);
 
   // Get navigation state to determine if we can go back
   const navigationState = useNavigationState((state) => state);
   const canGoBack = navigation.canGoBack() && navigationState.index > 0;
+
+  // Monitor network status
+  useEffect(() => {
+    // Get initial status
+    networkMonitor.getStatus().then((status) => {
+      setNetworkStatus(status);
+    });
+
+    // Listen for status changes
+    const unsubscribe = networkMonitor.addListener((status) => {
+      setNetworkStatus(status);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Determine display status (force offline takes precedence)
+  const displayStatus = forceOffline ? 'offline' : networkStatus;
 
   // Get page title and icon based on current route
   const getPageInfo = () => {
@@ -97,6 +125,55 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
     // No action needed for now
   };
 
+  const handleNetworkToggle = () => {
+    // Toggle force offline mode
+    const newForceOffline = !forceOffline;
+    setForceOffline(newForceOffline);
+    
+    // Show alert to inform user
+    Alert.alert(
+      newForceOffline ? "Offline Mode Enabled" : "Online Mode Enabled",
+      newForceOffline 
+        ? "App will work in offline mode. Data will be synced when you go back online."
+        : "App will sync with server when network is available.",
+      [{ text: "OK" }]
+    );
+  };
+
+  const handleNotificationsPress = () => {
+    // Navigate to notifications screen or show notifications modal
+    // For now, show an alert - can be replaced with navigation later
+    if (notificationCount > 0) {
+      Alert.alert(
+        "Notifications",
+        `You have ${notificationCount} unread notification${notificationCount > 1 ? 's' : ''}`,
+        [{ text: "OK" }]
+      );
+    } else {
+      Alert.alert("Notifications", "No new notifications", [{ text: "OK" }]);
+    }
+  };
+
+  const getNetworkIcon = () => {
+    if (displayStatus === 'online') {
+      return 'wifi';
+    } else if (displayStatus === 'offline') {
+      return 'cloud-offline';
+    } else {
+      return 'help-circle';
+    }
+  };
+
+  const getNetworkColor = () => {
+    if (displayStatus === 'online') {
+      return '#10b981'; // green
+    } else if (displayStatus === 'offline') {
+      return '#ef4444'; // red
+    } else {
+      return '#6b7280'; // gray
+    }
+  };
+
   return (
     <>
       <StatusBar
@@ -112,7 +189,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
             styles.header,
             {
               backgroundColor: theme.background,
-              borderBottomColor: theme.border,
+              borderBottomWidth: 0, // Remove bottom border to reduce visual separation
             },
           ]}
         >
@@ -136,10 +213,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
               style={styles.logoSection}
               onPress={handleLogoPress}
             >
-              <View style={styles.logoWithStatus}>
-              <Logo size={52} animated={true} />
-                <NetworkStatusIndicator size={18} />
-              </View>
+              <Logo size={28} animated={true} />
               <Text
                 style={[styles.title, { color: theme.primary }]}
                 numberOfLines={1}
@@ -151,6 +225,43 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
 
           {/* Right side - Actions */}
           <View style={styles.rightSection}>
+            {/* Network Toggle */}
+            <TouchableOpacity
+              style={[
+                styles.themeToggle,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+              onPress={handleNetworkToggle}
+            >
+              <Ionicons 
+                name={getNetworkIcon()} 
+                size={14} 
+                color={getNetworkColor()} 
+              />
+            </TouchableOpacity>
+
+            {/* Notifications Icon */}
+            <TouchableOpacity
+              style={[
+                styles.notificationButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+              onPress={handleNotificationsPress}
+            >
+              <Ionicons 
+                name="notifications-outline" 
+                size={16} 
+                color={theme.textSecondary} 
+              />
+              {notificationCount > 0 && (
+                <View style={[styles.notificationBadge, { backgroundColor: '#EF4444', borderColor: theme.background }]}>
+                  <Text style={styles.notificationBadgeText}>
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             {/* Theme Toggle */}
             <TouchableOpacity
               style={[
@@ -213,13 +324,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    paddingVertical: 6, // Further reduced vertical padding
+    borderBottomWidth: 0, // Removed border to eliminate visual separation
+    elevation: 0, // Removed elevation shadow
+    shadowColor: "transparent",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   leftSection: {
     flexDirection: "row",
@@ -247,17 +358,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8,
   },
-  logoWithStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-    position: "relative",
-  },
   icon: {
     fontSize: 20,
     marginRight: 8,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     // color will be set dynamically
     flex: 1,
@@ -268,16 +374,43 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   themeToggle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     // backgroundColor and borderColor will be set dynamically
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
   },
   themeIcon: {
-    fontSize: 14,
+    fontSize: 12,
+  },
+  notificationButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    // backgroundColor and borderColor will be set dynamically
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    position: "relative",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+  },
+  notificationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
   },
   authButtons: {
     flexDirection: "row",
