@@ -770,7 +770,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
       <View
         style={[
           styles.card,
@@ -990,8 +990,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
+    overflow: 'hidden',
     shadowColor: "#000",
     shadowOffset: {
       width: 0,

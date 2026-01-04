@@ -7437,12 +7437,12 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
 
   return (
     <TouchableOpacity 
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={styles.container}
       activeOpacity={0.7}
       onPress={handleNavigateToBills}
     >
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.cardInner}>
+      <View style={[styles.card, { borderColor: colors.border }]}>
+        <View style={[styles.cardBackground, { backgroundColor: colors.card }]}>
         {/* Header - Enhanced */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerLeft}>
@@ -7476,7 +7476,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         </View>
 
         {/* Category Filter - Quick filter only */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+        <View style={styles.sectionWrapper}>
           <CategoryFilter
             selectedCategory={selectedCategory}
             onCategoryChange={handleCategoryChange}
@@ -7485,7 +7485,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
 
         {/* Smart Bill Detection - Collapsible suggestions */}
         {showSmartDetection && (
-        <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+        <View style={styles.sectionWrapper}>
           <SmartBillDetection 
             existingBills={bills} 
             onAddBill={handleAddDetectedBill} 
@@ -7500,14 +7500,14 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
           const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
           return b.status !== 'paid' && diffDays <= 3 && diffDays >= 0;
         }) && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+          <View style={styles.sectionWrapper}>
             <LateFeeAlert bills={bills} />
           </View>
         )}
 
         {/* Budget Impact Summary - Compact */}
         {showBudgetImpact && showBudgetIntegration && bills.length > 0 && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+          <View style={styles.sectionWrapper}>
             <BudgetIntegration 
               bills={bills} 
               onViewBudget={() => handleNavigateToBills()} 
@@ -8226,6 +8226,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
+    backgroundColor: 'transparent',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -8235,11 +8236,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardInner: {
-    flex: 1,
-    overflow: 'hidden',
-    borderRadius: 16,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -8248,6 +8244,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     marginBottom: 8,
+  },
+  cardBackground: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    flex: 1,
+  },
+  sectionWrapper: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    overflow: 'hidden',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -8360,10 +8366,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 0,
     paddingTop: 4,
+    overflow: 'hidden',
   },
   billsList: {
     gap: 6,
     paddingBottom: 16,
+    overflow: 'hidden',
   },
   viewAllButton: {
     flexDirection: 'row',
