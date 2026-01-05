@@ -21,7 +21,6 @@ import { RecurrencePatternEditor } from '../../components/Bills/RecurrencePatter
 import { BillPaymentHistory } from '../../components/Bills/BillPaymentHistory';
 import { addUpcomingBill, updateUpcomingBill, fetchUpcomingBills, type UpcomingBill } from '../../../../services/upcomingBillsService';
 import { addBillPayment } from '../../../../services/billPaymentsService';
-import { seedMockBillsToSupabase } from '../../../../utils/seedMockBills';
 import { supabase } from '../../../../lib/supabase/client';
 
 interface UpcomingBillsSectionProps {
@@ -7628,48 +7627,6 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     navigation.navigate('Bills');
   };
 
-  // Seed mock bills to database (for testing)
-  const handleSeedMockBills = useCallback(async () => {
-    Alert.alert(
-      'Seed Mock Bills',
-      'This will create 3 mock bills (2 due today, 1 due tomorrow) in your database. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Seed',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              const results = await seedMockBillsToSupabase();
-              const successful = results.filter(r => r.success).length;
-              const failed = results.filter(r => !r.success).length;
-              
-              Alert.alert(
-                'Seeding Complete',
-                `Successfully created ${successful} bill(s). ${failed > 0 ? `Failed: ${failed}` : ''}`,
-                [{ text: 'OK' }]
-              );
-              
-              // Refresh bills list
-              // You may want to refetch bills here if you have a fetch function
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to seed bills');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  }, []);
-
-  // Expose seed function globally for console access
-  useEffect(() => {
-    if (__DEV__ && typeof global !== 'undefined') {
-      (global as any).seedMockBills = handleSeedMockBills;
-      console.log('💡 Seed function available: Call global.seedMockBills() in console');
-    }
-  }, [handleSeedMockBills]);
 
   // Mark bill as paid (with persistence to Supabase)
   const handleMarkAsPaid = useCallback(async (billId: number | string) => {
