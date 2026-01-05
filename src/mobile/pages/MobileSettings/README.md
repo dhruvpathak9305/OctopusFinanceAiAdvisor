@@ -1,6 +1,6 @@
 # Mobile Settings - Modular Architecture
 
-A well-structured, modular, and maintainable settings system for the OctopusFinancer mobile application.
+A well-structured, modular, and maintainable settings system for the Octopus Organizer mobile application.
 
 ## 🏗️ Architecture Overview
 

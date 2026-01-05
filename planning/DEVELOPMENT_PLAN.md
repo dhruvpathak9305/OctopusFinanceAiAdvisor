@@ -1,4 +1,4 @@
-# 🚀 OctopusFinanceAiAdvisor - Development Plan
+# 🚀 Octopus Organizer - Development Plan
 
 > **Single source of truth for all development planning and priorities**
 

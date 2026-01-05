@@ -266,4 +266,4 @@ For issues or questions:
 
 ## License
 
-This CSV parser system is part of the OctopusFinanceAiAdvisor project.
+This CSV parser system is part of the Octopus Organizer project.

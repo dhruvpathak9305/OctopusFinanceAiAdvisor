@@ -1,4 +1,4 @@
-# 🚀 OctopusFinance Setup Guide
+# 🚀 Octopus Organizer Setup Guide
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@
 
 ```bash
 git clone <repository-url>
-cd OctopusFinanceAiAdvisor
+cd OctopusOrganizer
 npm install
 ```
 

@@ -1,10 +1,10 @@
 # Chat Interface Component
 
-A modern, theme-consistent chat interface for the Octopus Finance AI Advisor.
+A modern, theme-consistent chat interface for the Octopus Organizer.
 
 ## Overview
 
-This component provides a complete chat interface for users to interact with various AI models. It's designed to match the existing Octopus Finance application theme and provides a seamless experience for asking financial questions.
+This component provides a complete chat interface for users to interact with various AI models. It's designed to match the existing Octopus Organizer application theme and provides a seamless experience for asking financial questions.
 
 ## Features
 

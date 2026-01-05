@@ -1,4 +1,4 @@
-# 🐙 OctopusFinance AI Advisor
+# 🐙 Octopus Organizer
 
 **Smart Personal Finance Management with AI-Powered Transaction Analysis**
 

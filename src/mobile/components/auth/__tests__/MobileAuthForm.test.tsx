@@ -46,7 +46,7 @@ describe('MobileAuthForm', () => {
     fireEvent.press(signupTab);
     
     expect(getByText('Create Account')).toBeTruthy();
-    expect(getByText('Join OctopusFinancer today')).toBeTruthy();
+    expect(getByText('Join Octopus Organizer today')).toBeTruthy();
   });
 
   it('switches to forgot password mode when forgot password is pressed', () => {

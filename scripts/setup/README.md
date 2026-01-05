@@ -1,6 +1,6 @@
 # Setup Scripts
 
-Initial setup and configuration scripts for the OctopusFinancer system.
+Initial setup and configuration scripts for the Octopus Organizer system.
 
 ## Scripts
 

@@ -1,6 +1,6 @@
 # Expense Splitting Types
 
-This file defines TypeScript interfaces and types used for expense splitting functionality in the Octopus Finance app.
+This file defines TypeScript interfaces and types used for expense splitting functionality in the Octopus Organizer app.
 
 ## Core Types
 

@@ -1,6 +1,6 @@
 # Expense Splitting Service
 
-The `ExpenseSplittingService` provides functionality for splitting expenses among groups and individuals in the Octopus Finance app.
+The `ExpenseSplittingService` provides functionality for splitting expenses among groups and individuals in the Octopus Organizer app.
 
 ## Features
 
