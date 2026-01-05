@@ -197,7 +197,7 @@ export default function AuthForm() {
           className="w-full"
         >
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-semibold">Welcome to OctopusFinancer</h2>
+            <h2 className="text-2xl font-semibold">Welcome to Octopus Organizer</h2>
             <p className="text-muted-foreground">
               Your personal finance assistant
             </p>

@@ -27,7 +27,16 @@ export const createSettingsHandlers = ({
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: () => signOut(),
+        onPress: async () => {
+          try {
+            // Await signOut to ensure it completes
+            // Navigation will be handled automatically by auth state listener
+            await signOut();
+          } catch (error) {
+            // Error is already handled by UnifiedAuthContext
+            console.error("Sign out error:", error);
+          }
+        },
       },
     ]);
   };

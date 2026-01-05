@@ -65,8 +65,22 @@ const BudgetSummaryCard: React.FC<{
 
   return (
     <View style={[summaryStyles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      {/* Progress Bar - Central Element */}
+      {/* Progress Bar with Numbers */}
       <View style={summaryStyles.progressSection}>
+        {/* Numbers above progress bar */}
+        <View style={summaryStyles.numbersRow}>
+          <Text style={[summaryStyles.budgetValue, { color: colors.text }]}>
+            {formatCurrency(totalBudget)}
+          </Text>
+          <Text style={[summaryStyles.percentageValue, { color: getHealthColor() }]}>
+            {overallPercentage.toFixed(0)}%
+          </Text>
+          <Text style={[summaryStyles.remainingValue, { color: totalRemaining >= 0 ? '#10B981' : '#EF4444' }]}>
+            {formatCurrency(Math.abs(totalRemaining))}
+          </Text>
+        </View>
+        
+        {/* Progress Bar */}
         <View style={summaryStyles.progressWrapper}>
           <View style={[summaryStyles.progressTrack, { backgroundColor: colors.border }]}>
             <View 
@@ -79,31 +93,6 @@ const BudgetSummaryCard: React.FC<{
               ]} 
             />
           </View>
-          <Text style={[summaryStyles.progressText, { color: getHealthColor() }]}>
-            {overallPercentage.toFixed(0)}%
-          </Text>
-        </View>
-      </View>
-      
-      {/* Stats around Progress Bar */}
-      <View style={summaryStyles.statsRow}>
-        <View style={summaryStyles.statItem}>
-          <Text style={[summaryStyles.statLabel, { color: colors.textSecondary }]}>Total Budget</Text>
-          <Text style={[summaryStyles.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.75}>
-            {formatCurrency(totalBudget)}
-          </Text>
-        </View>
-        <View style={summaryStyles.statItem}>
-          <Text style={[summaryStyles.statLabel, { color: colors.textSecondary }]}>Spent</Text>
-          <Text style={[summaryStyles.statValue, { color: getHealthColor() }]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.75}>
-            {formatCurrency(totalSpent)}
-          </Text>
-        </View>
-        <View style={summaryStyles.statItem}>
-          <Text style={[summaryStyles.statLabel, { color: colors.textSecondary }]}>Remaining</Text>
-          <Text style={[summaryStyles.statValue, { color: totalRemaining >= 0 ? '#10B981' : '#EF4444' }]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.75}>
-            {formatCurrency(Math.abs(totalRemaining))}
-          </Text>
         </View>
       </View>
     </View>
@@ -114,8 +103,8 @@ const summaryStyles = StyleSheet.create({
   container: {
     borderRadius: 14,
     borderWidth: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -124,15 +113,34 @@ const summaryStyles = StyleSheet.create({
     elevation: 1,
   },
   progressSection: {
+    width: '100%',
+  },
+  numbersRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 6,
   },
+  budgetValue: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  percentageValue: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  remainingValue: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
   progressWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    width: '100%',
   },
   progressTrack: {
-    flex: 1,
+    width: '100%',
     height: 4,
     borderRadius: 2,
     overflow: 'hidden',
@@ -140,41 +148,7 @@ const summaryStyles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 10,
-    fontWeight: '800',
-    minWidth: 32,
-    textAlign: 'right',
-    letterSpacing: -0.2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 4,
-    borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    minWidth: 0,
-  },
-  statLabel: {
-    fontSize: 8,
-    marginBottom: 2,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    opacity: 0.7,
-  },
-  statValue: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    lineHeight: 14,
+    borderRadius: 3,
   },
 });
 
