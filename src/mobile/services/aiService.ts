@@ -76,7 +76,7 @@ export const CHAT_MODELS: ChatModel[] = [
 export class AIService {
   // Get the default model
   static getDefaultModel(): ChatModel {
-    return CHAT_MODELS[0]; // Default to Octopus Finance model
+    return CHAT_MODELS[0]; // Default to Octopus Organizer model
   }
 
   // Get the list of available models
@@ -110,7 +110,7 @@ export class AIService {
       id: "system-prompt",
       role: "system",
       content:
-        "You are an AI financial advisor assistant for Octopus Finance. " +
+        "You are an AI financial advisor assistant for Octopus Organizer. " +
         "Provide helpful, accurate, and concise financial advice. " +
         "Focus on personal finance topics like budgeting, investing, saving, debt management, and financial planning. " +
         "Always maintain a professional, friendly tone. " +

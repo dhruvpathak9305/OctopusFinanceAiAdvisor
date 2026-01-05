@@ -188,7 +188,7 @@ export class BankAggregationService {
             value: 12, // Store data for 12 months
           },
           DataConsumer: {
-            id: 'octopusfinance-app',
+            id: 'octopusorganizer-app',
           },
           Purpose: {
             code: options.purposeCode || '101',

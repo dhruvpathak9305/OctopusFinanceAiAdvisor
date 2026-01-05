@@ -49,7 +49,7 @@ export const WebHomeContent: React.FC = () => {
           <Text style={[styles.heroTitle, { color: colors.text }]}>Take control of</Text>
           <Text style={styles.heroTitleAccent}>your financial future</Text>
           <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-            OctopusFinancer helps you track, budget, and optimize your finances with powerful AI insights.
+            Octopus Organizer helps you track, budget, and optimize your finances with powerful AI insights.
           </Text>
           
           {/* Feature List */}
@@ -142,7 +142,7 @@ export const WebHomeContent: React.FC = () => {
       <View style={styles.featuresSection}>
         <Text style={[styles.featuresTitle, { color: colors.text }]}>Powerful Features for Better Finance</Text>
         <Text style={[styles.featuresSubtitle, { color: colors.textSecondary }]}>
-          OctopusFinancer combines intelligent automation with powerful insights to help you achieve financial freedom.
+          Octopus Organizer combines intelligent automation with powerful insights to help you achieve financial freedom.
         </Text>
         
         <View style={styles.featureGrid}>
@@ -200,14 +200,14 @@ export const WebHomeContent: React.FC = () => {
       <View style={styles.testimonialsSection}>
         <Text style={[styles.testimonialsTitle, { color: colors.text }]}>What Our Users Say</Text>
         <Text style={[styles.testimonialsSubtitle, { color: colors.textSecondary }]}>
-          Join thousands of people who have transformed their financial habits with OctopusFinancer.
+          Join thousands of people who have transformed their financial habits with Octopus Organizer.
         </Text>
         
         <View style={styles.testimonialGrid}>
           <View style={[styles.testimonialCard, { backgroundColor: colors.card }]}>
             <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
             <Text style={[styles.testimonialText, { color: colors.text }]}>
-              "OctopusFinancer helped me save an extra $400 each month by identifying unnecessary subscriptions and expenses."
+              "Octopus Organizer helped me save an extra $400 each month by identifying unnecessary subscriptions and expenses."
             </Text>
             <Text style={[styles.testimonialAuthor, { color: colors.textSecondary }]}>Sarah J. Marketing Specialist</Text>
           </View>
@@ -234,7 +234,7 @@ export const WebHomeContent: React.FC = () => {
       <View style={[styles.ctaSection, { backgroundColor: colors.surface }]}>
         <Text style={[styles.ctaTitle, { color: colors.text }]}>Ready to Transform Your Finances?</Text>
         <Text style={[styles.ctaSubtitle, { color: colors.textSecondary }]}>
-          Join OctopusFinancer today and start your journey toward financial wellness with AI-powered insights and easy budgeting tools.
+          Join Octopus Organizer today and start your journey toward financial wellness with AI-powered insights and easy budgeting tools.
         </Text>
         
         <View style={styles.ctaButtons}>

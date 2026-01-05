@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>OctopusFinanceAiAdvisor</string>
+	<string>Octopus Organizer</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,8 +27,8 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>octopus-finance-advisor</string>
-				<string>com.anonymous.OctopusFinanceAiAdvisor</string>
+				<string>octopus-organizer</string>
+				<string>com.octopus.organizer</string>
 			</array>
 		</dict>
 	</array>

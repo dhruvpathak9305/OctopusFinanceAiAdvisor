@@ -2145,7 +2145,10 @@ export type Database = {
           account_id: string | null
           amount: number
           autopay: boolean | null
+          autopay_account_id: string | null
+          autopay_credit_card_id: string | null
           autopay_source: string
+          budget_period: string | null
           category_id: string | null
           created_at: string | null
           credit_card_id: string | null
@@ -2154,9 +2157,24 @@ export type Database = {
           end_date: string | null
           frequency: string
           id: string
+          is_included_in_budget: boolean | null
+          last_paid_amount: number | null
+          last_paid_date: string | null
+          last_reminder_sent: string | null
+          metadata: Json | null
           name: string
+          next_due_date: string | null
+          notes: string | null
+          payment_count: number | null
+          recurrence_count: number | null
+          recurrence_end_date: string | null
+          recurrence_pattern: Json | null
+          reminder_days_before: number[] | null
+          reminder_enabled: boolean | null
           status: string
           subcategory_id: string | null
+          tags: string[] | null
+          total_paid_amount: number | null
           transaction_id: string | null
           updated_at: string | null
           user_id: string
@@ -2165,7 +2183,10 @@ export type Database = {
           account_id?: string | null
           amount: number
           autopay?: boolean | null
+          autopay_account_id?: string | null
+          autopay_credit_card_id?: string | null
           autopay_source: string
+          budget_period?: string | null
           category_id?: string | null
           created_at?: string | null
           credit_card_id?: string | null
@@ -2174,9 +2195,24 @@ export type Database = {
           end_date?: string | null
           frequency: string
           id?: string
+          is_included_in_budget?: boolean | null
+          last_paid_amount?: number | null
+          last_paid_date?: string | null
+          last_reminder_sent?: string | null
+          metadata?: Json | null
           name: string
+          next_due_date?: string | null
+          notes?: string | null
+          payment_count?: number | null
+          recurrence_count?: number | null
+          recurrence_end_date?: string | null
+          recurrence_pattern?: Json | null
+          reminder_days_before?: number[] | null
+          reminder_enabled?: boolean | null
           status?: string
           subcategory_id?: string | null
+          tags?: string[] | null
+          total_paid_amount?: number | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id: string
@@ -2185,7 +2221,10 @@ export type Database = {
           account_id?: string | null
           amount?: number
           autopay?: boolean | null
+          autopay_account_id?: string | null
+          autopay_credit_card_id?: string | null
           autopay_source?: string
+          budget_period?: string | null
           category_id?: string | null
           created_at?: string | null
           credit_card_id?: string | null
@@ -2194,9 +2233,24 @@ export type Database = {
           end_date?: string | null
           frequency?: string
           id?: string
+          is_included_in_budget?: boolean | null
+          last_paid_amount?: number | null
+          last_paid_date?: string | null
+          last_reminder_sent?: string | null
+          metadata?: Json | null
           name?: string
+          next_due_date?: string | null
+          notes?: string | null
+          payment_count?: number | null
+          recurrence_count?: number | null
+          recurrence_end_date?: string | null
+          recurrence_pattern?: Json | null
+          reminder_days_before?: number[] | null
+          reminder_enabled?: boolean | null
           status?: string
           subcategory_id?: string | null
+          tags?: string[] | null
+          total_paid_amount?: number | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id?: string
@@ -2244,7 +2298,10 @@ export type Database = {
           account_id: string | null
           amount: number
           autopay: boolean | null
+          autopay_account_id: string | null
+          autopay_credit_card_id: string | null
           autopay_source: string
+          budget_period: string | null
           category_id: string | null
           created_at: string | null
           credit_card_id: string | null
@@ -2253,9 +2310,24 @@ export type Database = {
           end_date: string | null
           frequency: string
           id: string
+          is_included_in_budget: boolean | null
+          last_paid_amount: number | null
+          last_paid_date: string | null
+          last_reminder_sent: string | null
+          metadata: Json | null
           name: string
+          next_due_date: string | null
+          notes: string | null
+          payment_count: number | null
+          recurrence_count: number | null
+          recurrence_end_date: string | null
+          recurrence_pattern: Json | null
+          reminder_days_before: number[] | null
+          reminder_enabled: boolean | null
           status: string
           subcategory_id: string | null
+          tags: string[] | null
+          total_paid_amount: number | null
           transaction_id: string | null
           updated_at: string | null
           user_id: string
@@ -2264,7 +2336,10 @@ export type Database = {
           account_id?: string | null
           amount: number
           autopay?: boolean | null
+          autopay_account_id?: string | null
+          autopay_credit_card_id?: string | null
           autopay_source: string
+          budget_period?: string | null
           category_id?: string | null
           created_at?: string | null
           credit_card_id?: string | null
@@ -2273,9 +2348,24 @@ export type Database = {
           end_date?: string | null
           frequency: string
           id?: string
+          is_included_in_budget?: boolean | null
+          last_paid_amount?: number | null
+          last_paid_date?: string | null
+          last_reminder_sent?: string | null
+          metadata?: Json | null
           name: string
+          next_due_date?: string | null
+          notes?: string | null
+          payment_count?: number | null
+          recurrence_count?: number | null
+          recurrence_end_date?: string | null
+          recurrence_pattern?: Json | null
+          reminder_days_before?: number[] | null
+          reminder_enabled?: boolean | null
           status?: string
           subcategory_id?: string | null
+          tags?: string[] | null
+          total_paid_amount?: number | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id: string
@@ -2284,7 +2374,10 @@ export type Database = {
           account_id?: string | null
           amount?: number
           autopay?: boolean | null
+          autopay_account_id?: string | null
+          autopay_credit_card_id?: string | null
           autopay_source?: string
+          budget_period?: string | null
           category_id?: string | null
           created_at?: string | null
           credit_card_id?: string | null
@@ -2293,9 +2386,24 @@ export type Database = {
           end_date?: string | null
           frequency?: string
           id?: string
+          is_included_in_budget?: boolean | null
+          last_paid_amount?: number | null
+          last_paid_date?: string | null
+          last_reminder_sent?: string | null
+          metadata?: Json | null
           name?: string
+          next_due_date?: string | null
+          notes?: string | null
+          payment_count?: number | null
+          recurrence_count?: number | null
+          recurrence_end_date?: string | null
+          recurrence_pattern?: Json | null
+          reminder_days_before?: number[] | null
+          reminder_enabled?: boolean | null
           status?: string
           subcategory_id?: string | null
+          tags?: string[] | null
+          total_paid_amount?: number | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id?: string
@@ -2341,6 +2449,284 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions_real"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_payments: {
+        Row: {
+          account_id: string | null
+          amount: number
+          bill_id: string
+          created_at: string | null
+          credit_card_id: string | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          reference_number: string | null
+          status: string
+          transaction_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          bill_id: string
+          created_at?: string | null
+          credit_card_id?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          payment_date: string
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          bill_id?: string
+          created_at?: string | null
+          credit_card_id?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "upcoming_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_payments_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_payments_real: {
+        Row: {
+          account_id: string | null
+          amount: number
+          bill_id: string
+          created_at: string | null
+          credit_card_id: string | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          reference_number: string | null
+          status: string
+          transaction_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          bill_id: string
+          created_at?: string | null
+          credit_card_id?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          payment_date: string
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          bill_id?: string
+          created_at?: string | null
+          credit_card_id?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_payments_real_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "upcoming_bills_real"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_payments_real_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_real"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_payments_real_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards_real"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_payments_real_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions_real"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_reminders: {
+        Row: {
+          bill_id: string
+          created_at: string | null
+          days_before: number | null
+          delivery_method: string | null
+          delivery_status: string | null
+          id: string
+          message: string | null
+          metadata: Json | null
+          reminder_date: string
+          reminder_type: string | null
+          sent_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          bill_id: string
+          created_at?: string | null
+          days_before?: number | null
+          delivery_method?: string | null
+          delivery_status?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          reminder_date: string
+          reminder_type?: string | null
+          sent_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          bill_id?: string
+          created_at?: string | null
+          days_before?: number | null
+          delivery_method?: string | null
+          delivery_status?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          reminder_date?: string
+          reminder_type?: string | null
+          sent_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_reminders_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "upcoming_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_reminders_real: {
+        Row: {
+          bill_id: string
+          created_at: string | null
+          days_before: number | null
+          delivery_method: string | null
+          delivery_status: string | null
+          id: string
+          message: string | null
+          metadata: Json | null
+          reminder_date: string
+          reminder_type: string | null
+          sent_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          bill_id: string
+          created_at?: string | null
+          days_before?: number | null
+          delivery_method?: string | null
+          delivery_status?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          reminder_date: string
+          reminder_type?: string | null
+          sent_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          bill_id?: string
+          created_at?: string | null
+          days_before?: number | null
+          delivery_method?: string | null
+          delivery_status?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          reminder_date?: string
+          reminder_type?: string | null
+          sent_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_reminders_real_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "upcoming_bills_real"
             referencedColumns: ["id"]
           },
         ]

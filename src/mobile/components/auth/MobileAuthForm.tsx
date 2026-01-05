@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,9 +17,13 @@ interface FormData {
   confirmPassword?: string;
 }
 
-export default function MobileAuthForm() {
+interface MobileAuthFormProps {
+  initialMode?: 'login' | 'signup' | 'forgot';
+}
+
+export default function MobileAuthForm({ initialMode = 'login' }: MobileAuthFormProps) {
   const { signIn, signUp, resetPassword } = useUnifiedAuth();
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -27,6 +31,10 @@ export default function MobileAuthForm() {
     confirmPassword: '',
   });
   const [errors, setErrors] = useState<Partial<FormData>>({});
+  
+  // Refs for input fields
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -99,10 +107,14 @@ export default function MobileAuthForm() {
   const renderInput = (
     field: keyof FormData,
     placeholder: string,
-    secureTextEntry = false
+    secureTextEntry = false,
+    inputRef?: React.RefObject<TextInput | null>,
+    onSubmitEditing?: () => void,
+    returnKeyType: 'next' | 'done' | 'go' = 'next'
   ) => (
     <View style={styles.inputContainer}>
       <TextInput
+        ref={inputRef}
         style={[styles.input, errors[field] && styles.inputError]}
         placeholder={placeholder}
         placeholderTextColor="#9CA3AF"
@@ -111,6 +123,9 @@ export default function MobileAuthForm() {
         secureTextEntry={secureTextEntry}
         autoCapitalize="none"
         keyboardType={field === 'email' ? 'email-address' : 'default'}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
+        blurOnSubmit={returnKeyType === 'done' || returnKeyType === 'go'}
       />
       {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
     </View>
@@ -123,7 +138,14 @@ export default function MobileAuthForm() {
         <Text style={styles.subtitle}>Enter your email and we'll send you a reset link</Text>
       </View>
 
-      {renderInput('email', 'Enter your email')}
+      {renderInput(
+        'email',
+        'Enter your email',
+        false,
+        undefined,
+        handleSubmit,
+        'go'
+      )}
 
       <TouchableOpacity
         style={[styles.button, isSubmitting && styles.buttonDisabled]}
@@ -174,15 +196,38 @@ export default function MobileAuthForm() {
         <Text style={styles.subtitle}>
           {mode === 'login' 
             ? 'Sign in to your account' 
-            : 'Join OctopusFinancer today'
+            : 'Join Octopus Organizer today'
           }
         </Text>
       </View>
 
-      {renderInput('email', 'Enter your email')}
-      {renderInput('password', 'Enter your password', true)}
+      {renderInput(
+        'email',
+        'Enter your email',
+        false,
+        undefined,
+        () => passwordInputRef.current?.focus(),
+        'next'
+      )}
+      {renderInput(
+        'password',
+        'Enter your password',
+        true,
+        passwordInputRef,
+        mode === 'signup' 
+          ? () => confirmPasswordInputRef.current?.focus()
+          : handleSubmit,
+        mode === 'signup' ? 'next' : 'go'
+      )}
       
-      {mode === 'signup' && renderInput('confirmPassword', 'Confirm your password', true)}
+      {mode === 'signup' && renderInput(
+        'confirmPassword',
+        'Confirm your password',
+        true,
+        confirmPasswordInputRef,
+        handleSubmit,
+        'go'
+      )}
 
       {mode === 'login' && (
         <TouchableOpacity

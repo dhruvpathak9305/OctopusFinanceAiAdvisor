@@ -6,6 +6,9 @@ import {
   StyleSheet,
   StatusBar,
   Alert,
+  Modal,
+  ScrollView,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,7 +16,9 @@ import {
   useNavigation,
   useRoute,
   useNavigationState,
+  CommonActions,
 } from "@react-navigation/native";
+import { useTabSwitch } from "../../navigation/MobileRouter";
 import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
 import {
   useTheme,
@@ -22,6 +27,10 @@ import {
 } from "../../../../contexts/ThemeContext";
 import { Logo } from "../../../../components/common/Logo";
 import networkMonitor, { NetworkStatus } from "../../../../services/sync/networkMonitor";
+import { supabase } from "../../../../lib/supabase/client";
+import { format, startOfDay, addDays } from "date-fns";
+import { getTableMap } from "../../../../utils/tableMapping";
+import { useDemoMode } from "../../../../contexts/DemoModeContext";
 
 interface MobileHeaderProps {
   title?: string;
@@ -29,13 +38,14 @@ interface MobileHeaderProps {
 }
 
 const MobileHeader: React.FC<MobileHeaderProps> = ({
-  title = "OctopusFinancer",
+  title = "Octopus Organizer",
   showSignIn = true,
 }) => {
   const navigation = useNavigation();
   const route = useRoute();
   const { isAuthenticated, signOut } = useUnifiedAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { isDemo } = useDemoMode();
   const theme = isDark ? darkTheme : lightTheme;
   
   // Network status state
@@ -44,6 +54,104 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
   
   // Notifications state
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notificationBills, setNotificationBills] = useState<any[]>([]);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  
+  // Calculate bills due today or tomorrow for notifications
+  useEffect(() => {
+    const calculateBillNotifications = async () => {
+      if (!isAuthenticated) {
+        setNotificationCount(0);
+        return;
+      }
+
+      try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setNotificationCount(0);
+          return;
+        }
+
+        // Calculate date range for today and tomorrow
+        const today = startOfDay(new Date());
+        const tomorrow = addDays(today, 1);
+
+        // Format dates for SQL query (YYYY-MM-DD)
+        const todayStr = format(today, 'yyyy-MM-dd');
+        const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
+
+        // Get table mapping based on demo mode
+        // This ensures we query the same table that the UI is using
+        const tableMap = getTableMap(isDemo);
+        const billsTable = tableMap.upcoming_bills;
+        
+        console.log('🔔 Notification query:', { billsTable, userId: user.id, isDemo, todayStr, tomorrowStr });
+
+        // Query bills due today or tomorrow (including overdue bills)
+        // We query bills with due_date <= tomorrow (to include overdue and today/tomorrow bills)
+        const { data: bills, error } = await (supabase as any)
+          .from(billsTable)
+          .select('id, due_date, status, name, amount, description')
+          .eq('user_id', user.id)
+          .lte('due_date', tomorrowStr) // Include overdue, today, and tomorrow
+          .limit(100);
+
+        if (error) {
+          console.error('Error fetching bills for notifications:', error);
+          setNotificationCount(0);
+          return;
+        }
+
+        // Filter bills to only include those due today or tomorrow
+        // and exclude inactive statuses
+        const activeBillsDue = (bills || []).filter(
+          (bill: any) => {
+            // Filter out paused, paid, cancelled, or ended bills
+            const inactiveStatuses = ['paused', 'paid', 'cancelled', 'ended'];
+            if (inactiveStatuses.includes(bill.status)) {
+              return false;
+            }
+
+            // Check if bill is due today or tomorrow
+            const billDueDate = new Date(bill.due_date);
+            const billDueDateStr = format(startOfDay(billDueDate), 'yyyy-MM-dd');
+            
+            // Include bills due today or tomorrow
+            return billDueDateStr === todayStr || billDueDateStr === tomorrowStr;
+          }
+        );
+
+        // Debug logging
+        console.log('📊 Notification calculation:', {
+          totalBills: bills?.length || 0,
+          activeBillsDue: activeBillsDue.length,
+          todayStr,
+          tomorrowStr,
+          billsDue: activeBillsDue.map((b: any) => ({ id: b.id, due_date: b.due_date, status: b.status })),
+          allBills: bills?.map((b: any) => ({ id: b.id, due_date: b.due_date, status: b.status })) || []
+        });
+
+        // Set notification count and bills - ensure it's a number
+        const count = activeBillsDue.length || 0;
+        console.log('🔔 Setting notification count to:', count);
+        setNotificationCount(count);
+        setNotificationBills(activeBillsDue);
+      } catch (error) {
+        console.error('Error calculating bill notifications:', error);
+        // Don't show error to user, just set count to 0
+        setNotificationCount(0);
+      }
+    };
+
+    // Calculate immediately
+    calculateBillNotifications();
+
+    // Refresh every minute to update notification count
+    const interval = setInterval(calculateBillNotifications, 60000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isDemo]);
 
   // Get navigation state to determine if we can go back
   const navigationState = useNavigationState((state) => state);
@@ -83,9 +191,9 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
       case "Settings":
         return { title: "App Settings", icon: "⚙️" };
       case "Home":
-        return { title: "OctopusFinancer", icon: "🏠" };
+        return { title: "Octopus Organizer", icon: "🏠" };
       default:
-        return { title: "OctopusFinancer", icon: "📈" };
+        return { title: "Octopus Organizer", icon: "📈" };
     }
   };
 
@@ -108,7 +216,16 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: () => signOut(),
+        onPress: async () => {
+          try {
+            // Await signOut to ensure it completes
+            // Navigation will be handled automatically by auth state listener
+            await signOut();
+          } catch (error) {
+            // Error is already handled by UnifiedAuthContext
+            console.error("Sign out error:", error);
+          }
+        },
       },
     ]);
   };
@@ -140,17 +257,29 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
     );
   };
 
+  const tabSwitchContext = useTabSwitch();
+
   const handleNotificationsPress = () => {
-    // Navigate to notifications screen or show notifications modal
-    // For now, show an alert - can be replaced with navigation later
+    console.log("🔔 Notification icon clicked, count:", notificationCount);
+    
+    // Open notifications modal
     if (notificationCount > 0) {
-      Alert.alert(
-        "Notifications",
-        `You have ${notificationCount} unread notification${notificationCount > 1 ? 's' : ''}`,
-        [{ text: "OK" }]
-      );
+      setShowNotificationsModal(true);
     } else {
-      Alert.alert("Notifications", "No new notifications", [{ text: "OK" }]);
+      Alert.alert("Notifications", "No bills due today or tomorrow", [{ text: "OK" }]);
+    }
+  };
+
+  const handleCloseNotificationsModal = () => {
+    setShowNotificationsModal(false);
+  };
+
+  const handleViewBill = (bill: any) => {
+    // Close modal and navigate to Dashboard
+    setShowNotificationsModal(false);
+    // Switch to Dashboard tab
+    if ((tabSwitchContext as any).isAvailable) {
+      tabSwitchContext.switchToTab("Dashboard");
     }
   };
 
@@ -256,7 +385,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
               {notificationCount > 0 && (
                 <View style={[styles.notificationBadge, { backgroundColor: '#EF4444', borderColor: theme.background }]}>
                   <Text style={styles.notificationBadgeText}>
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                    {notificationCount > 9 ? '9+' : String(notificationCount)}
                   </Text>
                 </View>
               )}
@@ -275,12 +404,17 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
 
             {isAuthenticated ? (
               <TouchableOpacity
-                style={styles.signupButton}
+                style={[
+                  styles.signOutButton,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
                 onPress={handleSignOut}
               >
-                <Text style={[styles.signupText, { color: theme.text }]}>
-                  Sign out
-                </Text>
+                <Ionicons 
+                  name="log-out-outline" 
+                  size={16} 
+                  color={theme.textSecondary} 
+                />
               </TouchableOpacity>
             ) : (
               showSignIn && (
@@ -310,6 +444,119 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
           </View>
         </View>
       </SafeAreaView>
+
+      {/* Notifications Modal */}
+      <Modal
+        visible={showNotificationsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCloseNotificationsModal}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={handleCloseNotificationsModal}
+        >
+          <Pressable
+            style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.border }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Bills Due Soon
+              </Text>
+              <TouchableOpacity
+                onPress={handleCloseNotificationsModal}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {notificationBills.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="checkmark-circle" size={48} color={theme.textSecondary} />
+                  <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+                    No bills due today or tomorrow
+                  </Text>
+                </View>
+              ) : (
+                notificationBills.map((bill) => {
+                  const billDate = new Date(bill.due_date);
+                  const isToday = format(startOfDay(billDate), 'yyyy-MM-dd') === format(startOfDay(new Date()), 'yyyy-MM-dd');
+                  const isTomorrow = format(startOfDay(billDate), 'yyyy-MM-dd') === format(startOfDay(addDays(new Date(), 1)), 'yyyy-MM-dd');
+                  
+                  return (
+                    <TouchableOpacity
+                      key={bill.id}
+                      style={[styles.billItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                      onPress={() => handleViewBill(bill)}
+                    >
+                      <View style={styles.billItemContent}>
+                        <View style={styles.billItemHeader}>
+                          <Text style={[styles.billName, { color: theme.text }]} numberOfLines={1}>
+                            {bill.name || bill.description || 'Unnamed Bill'}
+                          </Text>
+                          {bill.amount && (
+                            <Text style={[styles.billAmount, { color: theme.text }]}>
+                              ${parseFloat(bill.amount || '0').toFixed(2)}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.billItemFooter}>
+                          <View style={[
+                            styles.billDateBadge,
+                            { backgroundColor: isToday ? '#EF444415' : '#10B98115' }
+                          ]}>
+                            <Ionicons
+                              name={isToday ? "time" : "calendar-outline"}
+                              size={12}
+                              color={isToday ? "#EF4444" : "#10B981"}
+                            />
+                            <Text style={[
+                              styles.billDateText,
+                              { color: isToday ? "#EF4444" : "#10B981" }
+                            ]}>
+                              {isToday ? 'Due Today' : isTomorrow ? 'Due Tomorrow' : format(billDate, 'MMM dd, yyyy')}
+                            </Text>
+                          </View>
+                          {bill.status && (
+                            <View style={[
+                              styles.billStatusBadge,
+                              { backgroundColor: theme.border }
+                            ]}>
+                              <Text style={[styles.billStatusText, { color: theme.textSecondary }]}>
+                                {bill.status}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            {notificationBills.length > 0 && (
+              <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+                <TouchableOpacity
+                  style={[styles.viewAllButton, { backgroundColor: theme.primary }]}
+                  onPress={() => {
+                    handleCloseNotificationsModal();
+                    if ((tabSwitchContext as any).isAvailable) {
+                      tabSwitchContext.switchToTab("Dashboard");
+                    }
+                  }}
+                >
+                  <Text style={styles.viewAllButtonText}>View All Bills</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 };
@@ -412,6 +659,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
+  signOutButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    // backgroundColor and borderColor will be set dynamically
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+  },
   authButtons: {
     flexDirection: "row",
     gap: 6,
@@ -437,6 +693,118 @@ const styles = StyleSheet.create({
     fontSize: 12,
     // color will be set dynamically
     fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    maxHeight: "80%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    maxHeight: 400,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  billItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  billItemContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  billItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  billName: {
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+    marginRight: 12,
+  },
+  billAmount: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  billItemFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  billDateBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  billDateText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  billStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  billStatusText: {
+    fontSize: 11,
+    fontWeight: "500",
+    textTransform: "capitalize",
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+  },
+  viewAllButton: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  viewAllButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
 

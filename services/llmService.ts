@@ -145,7 +145,7 @@ export class LLMService {
         typeof window !== "undefined"
           ? window.location.origin
           : "https://octopus-finance.ai",
-      "X-Title": "Octopus Finance AI Advisor",
+      "X-Title": "Octopus Organizer",
     };
 
     const response = await this.makeRequest(

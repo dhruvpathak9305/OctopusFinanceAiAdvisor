@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
 import { View, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -29,10 +29,34 @@ import MobileCredit from "../pages/MobileCredit";
 import MoneyPage from "../pages/Money";
 import MobileTravel from "../pages/MobileTravel";
 import MobileDateFilter from "../pages/MobileDateFilter";
+import MobileAnalytics from "../pages/MobileAnalytics";
+import MobileReports from "../pages/MobileReports";
 import FinancialRelationshipsScreen from "../screens/FinancialRelationshipsScreen";
 import ScrollableBottomNav from "../components/navigation/ScrollableBottomNav";
 import { SyncQueueView } from "../../../components/sync/SyncQueueView";
 import { PerformanceDashboard } from "../../../components/performance/PerformanceDashboard";
+
+// Context for tab switching
+type TabSwitchContextType = {
+  switchToTab: (tab: string) => void;
+};
+
+const TabSwitchContext = createContext<TabSwitchContextType | null>(null);
+
+export const useTabSwitch = () => {
+  const context = useContext(TabSwitchContext);
+  if (!context) {
+    // Return a no-op function if context is not available
+    console.warn("⚠️ TabSwitchContext not available - returning no-op function");
+    return { 
+      switchToTab: () => {
+        console.warn("TabSwitchContext not available - switchToTab called but context is null");
+      },
+      isAvailable: false 
+    };
+  }
+  return { ...context, isAvailable: true };
+};
 
 // Navigation Types
 export type MobileTabParamList = {
@@ -46,7 +70,7 @@ export type MobileTabParamList = {
 };
 
 export type MobileStackParamList = {
-  Main: undefined;
+  Main: { initialTab?: string } | undefined;
   Auth: undefined;
   DashboardMain: undefined;
   Transactions: undefined;
@@ -57,12 +81,34 @@ export type MobileStackParamList = {
   MobileCredit: undefined;
   MobileTravel: undefined;
   MobileDateFilter: undefined;
+  MobileAnalytics: undefined;
+  MobileReports: undefined;
+  MobileStockBrowser: undefined;
   SyncQueue: undefined;
   PerformanceDashboard: undefined;
 };
 
 const Tab = createBottomTabNavigator<MobileTabParamList>();
 const Stack = createStackNavigator<MobileStackParamList>();
+
+// Wrapper components to avoid inline functions
+const MobileDateFilterWrapper: React.FC = () => (
+  <MobileRequireAuth>
+    <MobileDateFilter />
+  </MobileRequireAuth>
+);
+
+const MobileAnalyticsWrapper: React.FC = () => (
+  <MobileRequireAuth>
+    <MobileAnalytics />
+  </MobileRequireAuth>
+);
+
+const MobileReportsWrapper: React.FC = () => (
+  <MobileRequireAuth>
+    <MobileReports />
+  </MobileRequireAuth>
+);
 
 // Wrapper component that adds header to screens
 const ScreenWithHeader: React.FC<{
@@ -104,10 +150,47 @@ const DashboardStack: React.FC = () => {
 
 // Custom Tab Navigator with Scrollable Bottom Nav
 const MainTabNavigator: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState("Home"); // Default to Home for non-authenticated users
   const navigation = useNavigation();
+  // Get initial tab from navigation state, default to Home
+  const routeState = navigation.getState();
+  const currentRoute = routeState?.routes?.[routeState?.index || 0];
+  const initialTab = (currentRoute?.params as any)?.initialTab || "Home";
+  const [activeTab, setActiveTab] = React.useState(initialTab);
+  
+  // Log when activeTab changes for debugging
+  React.useEffect(() => {
+    console.log("📱 MainTabNavigator: activeTab changed to:", activeTab);
+  }, [activeTab]);
+  
+  // Update activeTab when navigation state or params change
+  React.useEffect(() => {
+    const updateTabFromParams = () => {
+      const state = navigation.getState();
+      const route = state?.routes?.[state?.index || 0];
+      if (route && (route.params as any)?.initialTab) {
+        const newTab = (route.params as any).initialTab;
+        console.log("📱 MainTabNavigator: Updating tab from params to:", newTab);
+        setActiveTab(newTab);
+      }
+    };
+
+    // Listen to state changes
+    const unsubscribeState = navigation.addListener('state', updateTabFromParams);
+    
+    // Also listen to focus events which fire when params change
+    const unsubscribeFocus = navigation.addListener('focus', updateTabFromParams);
+    
+    // Initial check
+    updateTabFromParams();
+    
+    return () => {
+      unsubscribeState();
+      unsubscribeFocus();
+    };
+  }, [navigation]);
 
   const renderActiveScreen = () => {
+    console.log("🖼️ renderActiveScreen called with activeTab:", activeTab);
     switch (activeTab) {
       case "Home":
         return (
@@ -174,15 +257,35 @@ const MainTabNavigator: React.FC = () => {
     }
   };
 
+  // Get root navigation for stack screens
+  const rootNavigation = navigation.getParent() || navigation;
+
+  // Provide tab switching context
+  // Use functional update to ensure we always get the latest state
+  const switchToTab = React.useCallback((tab: string) => {
+    console.log("🔄 TabSwitchContext: Switching to tab:", tab);
+    setActiveTab((currentTab: string) => {
+      if (currentTab !== tab) {
+        console.log("✅ TabSwitchContext: State updating from", currentTab, "to", tab);
+        return tab;
+      } else {
+        console.log("ℹ️ TabSwitchContext: Already on tab", tab);
+        return currentTab;
+      }
+    });
+  }, []);
+
   return (
-    <View style={{ flex: 1 }}>
-      {renderActiveScreen()}
-      <ScrollableBottomNav
-        activeTab={activeTab}
-        onTabPress={setActiveTab}
-        navigation={navigation}
-      />
-    </View>
+    <TabSwitchContext.Provider value={{ switchToTab }}>
+      <View style={{ flex: 1 }}>
+        {renderActiveScreen()}
+        <ScrollableBottomNav
+          activeTab={activeTab}
+          onTabPress={setActiveTab}
+          navigation={rootNavigation}
+        />
+      </View>
+    </TabSwitchContext.Provider>
   );
 };
 
@@ -248,7 +351,21 @@ const RootStackNavigator: React.FC = () => {
       />
       <Stack.Screen
         name="MobileDateFilter"
-        component={MobileDateFilter}
+        component={MobileDateFilterWrapper}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MobileAnalytics"
+        component={MobileAnalyticsWrapper}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MobileReports"
+        component={MobileReportsWrapper}
         options={{
           headerShown: false,
         }}

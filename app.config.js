@@ -2,8 +2,8 @@ import 'dotenv/config';
 
 export default {
   expo: {
-    name: "OctopusFinanceAiAdvisor",
-    slug: "OctopusFinanceAiAdvisor",
+    name: "Octopus Organizer",
+    slug: "octopusorganizer",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -17,10 +17,10 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.anonymous.OctopusFinanceAiAdvisor"
+      bundleIdentifier: "com.octopus.organizer"
     },
     android: {
-      package: "com.octopusfinance.advisor",
+      package: "com.octopus.organizer",
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"
@@ -31,7 +31,7 @@ export default {
       favicon: "./assets/favicon.png",
       bundler: "metro"
     },
-    scheme: "octopus-finance-advisor",
+    scheme: "octopus-organizer",
     plugins: [
       [
         "expo-router",
@@ -55,7 +55,7 @@ export default {
       openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY || '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',
       openaiBaseUrl: process.env.EXPO_PUBLIC_OPENAI_BASE_URL || 'https://openrouter.ai/api/v1',
       openaiSiteUrl: process.env.EXPO_PUBLIC_SITE_URL || 'https://octopusfinanceadvisor.com',
-      openaiSiteName: process.env.EXPO_PUBLIC_SITE_NAME || 'OctopusFinanceAIAdvisor',
+      openaiSiteName: process.env.EXPO_PUBLIC_SITE_NAME || 'Octopus Organizer',
     },
   },
 }; 

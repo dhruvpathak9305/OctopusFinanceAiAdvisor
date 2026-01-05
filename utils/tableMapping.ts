@@ -21,6 +21,8 @@ export interface TableMap {
 
   // Bill tables
   upcoming_bills: string;
+  bill_payments: string;
+  bill_reminders: string;
 
   // History tables
   account_balance_history: string;
@@ -69,6 +71,8 @@ export const getTableMap = (isDemo: boolean): TableMap => {
       budget_categories: "budget_categories",
       budget_subcategories: "budget_subcategories",
       upcoming_bills: "upcoming_bills",
+      bill_payments: "bill_payments",
+      bill_reminders: "bill_reminders",
       account_balance_history: "account_balance_history",
       credit_card_history: "credit_card_history",
       net_worth_categories: "net_worth_categories",
@@ -91,6 +95,8 @@ export const getTableMap = (isDemo: boolean): TableMap => {
       budget_categories: "budget_categories_real",
       budget_subcategories: "budget_subcategories_real",
       upcoming_bills: "upcoming_bills_real",
+      bill_payments: "bill_payments_real",
+      bill_reminders: "bill_reminders_real",
       account_balance_history: "account_balance_history_real",
       credit_card_history: "credit_card_history_real",
       net_worth_categories: "net_worth_categories_real",
@@ -207,6 +213,8 @@ export const CORE_TABLES = [
   "budget_categories",
   "budget_subcategories",
   "upcoming_bills",
+  "bill_payments",
+  "bill_reminders",
   "net_worth_categories",
   "net_worth_subcategories",
   "net_worth_entries",

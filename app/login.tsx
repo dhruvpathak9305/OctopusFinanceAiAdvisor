@@ -60,7 +60,7 @@ export default function LoginPage() {
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Sign in to your OctopusFinancer account
+          Sign in to your Octopus Organizer account
         </Text>
 
         <View style={styles.form}>

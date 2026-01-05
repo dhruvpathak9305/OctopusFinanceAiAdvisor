@@ -1,50 +1,80 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import MobileAuthForm from '../../components/auth/MobileAuthForm';
 import { useUnifiedAuth } from '../../../../contexts/UnifiedAuthContext';
+import { useTheme } from '../../../../contexts/ThemeContext';
+import { Logo } from '../../../../components/common/Logo';
 
 const MobileAuth: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const { isAuthenticated } = useUnifiedAuth();
+  const { isDark } = useTheme();
+  
+  // Get initial mode from route params
+  const initialMode = (route.params as any)?.mode || 'login';
 
   // Redirect to dashboard if user is already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      navigation.navigate('Main' as never);
+      // Reset navigation stack to Main with Dashboard tab, closing the Auth modal
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: 'Main',
+              params: { initialTab: 'Dashboard' },
+            },
+          ],
+        })
+      );
     }
   }, [isAuthenticated, navigation]);
 
   // Note: We don't show a loading screen here - the form has its own loading indicator
 
+  const colors = isDark ? {
+    background: '#0B1426',
+    surface: '#1F2937',
+    text: '#FFFFFF',
+    textSecondary: '#9CA3AF',
+    border: '#374151',
+  } : {
+    background: '#FFFFFF',
+    surface: '#F9FAFB',
+    text: '#111827',
+    textSecondary: '#6B7280',
+    border: '#E5E7EB',
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         {/* Header Section */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoIcon}>📈</Text>
-          </View>
-          <Text style={styles.title}>Welcome to Octopus Financer</Text>
-          <Text style={styles.subtitle}>Your personal finance assistant</Text>
+          <Logo size={64} animated={true} />
+          <Text style={[styles.title, { color: colors.text }]}>Welcome to Octopus Organizer</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Your personal finance assistant</Text>
         </View>
 
         {/* Auth Form Component */}
-        <View style={styles.authCard}>
-          <MobileAuthForm />
+        <View style={[styles.authCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <MobileAuthForm initialMode={initialMode} />
         </View>
 
         {/* Features Section */}
         <View style={styles.featuresSection}>
-          <Text style={styles.featuresTitle}>Why Choose OctopusFinancer?</Text>
+          <Text style={[styles.featuresTitle, { color: colors.text }]}>Why Choose Octopus Organizer?</Text>
           
           <View style={styles.featureItem}>
             <View style={styles.featureIconContainer}>
               <Text style={styles.featureIcon}>📊</Text>
             </View>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Smart Budget Tracking</Text>
-              <Text style={styles.featureDescription}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>Smart Budget Tracking</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
                 Automatically categorize transactions and get insights on your spending habits.
               </Text>
             </View>
@@ -55,8 +85,8 @@ const MobileAuth: React.FC = () => {
               <Text style={styles.featureIcon}>🎯</Text>
             </View>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Financial Goal Planning</Text>
-              <Text style={styles.featureDescription}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>Financial Goal Planning</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
                 Set savings goals and track your progress with visual dashboards.
               </Text>
             </View>
@@ -67,8 +97,8 @@ const MobileAuth: React.FC = () => {
               <Text style={styles.featureIcon}>🧠</Text>
             </View>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>AI-Powered Insights</Text>
-              <Text style={styles.featureDescription}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>AI-Powered Insights</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>
                 Get personalized recommendations to optimize your financial decisions.
               </Text>
             </View>
@@ -82,7 +112,6 @@ const MobileAuth: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
   },
   content: {
     padding: 16,
@@ -101,19 +130,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  logoContainer: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#10B981',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoIcon: {
-    fontSize: 18,
-    color: '#000000',
-  },
   title: {
     fontSize: 16,
     fontWeight: '700',
@@ -126,12 +142,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   authCard: {
-    backgroundColor: '#1F2937',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#374151',
   },
   featuresSection: {
     marginBottom: 24,
@@ -139,7 +153,6 @@ const styles = StyleSheet.create({
   featuresTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 24,
   },
   featureItem: {
@@ -166,12 +179,10 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
     marginBottom: 4,
   },
   featureDescription: {
     fontSize: 12,
-    color: '#9CA3AF',
     lineHeight: 18,
   },
 });

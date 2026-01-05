@@ -1,4 +1,4 @@
-// Custom SMS Transaction Analyzer for Octopus Finance
+// Custom SMS Transaction Analyzer for Octopus Organizer
 // Uses actual context data from the application
 
 export interface SMSAnalysisResult {

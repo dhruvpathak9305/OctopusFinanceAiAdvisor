@@ -250,12 +250,12 @@ function generateResponsePage(status: string | null, consentId: string | null): 
 </head>
 <body>
   <div class="container">
-    <div class="logo">OctopusFinancer</div>
+    <div class="logo">Octopus Organizer</div>
     
     ${isSuccess ? `
       <div class="icon success">✓</div>
       <h1>Bank Connected!</h1>
-      <p>Your bank account has been successfully linked to OctopusFinancer. You can now start tracking your transactions automatically.</p>
+      <p>Your bank account has been successfully linked to Octopus Organizer. You can now start tracking your transactions automatically.</p>
     ` : `
       <div class="icon error">✕</div>
       <h1>Connection Failed</h1>
@@ -295,7 +295,7 @@ function generateResponsePage(status: string | null, consentId: string | null): 
       
       // If window doesn't close (browser restriction), show message
       setTimeout(() => {
-        alert('You can now close this window and return to OctopusFinancer app.');
+        alert('You can now close this window and return to Octopus Organizer app.');
       }, 500);
     }
     

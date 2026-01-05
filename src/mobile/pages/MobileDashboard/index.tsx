@@ -86,7 +86,7 @@ const TabButton: React.FC<{
 export default function MobileDashboard() {
   const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState("overview");
-  const [useTestData, setUseTestData] = useState(true);
+  const [useTestData, setUseTestData] = useState(false);
   const [isExpandedView, setIsExpandedView] = useState(true);
   const financialData = useFinancialData();
 

@@ -28,6 +28,8 @@ export const TABLE_NAMES = {
     ROLLING_BUDGET_ADJUSTMENTS: 'rolling_budget_adjustments',
     TRANSACTIONS: 'transactions',
     UPCOMING_BILLS: 'upcoming_bills',
+    BILL_PAYMENTS: 'bill_payments',
+    BILL_REMINDERS: 'bill_reminders',
     ZERO_BASED_BUDGETS: 'zero_based_budgets',
   },
   
@@ -47,6 +49,8 @@ export const TABLE_NAMES = {
     ROLLING_BUDGET_ADJUSTMENTS: 'rolling_budget_adjustments_real',
     TRANSACTIONS: 'transactions_real',
     UPCOMING_BILLS: 'upcoming_bills_real',
+    BILL_PAYMENTS: 'bill_payments_real',
+    BILL_REMINDERS: 'bill_reminders_real',
     USER_NET_WORTH_SUMMARY: 'user_net_worth_summary_real',
     ZERO_BASED_BUDGETS: 'zero_based_budgets_real',
   },
@@ -98,6 +102,8 @@ export const TABLE_GROUPS = {
   
   BILLS: [
     'UPCOMING_BILLS',
+    'BILL_PAYMENTS',
+    'BILL_REMINDERS',
   ],
   
   NET_WORTH: [

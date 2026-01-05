@@ -4,7 +4,7 @@
  * =============================================================================
  *
  * This service provides a comprehensive interface for managing net worth data
- * in the Octopus Finance AI Advisor application. It handles both demo and real
+ * in the Octopus Organizer application. It handles both demo and real
  * user data through a centralized table mapping system.
  *
  * Key Features:

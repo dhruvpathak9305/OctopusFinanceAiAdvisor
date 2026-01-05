@@ -43,7 +43,7 @@ export const WebPageLayout: React.FC<WebPageLayoutProps> = ({
       {showFooter && (
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            © 2024 OctopusFinancer. All rights reserved.
+            © 2024 Octopus Organizer. All rights reserved.
           </Text>
         </View>
       )}

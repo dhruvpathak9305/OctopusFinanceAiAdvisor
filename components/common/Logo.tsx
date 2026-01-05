@@ -79,7 +79,7 @@ export const Logo: React.FC<LogoProps> = ({
             {
               width: size + 8, // Add padding for border
               height: size + 8,
-              borderRadius: 12, // Square border with rounded corners (matches logo borderRadius)
+              borderRadius: 24, // More rounded corners for better appearance
               borderWidth: 2, // Fixed border width
               borderColor: '#10B981', // Green accent color
               // Static shadow effect (animations disabled to avoid native driver conflicts)
@@ -106,7 +106,7 @@ export const Logo: React.FC<LogoProps> = ({
       </View>
       {showText && (
         <View style={styles.textContainer}>
-          <Text style={[styles.text, { color: isDark ? '#FFFFFF' : '#111827' }]}>OctopusFinancer</Text>
+          <Text style={[styles.text, { color: isDark ? '#FFFFFF' : '#111827' }]}>Octopus Organizer</Text>
         </View>
       )}
     </View>
@@ -126,9 +126,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 4,
+    borderRadius: 20,
   },
   logo: {
-    borderRadius: 8,
+    borderRadius: 16,
     // Ensure logo is visible and not clipped
     minWidth: 32,
     minHeight: 32,

@@ -546,6 +546,248 @@ export const LOCAL_SCHEMA = {
     CREATE INDEX IF NOT EXISTS idx_budget_periods_local_period_start 
     ON budget_periods_local (period_start);
   `,
+
+  // =============================================================================
+  // UPCOMING BILLS TABLE
+  // =============================================================================
+  upcoming_bills_local: `
+    CREATE TABLE IF NOT EXISTS upcoming_bills_local (
+      id TEXT PRIMARY KEY NOT NULL,
+      local_id TEXT UNIQUE,
+      user_id TEXT NOT NULL,
+      
+      -- Basic Information
+      name TEXT NOT NULL,
+      description TEXT,
+      amount REAL NOT NULL CHECK (amount > 0),
+      
+      -- Dates
+      due_date TEXT NOT NULL,
+      end_date TEXT,
+      next_due_date TEXT,
+      
+      -- Recurrence
+      frequency TEXT NOT NULL CHECK (frequency IN (
+        'one-time', 'daily', 'weekly', 'bi-weekly', 
+        'monthly', 'quarterly', 'semi-annually', 'yearly'
+      )),
+      recurrence_pattern TEXT, -- JSON stored as TEXT
+      recurrence_count INTEGER,
+      recurrence_end_date TEXT,
+      
+      -- Categorization
+      category_id TEXT,
+      subcategory_id TEXT,
+      
+      -- Payment Source
+      account_id TEXT,
+      credit_card_id TEXT,
+      
+      -- Status & Lifecycle
+      status TEXT NOT NULL DEFAULT 'upcoming' CHECK (status IN (
+        'upcoming', 'pending', 'paid', 'overdue', 'cancelled', 'skipped', 'partial'
+      )),
+      is_active INTEGER DEFAULT 1,
+      
+      -- Autopay Configuration
+      autopay INTEGER DEFAULT 0,
+      autopay_source TEXT CHECK (autopay_source IN ('account', 'credit_card')),
+      autopay_account_id TEXT,
+      autopay_credit_card_id TEXT,
+      
+      -- Payment Tracking
+      last_paid_date TEXT,
+      last_paid_amount REAL,
+      total_paid_amount REAL DEFAULT 0,
+      payment_count INTEGER DEFAULT 0,
+      
+      -- Reminders
+      reminder_days_before TEXT, -- JSON array stored as TEXT: "[7, 3, 1]"
+      last_reminder_sent TEXT,
+      reminder_enabled INTEGER DEFAULT 1,
+      
+      -- Budget Integration
+      is_included_in_budget INTEGER DEFAULT 1,
+      budget_period TEXT CHECK (budget_period IN ('monthly', 'quarterly', 'yearly')),
+      
+      -- Metadata
+      tags TEXT, -- JSON array stored as TEXT
+      notes TEXT,
+      metadata TEXT, -- JSON stored as TEXT
+      
+      -- Transaction Link
+      transaction_id TEXT,
+      
+      -- Sync metadata
+      sync_status TEXT DEFAULT '${SyncStatus.PENDING}' CHECK (sync_status IN ('pending', 'synced', 'conflict', 'local_only', 'error')),
+      created_offline INTEGER DEFAULT 0,
+      updated_offline INTEGER DEFAULT 0,
+      deleted_offline INTEGER DEFAULT 0,
+      last_synced_at INTEGER,
+      server_version INTEGER DEFAULT 0,
+      
+      -- Timestamps
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_user 
+    ON upcoming_bills_local (user_id);
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_due_date 
+    ON upcoming_bills_local (due_date);
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_status 
+    ON upcoming_bills_local (status);
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_active 
+    ON upcoming_bills_local (is_active);
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_category 
+    ON upcoming_bills_local (category_id) WHERE category_id IS NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_account 
+    ON upcoming_bills_local (account_id) WHERE account_id IS NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_credit_card 
+    ON upcoming_bills_local (credit_card_id) WHERE credit_card_id IS NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_next_due_date 
+    ON upcoming_bills_local (next_due_date) WHERE next_due_date IS NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_user_status_due 
+    ON upcoming_bills_local (user_id, status, due_date);
+    
+    CREATE INDEX IF NOT EXISTS idx_upcoming_bills_local_sync_status 
+    ON upcoming_bills_local (sync_status);
+  `,
+
+  // =============================================================================
+  // BILL PAYMENTS TABLE
+  // =============================================================================
+  bill_payments_local: `
+    CREATE TABLE IF NOT EXISTS bill_payments_local (
+      id TEXT PRIMARY KEY NOT NULL,
+      local_id TEXT UNIQUE,
+      bill_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      
+      -- Payment Details
+      payment_date TEXT NOT NULL,
+      amount REAL NOT NULL CHECK (amount > 0),
+      payment_method TEXT CHECK (payment_method IN ('account', 'credit_card', 'cash', 'other')),
+      
+      -- Transaction Link
+      transaction_id TEXT,
+      
+      -- Payment Source
+      account_id TEXT,
+      credit_card_id TEXT,
+      
+      -- Status
+      status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN (
+        'pending', 'completed', 'failed', 'cancelled', 'refunded'
+      )),
+      
+      -- Metadata
+      reference_number TEXT,
+      notes TEXT,
+      metadata TEXT, -- JSON stored as TEXT
+      
+      -- Sync metadata
+      sync_status TEXT DEFAULT '${SyncStatus.PENDING}' CHECK (sync_status IN ('pending', 'synced', 'conflict', 'local_only', 'error')),
+      created_offline INTEGER DEFAULT 0,
+      updated_offline INTEGER DEFAULT 0,
+      deleted_offline INTEGER DEFAULT 0,
+      last_synced_at INTEGER,
+      server_version INTEGER DEFAULT 0,
+      
+      -- Timestamps
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      
+      FOREIGN KEY (bill_id) REFERENCES upcoming_bills_local(id) ON DELETE CASCADE
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_payments_local_bill_id 
+    ON bill_payments_local (bill_id);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_payments_local_user_id 
+    ON bill_payments_local (user_id);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_payments_local_transaction_id 
+    ON bill_payments_local (transaction_id) WHERE transaction_id IS NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_payments_local_payment_date 
+    ON bill_payments_local (payment_date);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_payments_local_status 
+    ON bill_payments_local (status);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_payments_local_sync_status 
+    ON bill_payments_local (sync_status);
+  `,
+
+  // =============================================================================
+  // BILL REMINDERS TABLE
+  // =============================================================================
+  bill_reminders_local: `
+    CREATE TABLE IF NOT EXISTS bill_reminders_local (
+      id TEXT PRIMARY KEY NOT NULL,
+      local_id TEXT UNIQUE,
+      bill_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      
+      -- Reminder Details
+      reminder_date TEXT NOT NULL,
+      reminder_type TEXT CHECK (reminder_type IN (
+        'due_date', 'days_before', 'overdue', 'custom'
+      )),
+      days_before INTEGER,
+      
+      -- Delivery
+      sent_at INTEGER, -- Unix timestamp
+      delivery_method TEXT CHECK (delivery_method IN (
+        'push', 'email', 'sms', 'in_app'
+      )),
+      delivery_status TEXT DEFAULT 'pending' CHECK (delivery_status IN (
+        'pending', 'sent', 'failed', 'cancelled'
+      )),
+      
+      -- Metadata
+      message TEXT,
+      metadata TEXT, -- JSON stored as TEXT
+      
+      -- Sync metadata
+      sync_status TEXT DEFAULT '${SyncStatus.PENDING}' CHECK (sync_status IN ('pending', 'synced', 'conflict', 'local_only', 'error')),
+      created_offline INTEGER DEFAULT 0,
+      updated_offline INTEGER DEFAULT 0,
+      deleted_offline INTEGER DEFAULT 0,
+      last_synced_at INTEGER,
+      server_version INTEGER DEFAULT 0,
+      
+      -- Timestamps
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      
+      FOREIGN KEY (bill_id) REFERENCES upcoming_bills_local(id) ON DELETE CASCADE
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_reminders_local_bill_id 
+    ON bill_reminders_local (bill_id);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_reminders_local_user_id 
+    ON bill_reminders_local (user_id);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_reminders_local_reminder_date 
+    ON bill_reminders_local (reminder_date);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_reminders_local_delivery_status 
+    ON bill_reminders_local (delivery_status);
+    
+    CREATE INDEX IF NOT EXISTS idx_bill_reminders_local_sync_status 
+    ON bill_reminders_local (sync_status);
+  `,
 };
 
 /**

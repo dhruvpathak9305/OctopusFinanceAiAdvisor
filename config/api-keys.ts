@@ -21,7 +21,7 @@ export const API_KEYS = {
 
   // Site information for OpenRouter
   SITE_URL: "https://octopus-finance.ai",
-  SITE_NAME: "Octopus Finance AI Advisor",
+  SITE_NAME: "Octopus Organizer",
 };
 
 // OpenRouter API Configuration

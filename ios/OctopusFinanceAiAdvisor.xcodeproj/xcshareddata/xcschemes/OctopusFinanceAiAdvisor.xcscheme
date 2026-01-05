@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "OctopusFinanceAiAdvisor.app"
-               BlueprintName = "OctopusFinanceAiAdvisor"
+               BuildableName = "OctopusOrganizer.app"
+               BlueprintName = "OctopusOrganizer"
                ReferencedContainer = "container:OctopusFinanceAiAdvisor.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -33,8 +33,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "OctopusFinanceAiAdvisorTests.xctest"
-               BlueprintName = "OctopusFinanceAiAdvisorTests"
+               BuildableName = "OctopusOrganizerTests.xctest"
+               BlueprintName = "OctopusOrganizerTests"
                ReferencedContainer = "container:OctopusFinanceAiAdvisor.xcodeproj">
             </BuildableReference>
          </TestableReference>

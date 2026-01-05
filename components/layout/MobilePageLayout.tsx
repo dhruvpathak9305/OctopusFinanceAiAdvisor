@@ -47,7 +47,7 @@ export const MobilePageLayout: React.FC<MobilePageLayoutProps> = ({
                 <Text style={styles.backButtonText}>← Back</Text>
               </TouchableOpacity>
             ) : (
-              <Text style={styles.logo}>📈 OctopusFinancer</Text>
+              <Text style={styles.logo}>📈 Octopus Organizer</Text>
             )}
           </View>
           

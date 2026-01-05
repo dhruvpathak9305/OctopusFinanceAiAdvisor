@@ -16,6 +16,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../../contexts/ThemeContext';
+import { BillReminderConfig } from '../../components/Bills/BillReminderConfig';
+import { RecurrencePatternEditor } from '../../components/Bills/RecurrencePatternEditor';
+import { BillPaymentHistory } from '../../components/Bills/BillPaymentHistory';
+import { addUpcomingBill, updateUpcomingBill, fetchUpcomingBills, type UpcomingBill } from '../../../../services/upcomingBillsService';
+import { addBillPayment } from '../../../../services/billPaymentsService';
+import { seedMockBillsToSupabase } from '../../../../utils/seedMockBills';
+import { supabase } from '../../../../lib/supabase/client';
 
 interface UpcomingBillsSectionProps {
   className?: string;
@@ -53,9 +60,10 @@ interface Bill {
   subcategory: string;
   description: string;
   icon: string;
-  status: 'due_today' | 'due_tomorrow' | 'due_week' | 'paid' | 'overdue';
+  status: 'due_today' | 'due_tomorrow' | 'due_week' | 'paid' | 'overdue' | 'paused' | 'ended';
   isAutoPay: boolean;
   paymentMethod: string;
+  autopay_source?: string | null; // Source for autopay: 'account' | 'credit_card' | null
   tags: string[];
   // Bill History fields
   paymentHistory?: PaymentRecord[];
@@ -127,141 +135,6 @@ interface GroupedBills {
 }
 
 // Mock bill data matching the images
-const mockBills: Bill[] = [
-  // Today - August 6, 2025
-  {
-    id: 1,
-    name: 'Electricity Bill',
-    type: 'Utilities',
-    dueDate: '2025-08-06',
-    amount: '95.50',
-    category: 'Utilities',
-    subcategory: 'Electricity',
-    description: 'Monthly electricity bill',
-    icon: 'lightning',
-    status: 'due_today',
-    isAutoPay: false,
-    paymentMethod: 'Manual',
-    tags: ['Utilities', 'Electricity'],
-    lateFee: '15.00',
-    gracePeriodDays: 5,
-    isRecurring: true,
-    recurringFrequency: 'monthly',
-  },
-  {
-    id: 2,
-    name: 'Netflix Subscription',
-    type: 'Subscriptions',
-    dueDate: '2025-08-06',
-    amount: '14.99',
-    category: 'Subscriptions',
-    subcategory: 'Streaming',
-    description: 'Monthly streaming subscription',
-    icon: 'tv',
-    status: 'due_today',
-    isAutoPay: true,
-    paymentMethod: 'Chase Freedom',
-    tags: ['Subscriptions', 'Streaming'],
-  },
-  {
-    id: 3,
-    name: 'Water Bill',
-    type: 'Utilities',
-    dueDate: '2025-08-06',
-    amount: '45.70',
-    category: 'Utilities',
-    subcategory: 'Water',
-    description: 'Monthly water utility',
-    icon: 'water',
-    status: 'paid',
-    isAutoPay: false,
-    paymentMethod: 'Manual',
-    tags: ['Utilities', 'Water'],
-  },
-  // Tomorrow - August 7, 2025
-  {
-    id: 4,
-    name: 'Phone Bill',
-    type: 'Utilities',
-    dueDate: '2025-08-07',
-    amount: '85.00',
-    category: 'Utilities',
-    subcategory: 'Phone',
-    description: 'Monthly cell phone bill',
-    icon: 'phone',
-    status: 'due_tomorrow',
-    isAutoPay: true,
-    paymentMethod: 'Checking Account',
-    tags: ['Utilities', 'Phone'],
-    lateFee: '10.00',
-    gracePeriodDays: 3,
-    isRecurring: true,
-    recurringFrequency: 'monthly',
-  },
-  // Monday - August 11, 2025
-  {
-    id: 5,
-    name: 'Internet Service',
-    type: 'Utilities',
-    dueDate: '2025-08-11',
-    amount: '65.99',
-    category: 'Utilities',
-    subcategory: 'Internet',
-    description: 'Monthly internet service',
-    icon: 'wifi',
-    status: 'due_week',
-    isAutoPay: false,
-    paymentMethod: 'Manual',
-    tags: ['Utilities', 'Internet'],
-  },
-  {
-    id: 6,
-    name: 'Car Insurance',
-    type: 'Insurance',
-    dueDate: '2025-08-11',
-    amount: '325.00',
-    category: 'Insurance',
-    subcategory: 'Auto',
-    description: 'Quarterly car insurance premium',
-    icon: 'document',
-    status: 'due_week',
-    isAutoPay: true,
-    paymentMethod: 'Chase Freedom',
-    tags: ['Insurance', 'Auto'],
-  },
-  // August 31, 2025
-  {
-    id: 7,
-    name: 'Rent',
-    type: 'Housing',
-    dueDate: '2025-08-31',
-    amount: '1450.00',
-    category: 'Housing',
-    subcategory: 'Rent',
-    description: 'Monthly apartment rent',
-    icon: 'home',
-    status: 'due_week',
-    isAutoPay: true,
-    paymentMethod: 'Checking Account',
-    tags: ['Housing', 'Rent'],
-  },
-  {
-    id: 8,
-    name: 'Amazon Prime',
-    type: 'Subscriptions',
-    dueDate: '2025-08-31',
-    amount: '119.00',
-    category: 'Subscriptions',
-    subcategory: 'Shopping',
-    description: 'Annual Amazon Prime membership',
-    icon: 'shopping',
-    status: 'due_week',
-    isAutoPay: true,
-    paymentMethod: 'Chase Freedom',
-    tags: ['Subscriptions', 'Shopping'],
-  },
-];
-
 // Group bills by date
 const groupBillsByDate = (bills: Bill[]): GroupedBills => {
   const grouped: GroupedBills = {};
@@ -5134,6 +5007,13 @@ const BillReminderModal: React.FC<{
   const [enabled, setEnabled] = useState(true);
   const [daysBefore, setDaysBefore] = useState(1);
   const [selectedTime, setSelectedTime] = useState('09:00');
+  const [useCustomDays, setUseCustomDays] = useState(false);
+  const [customDays, setCustomDays] = useState('1');
+  const [useCustomTime, setUseCustomTime] = useState(false);
+  const [customTime, setCustomTime] = useState('09:00');
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [hourInput, setHourInput] = useState('09');
+  const [minuteInput, setMinuteInput] = useState('00');
 
   const colors = isDark ? {
     background: '#1F2937',
@@ -5153,14 +5033,51 @@ const BillReminderModal: React.FC<{
   useEffect(() => {
     if (bill?.reminder) {
       setEnabled(bill.reminder.enabled);
-      setDaysBefore(bill.reminder.daysBefore);
-      setSelectedTime(bill.reminder.time);
+      const reminderDays = bill.reminder.daysBefore;
+      // Check if days is a preset value
+      const presetDays = dayOptions.find(d => d.value === reminderDays);
+      if (presetDays) {
+        setDaysBefore(reminderDays);
+        setUseCustomDays(false);
+      } else {
+        setCustomDays(reminderDays.toString());
+        setUseCustomDays(true);
+      }
+      
+      const reminderTime = bill.reminder.time || '09:00';
+      const presetTime = timeOptions.find(t => t.value === reminderTime);
+      if (presetTime) {
+        setSelectedTime(reminderTime);
+        setUseCustomTime(false);
+      } else {
+        setCustomTime(reminderTime);
+        setUseCustomTime(true);
+        // Initialize hour and minute inputs
+        const [hour, minute] = reminderTime.split(':');
+        setHourInput(hour || '09');
+        setMinuteInput(minute || '00');
+      }
     } else {
       setEnabled(true);
       setDaysBefore(1);
       setSelectedTime('09:00');
+      setUseCustomDays(false);
+      setUseCustomTime(false);
+      setCustomDays('1');
+      setCustomTime('09:00');
+      setHourInput('09');
+      setMinuteInput('00');
     }
   }, [bill]);
+
+  // Update hour and minute inputs when customTime changes externally
+  useEffect(() => {
+    if (useCustomTime) {
+      const [hour, minute] = customTime.split(':');
+      setHourInput(hour || '09');
+      setMinuteInput(minute || '00');
+    }
+  }, [customTime, useCustomTime]);
 
   const dayOptions = [
     { value: 1, label: '1 day before' },
@@ -5179,18 +5096,46 @@ const BillReminderModal: React.FC<{
 
   const handleSave = () => {
     if (bill) {
+      const finalDaysBefore = useCustomDays ? parseInt(customDays) || 1 : daysBefore;
+      const finalTime = useCustomTime ? customTime : selectedTime;
+      
+      // Validate
+      if (enabled && (finalDaysBefore < 0 || finalDaysBefore > 365)) {
+        Alert.alert('Invalid Input', 'Days before must be between 0 and 365');
+        return;
+      }
+      
       onSave(bill.id, {
         enabled,
-        daysBefore,
-        time: selectedTime,
+        daysBefore: finalDaysBefore,
+        time: finalTime,
       });
     }
     onClose();
   };
 
+  // Format time for display
+  const formatTime = (timeStr: string) => {
+    try {
+      const [hours, minutes] = timeStr.split(':');
+      const hour = parseInt(hours);
+      const min = minutes || '00';
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+      return `${displayHour}:${min} ${period}`;
+    } catch {
+      return timeStr;
+    }
+  };
+
+  // Get final values for preview
+  const getFinalDaysBefore = () => useCustomDays ? parseInt(customDays) || 1 : daysBefore;
+  const getFinalTime = () => useCustomTime ? customTime : selectedTime;
+
   if (!bill) return null;
 
   return (
+    <>
     <Modal
       visible={visible}
       animationType="slide"
@@ -5199,6 +5144,7 @@ const BillReminderModal: React.FC<{
     >
       <View style={reminderModalStyles.overlay}>
         <View style={[reminderModalStyles.container, { backgroundColor: colors.background }]}>
+          <ScrollView showsVerticalScrollIndicator={false}>
           <View style={reminderModalStyles.header}>
             <Text style={[reminderModalStyles.title, { color: colors.text }]}>
               Set Reminder
@@ -5241,9 +5187,21 @@ const BillReminderModal: React.FC<{
             <>
               {/* Days Before Selection */}
               <View style={reminderModalStyles.optionSection}>
+                <View style={reminderModalStyles.optionHeader}>
                 <Text style={[reminderModalStyles.optionLabel, { color: colors.text }]}>
                   Remind me
                 </Text>
+                  <TouchableOpacity
+                    onPress={() => setUseCustomDays(!useCustomDays)}
+                    style={reminderModalStyles.customToggle}
+                  >
+                    <Text style={[reminderModalStyles.customToggleText, { color: useCustomDays ? '#10B981' : colors.textSecondary }]}>
+                      {useCustomDays ? 'Preset' : 'Custom'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {!useCustomDays ? (
                 <View style={reminderModalStyles.optionsRow}>
                   {dayOptions.map((option) => (
                     <TouchableOpacity
@@ -5267,13 +5225,45 @@ const BillReminderModal: React.FC<{
                     </TouchableOpacity>
                   ))}
                 </View>
+                ) : (
+                  <View style={reminderModalStyles.customInputContainer}>
+                    <TextInput
+                      style={[reminderModalStyles.customInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                      placeholder="Enter days (0-365)"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                      value={customDays}
+                      onChangeText={(text) => {
+                        const num = parseInt(text);
+                        if (text === '' || (!isNaN(num) && num >= 0 && num <= 365)) {
+                          setCustomDays(text);
+                        }
+                      }}
+                    />
+                    <Text style={[reminderModalStyles.customInputLabel, { color: colors.textSecondary }]}>
+                      days before due date
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Time Selection */}
               <View style={reminderModalStyles.optionSection}>
+                <View style={reminderModalStyles.optionHeader}>
                 <Text style={[reminderModalStyles.optionLabel, { color: colors.text }]}>
                   At
                 </Text>
+                  <TouchableOpacity
+                    onPress={() => setUseCustomTime(!useCustomTime)}
+                    style={reminderModalStyles.customToggle}
+                  >
+                    <Text style={[reminderModalStyles.customToggleText, { color: useCustomTime ? '#10B981' : colors.textSecondary }]}>
+                      {useCustomTime ? 'Preset' : 'Custom'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {!useCustomTime ? (
                 <View style={reminderModalStyles.optionsRow}>
                   {timeOptions.map((option) => (
                     <TouchableOpacity
@@ -5297,6 +5287,26 @@ const BillReminderModal: React.FC<{
                     </TouchableOpacity>
                   ))}
                 </View>
+                ) : (
+                  <View style={reminderModalStyles.customInputContainer}>
+                    <TouchableOpacity
+                      style={[reminderModalStyles.timePickerButton, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                      onPress={() => {
+                        // Initialize inputs when opening picker
+                        const [hour, minute] = customTime.split(':');
+                        setHourInput(hour || '09');
+                        setMinuteInput(minute || '00');
+                        setShowTimePicker(true);
+                      }}
+                    >
+                      <Ionicons name="time-outline" size={20} color={colors.textSecondary} />
+                      <Text style={[reminderModalStyles.timePickerText, { color: colors.text }]}>
+                        {formatTime(customTime)}
+                      </Text>
+                      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
 
               {/* Preview */}
@@ -5305,11 +5315,11 @@ const BillReminderModal: React.FC<{
                 <Text style={[reminderModalStyles.previewText, { color: colors.text }]}>
                   You'll be reminded on{' '}
                   <Text style={{ fontWeight: '600' }}>
-                    {new Date(new Date(bill.dueDate).getTime() - daysBefore * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {new Date(new Date(bill.dueDate).getTime() - getFinalDaysBefore() * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </Text>
                   {' '}at{' '}
                   <Text style={{ fontWeight: '600' }}>
-                    {timeOptions.find(t => t.value === selectedTime)?.label}
+                    {useCustomTime ? formatTime(getFinalTime()) : timeOptions.find(t => t.value === selectedTime)?.label}
                   </Text>
                 </Text>
               </View>
@@ -5323,6 +5333,8 @@ const BillReminderModal: React.FC<{
               Reminders require notification permissions. Enable them in Settings.
             </Text>
           </View>
+
+          </ScrollView>
 
           {/* Actions */}
           <View style={reminderModalStyles.actions}>
@@ -5346,7 +5358,125 @@ const BillReminderModal: React.FC<{
           </View>
         </View>
       </View>
-    </Modal>
+      </Modal>
+      
+      {/* Time Picker Modal - Outside main modal */}
+      <Modal
+        visible={showTimePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <TouchableOpacity 
+          style={reminderModalStyles.timePickerOverlay}
+          activeOpacity={1}
+          onPress={() => setShowTimePicker(false)}
+        >
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+          >
+            <TouchableOpacity 
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={[reminderModalStyles.timePickerModal, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <View style={reminderModalStyles.timePickerHeader}>
+                  <Text style={[reminderModalStyles.timePickerTitle, { color: colors.text }]}>Select Time</Text>
+                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                    <Ionicons name="close" size={24} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                <View style={reminderModalStyles.timeInputRow}>
+                  <View style={reminderModalStyles.timeInputGroup}>
+                    <Text style={[reminderModalStyles.timeInputLabel, { color: colors.textSecondary }]}>Hour</Text>
+                    <TextInput
+                      style={[reminderModalStyles.timeInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      value={hourInput}
+                      onChangeText={(text) => {
+                        // Allow empty string for better UX
+                        if (text === '') {
+                          setHourInput('');
+                          return;
+                        }
+                        // Only allow numbers
+                        const numericText = text.replace(/[^0-9]/g, '');
+                        if (numericText === '') {
+                          setHourInput('');
+                          return;
+                        }
+                        const hour = parseInt(numericText);
+                        // Validate hour range (0-23)
+                        if (!isNaN(hour) && hour >= 0 && hour <= 23) {
+                          setHourInput(numericText);
+                        } else if (hour > 23) {
+                          // If user types 24+, cap at 23
+                          setHourInput('23');
+                        }
+                      }}
+                      placeholder="00"
+                      placeholderTextColor={colors.textSecondary}
+                      editable={true}
+                      selectTextOnFocus={true}
+                    />
+                  </View>
+                  <Text style={[reminderModalStyles.timeSeparator, { color: colors.text }]}>:</Text>
+                  <View style={reminderModalStyles.timeInputGroup}>
+                    <Text style={[reminderModalStyles.timeInputLabel, { color: colors.textSecondary }]}>Minute</Text>
+                    <TextInput
+                      style={[reminderModalStyles.timeInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      value={minuteInput}
+                      onChangeText={(text) => {
+                        // Allow empty string for better UX
+                        if (text === '') {
+                          setMinuteInput('');
+                          return;
+                        }
+                        // Only allow numbers
+                        const numericText = text.replace(/[^0-9]/g, '');
+                        if (numericText === '') {
+                          setMinuteInput('');
+                          return;
+                        }
+                        const min = parseInt(numericText);
+                        // Validate minute range (0-59)
+                        if (!isNaN(min) && min >= 0 && min <= 59) {
+                          setMinuteInput(numericText);
+                        } else if (min > 59) {
+                          // If user types 60+, cap at 59
+                          setMinuteInput('59');
+                        }
+                      }}
+                      placeholder="00"
+                      placeholderTextColor={colors.textSecondary}
+                      editable={true}
+                      selectTextOnFocus={true}
+                    />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={reminderModalStyles.timePickerSaveButton}
+                  onPress={() => {
+                    // Format and save the time
+                    const hour = hourInput === '' ? '00' : String(parseInt(hourInput) || 0).padStart(2, '0');
+                    const minute = minuteInput === '' ? '00' : String(parseInt(minuteInput) || 0).padStart(2, '0');
+                    const formattedTime = `${hour}:${minute}`;
+                    setCustomTime(formattedTime);
+                    setShowTimePicker(false);
+                  }}
+                >
+                  <Text style={reminderModalStyles.timePickerSaveText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 };
 
@@ -5360,6 +5490,7 @@ const reminderModalStyles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 24,
+    maxHeight: '90%',
   },
   header: {
     flexDirection: 'row',
@@ -5506,6 +5637,118 @@ const reminderModalStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  optionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  customToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  customToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  customInputContainer: {
+    marginTop: 8,
+  },
+  customInput: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 15,
+    marginBottom: 6,
+  },
+  customInputLabel: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  timePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+  },
+  timePickerText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  timePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timePickerModal: {
+    width: '80%',
+    maxWidth: 300,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  timePickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  timeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  timeInputGroup: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeInputLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  timeInput: {
+    width: 60,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  timeSeparator: {
+    fontSize: 24,
+    fontWeight: '600',
+    marginTop: 20,
+  },
+  timePickerSaveButton: {
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  timePickerSaveText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
@@ -6628,7 +6871,10 @@ const BillActionMenu: React.FC<{
   onSplitBill: () => void;
   onLinkTransaction: () => void;
   onSetReminder: () => void;
-}> = ({ visible, bill, onClose, onEditBill, onDeleteBill, onMarkAsPaid, onViewHistory, onSplitBill, onLinkTransaction, onSetReminder }) => {
+  onPauseBill?: () => void;
+  onEndBill?: () => void;
+  onResumeBill?: () => void;
+}> = ({ visible, bill, onClose, onEditBill, onDeleteBill, onMarkAsPaid, onViewHistory, onSplitBill, onLinkTransaction, onSetReminder, onPauseBill, onEndBill, onResumeBill }) => {
   const { isDark } = useTheme();
   
   const colors = isDark ? {
@@ -6645,12 +6891,26 @@ const BillActionMenu: React.FC<{
 
   const menuItems = [
     { icon: 'create-outline', label: 'Edit Bill', onPress: onEditBill, color: '#3B82F6' },
-    ...(bill.status !== 'paid' ? [
+    ...(bill.status !== 'paid' && bill.status !== 'paused' && bill.status !== 'ended' ? [
       { icon: 'checkmark-circle-outline', label: 'Mark as Paid', onPress: onMarkAsPaid, color: '#10B981' },
       { icon: 'notifications-outline', label: bill.reminder?.enabled ? 'Edit Reminder' : 'Set Reminder', onPress: onSetReminder, color: '#F59E0B' },
-    ] : [
+    ] : []),
+    ...(bill.status === 'paused' && onResumeBill ? [
+      { icon: 'play-outline', label: 'Resume Bill', onPress: onResumeBill, color: '#10B981' },
+    ] : []),
+    ...(bill.status === 'ended' && onResumeBill ? [
+      { icon: 'refresh-outline', label: 'Reactivate Bill', onPress: onResumeBill, color: '#10B981' },
+    ] : []),
+    ...(bill.status !== 'paused' && bill.status !== 'ended' && bill.status !== 'paid' && onPauseBill ? [
+      { icon: 'pause-outline', label: 'Pause Bill', onPress: onPauseBill, color: '#F59E0B' },
+    ] : []),
+    ...(bill.status !== 'ended' && bill.status !== 'paid' && onEndBill ? [
+      { icon: 'stop-outline', label: 'End Bill', onPress: onEndBill, color: '#EF4444' },
+    ] : []),
+    ...(bill.status === 'paid' ? [
+      { icon: 'close-circle-outline', label: 'Unmark as Paid', onPress: onMarkAsPaid, color: '#6B7280' },
       { icon: 'link-outline', label: 'Link Transaction', onPress: onLinkTransaction, color: '#F59E0B' },
-    ]),
+    ] : []),
     { icon: 'people-outline', label: bill.isSplit ? 'Edit Split' : 'Split Bill', onPress: onSplitBill, color: '#8B5CF6' },
     ...(bill.paymentHistory && bill.paymentHistory.length > 0 ? [
       { icon: 'time-outline', label: 'Payment History', onPress: onViewHistory, color: '#6B7280' },
@@ -6847,7 +7107,10 @@ const BillGroup: React.FC<{
   onLinkTransaction: (id: number | string) => void;
   onSetReminder: (id: number | string) => void;
   onToggleAutoPay?: (id: number | string) => void;
-}> = ({ dateLabel, bills, onEditBill, onDeleteBill, onMarkAsPaid, onViewHistory, onSplitBill, onLinkTransaction, onSetReminder, onToggleAutoPay }) => {
+  onPauseBill?: (id: number | string) => void;
+  onEndBill?: (id: number | string) => void;
+  onResumeBill?: (id: number | string) => void;
+}> = ({ dateLabel, bills, onEditBill, onDeleteBill, onMarkAsPaid, onViewHistory, onSplitBill, onLinkTransaction, onSetReminder, onToggleAutoPay, onPauseBill, onEndBill, onResumeBill }) => {
   const { isDark } = useTheme();
   const [menuBill, setMenuBill] = useState<Bill | null>(null);
   
@@ -6883,6 +7146,10 @@ const BillGroup: React.FC<{
         return '#10B981';
       case 'overdue':
         return '#DC2626';
+      case 'paused':
+        return '#F59E0B';
+      case 'ended':
+        return '#6B7280';
       default:
         return '#6B7280';
     }
@@ -6895,7 +7162,23 @@ const BillGroup: React.FC<{
       case 'due_week': return 'This Week';
       case 'paid': return 'Paid';
       case 'overdue': return 'Overdue';
+      case 'paused': return 'Paused';
+      case 'ended': return 'Ended';
       default: return '';
+    }
+  };
+
+  // Get status indicator icon for bill icon overlay
+  const getStatusIndicator = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return { icon: 'checkmark-circle', color: '#10B981' };
+      case 'paused':
+        return { icon: 'pause-circle', color: '#F59E0B' };
+      case 'ended':
+        return { icon: 'stop-circle', color: '#6B7280' };
+      default:
+        return null;
     }
   };
 
@@ -6907,8 +7190,11 @@ const BillGroup: React.FC<{
       </View>
 
       {/* Bills */}
-      {bills.map((bill) => (
+      {bills.map((bill, index) => (
         <View key={bill.id}>
+        {index > 0 && (
+          <View style={[styles.billDivider, { backgroundColor: colors.border }]} />
+        )}
         <TouchableOpacity
           style={[styles.billItem, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => onEditBill(bill.id)}
@@ -6923,6 +7209,16 @@ const BillGroup: React.FC<{
                 size={18} 
                 color={getIconColor(bill.icon, bill.category)} 
               />
+              {/* Status Indicator Overlay */}
+              {getStatusIndicator(bill.status) && (
+                <View style={styles.statusIndicatorOverlay}>
+                  <Ionicons 
+                    name={getStatusIndicator(bill.status)?.icon as any} 
+                    size={12} 
+                    color={getStatusIndicator(bill.status)?.color} 
+                  />
+                </View>
+              )}
             </View>
             <View style={styles.billInfo}>
                 {/* Bill Name + Badges */}
@@ -6932,19 +7228,19 @@ const BillGroup: React.FC<{
                 </Text>
                   {/* Compact badges */}
                   <View style={styles.compactBadges}>
-                {bill.isAutoPay && (
-                      <View style={[styles.miniBadge, { backgroundColor: '#10B98120' }]}>
-                      <Ionicons name="sync" size={9} color="#10B981" />
-                  </View>
-                )}
+                    {bill.isAutoPay && (
+                      <View style={[styles.miniBadge, { backgroundColor: bill.autopay_source ? '#10B98120' : '#EF444420' }]}>
+                        <Ionicons name={bill.autopay_source ? "sync" : "warning"} size={9} color={bill.autopay_source ? "#10B981" : "#EF4444"} />
+                      </View>
+                    )}
                     {bill.reminder?.enabled && (
                       <View style={[styles.miniBadge, { backgroundColor: '#F59E0B20' }]}>
-                      <Ionicons name="notifications" size={9} color="#F59E0B" />
-              </View>
+                        <Ionicons name="notifications" size={9} color="#F59E0B" />
+                      </View>
                     )}
                     {bill.isSplit && (
                       <View style={[styles.miniBadge, { backgroundColor: '#8B5CF620' }]}>
-                      <Ionicons name="people" size={9} color="#8B5CF6" />
+                        <Ionicons name="people" size={9} color="#8B5CF6" />
                       </View>
                     )}
                   </View>
@@ -6983,6 +7279,15 @@ const BillGroup: React.FC<{
                   <Ionicons name="ellipse-outline" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={[styles.payButton, { backgroundColor: '#3B82F620', marginLeft: 6 }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onViewHistory(bill.id);
+                }}
+              >
+                <Ionicons name="receipt-outline" size={16} color="#3B82F6" />
+              </TouchableOpacity>
               {bill.isAutoPay ? (
                 <TouchableOpacity
                   style={[styles.autoPayButton, { backgroundColor: '#10B98120' }]}
@@ -7030,7 +7335,13 @@ const BillGroup: React.FC<{
               onViewHistory={() => onViewHistory(bill.id)}
               onSplitBill={() => onSplitBill(bill.id)}
               onLinkTransaction={() => onLinkTransaction(bill.id)}
-              onSetReminder={() => onSetReminder(bill.id)}
+              onSetReminder={() => {
+                setMenuBill(null);
+                onSetReminder(bill.id);
+              }}
+              onPauseBill={onPauseBill ? () => onPauseBill(bill.id) : undefined}
+              onEndBill={onEndBill ? () => onEndBill(bill.id) : undefined}
+              onResumeBill={onResumeBill ? () => onResumeBill(bill.id) : undefined}
             />
           )}
         </View>
@@ -7041,7 +7352,7 @@ const BillGroup: React.FC<{
 
 const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
   className = "",
-  useTestData = true,
+  useTestData = false,
   showSmartDetection = true,
   showBudgetImpact = true,
 }) => {
@@ -7050,7 +7361,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bills, setBills] = useState<Bill[]>(mockBills);
+  const [bills, setBills] = useState<Bill[]>([]);
   const [showBudgetIntegration, setShowBudgetIntegration] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
@@ -7060,7 +7371,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     amount: '',
     dueDate: new Date().toISOString().split('T')[0],
     category: 'Utilities',
-    billingFrequency: 'monthly' as 'one-time' | 'monthly' | 'quarterly' | 'half-yearly' | 'yearly',
+    billingFrequency: 'monthly' as 'one-time' | 'daily' | 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'semi-annually' | 'yearly',
     paymentStatus: 'upcoming' as 'upcoming' | 'paid' | 'skipped',
     isAutoPay: false,
     // Important Fields
@@ -7079,9 +7390,170 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     lateFee: '',
     hasTax: false,
     priority: 'medium' as 'high' | 'medium' | 'low',
+    // New Enhanced Fields
+    tags: [] as string[],
+    notes: '',
+    reminderDaysBefore: [7, 3, 1] as number[],
+    reminderEnabled: true,
+    recurrencePattern: null as any,
+    recurrenceCount: null as number | null,
+    recurrenceEndDate: null as string | null,
+    nextDueDate: null as string | null,
+    isIncludedInBudget: true,
+    budgetPeriod: 'monthly' as 'monthly' | 'quarterly' | 'yearly' | null,
     // UI State
     showAdvanced: false,
   });
+  
+  // Payment history modal state
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
+  const [selectedBillForHistory, setSelectedBillForHistory] = useState<{ id: string; name: string } | null>(null);
+  
+  // Dashboard bill menu state
+  const [dashboardMenuBill, setDashboardMenuBill] = useState<Bill | null>(null);
+  
+  // Reminder modal state
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [selectedBillForReminder, setSelectedBillForReminder] = useState<Bill | null>(null);
+
+  // Populate formData when editing a bill
+  useEffect(() => {
+    if (editingBill) {
+      setFormData({
+        name: editingBill.name || '',
+        amount: editingBill.amount || '',
+        dueDate: editingBill.dueDate || new Date().toISOString().split('T')[0],
+        category: editingBill.category || 'Utilities',
+        billingFrequency: (editingBill.recurringFrequency || 'monthly') as any,
+        paymentStatus: editingBill.status === 'paid' ? 'paid' : 'upcoming',
+        isAutoPay: editingBill.isAutoPay || false,
+        reminders: [],
+        paymentMethod: (editingBill.paymentMethod || '') as any,
+        linkedAccount: '',
+        startDate: '',
+        endDate: '',
+        hasEndDate: false,
+        isVariableAmount: false,
+        lastPaidAmount: '',
+        description: editingBill.description || '',
+        serviceProvider: '',
+        consumerId: '',
+        lateFee: editingBill.lateFee || '',
+        hasTax: false,
+        priority: 'medium',
+        // New Enhanced Fields
+        tags: editingBill.tags || [],
+        notes: '',
+        reminderDaysBefore: [7, 3, 1],
+        reminderEnabled: true,
+        recurrencePattern: null,
+        recurrenceCount: null,
+        recurrenceEndDate: null,
+        nextDueDate: null,
+        isIncludedInBudget: true,
+        budgetPeriod: 'monthly',
+        showAdvanced: false,
+      });
+      setShowAddModal(true);
+    }
+  }, [editingBill]);
+
+  // Helper function to transform database bill to UI Bill format
+  const transformDatabaseBillToBill = (dbBill: UpcomingBill): Bill => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(dbBill.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    let status: Bill['status'] = 'due_week'; // Default to due_week
+    const daysDiff = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (dbBill.status === 'paid') {
+      status = 'paid';
+    } else if (dbBill.status === 'cancelled') {
+      // Check metadata to distinguish between paused and ended
+      const metadata = dbBill.metadata as any;
+      if (metadata && metadata.ui_status === 'ended') {
+        status = 'ended';
+      } else {
+        // Default to 'paused' if metadata doesn't specify (for backwards compatibility)
+        status = 'paused';
+      }
+    } else if (daysDiff < 0) {
+      status = 'overdue';
+    } else if (daysDiff === 0) {
+      status = 'due_today';
+    } else if (daysDiff === 1) {
+      status = 'due_tomorrow';
+    } else if (daysDiff <= 7) {
+      status = 'due_week';
+    } else {
+      status = 'due_week'; // For bills due more than a week away, still show as due_week
+    }
+
+    // Derive category from tags (first tag is usually the category) or use default
+    const tags = dbBill.tags || [];
+    const category = tags.length > 0 && BILL_CATEGORIES.find(cat => cat.name === tags[0]) 
+      ? tags[0] 
+      : (tags.length > 0 ? tags[0] : 'Other');
+    const subcategory = tags.length > 1 ? tags[1] : '';
+
+    // Get icon based on category
+    const categoryConfig = BILL_CATEGORIES.find(cat => cat.name === category) || BILL_CATEGORIES[0];
+    const icon = categoryConfig.icon;
+
+    return {
+      id: dbBill.id,
+      name: dbBill.name,
+      type: category,
+      dueDate: dbBill.due_date,
+      amount: dbBill.amount?.toString() || '0',
+      category: category,
+      subcategory: subcategory,
+      description: dbBill.description || '',
+      icon: icon,
+      status: status,
+      isAutoPay: dbBill.autopay || false,
+      paymentMethod: dbBill.autopay ? (dbBill.account_name || dbBill.credit_card_name || 'Auto') : 'Manual',
+      autopay_source: dbBill.autopay_source || null,
+      tags: tags,
+      isRecurring: dbBill.frequency !== 'one-time',
+      recurringFrequency: dbBill.frequency as any,
+      reminder: dbBill.reminder_enabled ? {
+        enabled: dbBill.reminder_enabled,
+        daysBefore: dbBill.reminder_days_before || [],
+        time: '09:00', // Default reminder time
+      } : undefined,
+    };
+  };
+
+  // Fetch bills from database
+  useEffect(() => {
+    const loadBills = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const fetchedBills = await fetchUpcomingBills({}, false); // isDemo = false for real table
+        const transformedBills = fetchedBills.map(transformDatabaseBillToBill);
+        
+        setBills(transformedBills);
+        console.log(`✅ Loaded ${transformedBills.length} bills from database`);
+      } catch (err: any) {
+        console.error('Error fetching bills:', err);
+        setError(err.message || 'Failed to load bills');
+        // Fallback to empty array on error
+        setBills([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBills();
+  }, []);
+
+  // Note: Auto-seeding of mock bills has been disabled
+  // Users should add bills manually or import them
 
   const colors = isDark ? {
     background: '#1F2937',
@@ -7099,7 +7571,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     filterBackground: '#F3F4F6',
   };
 
-  // Get most urgent bills for dashboard (max 5, sorted by urgency)
+  // Get most urgent bills for dashboard (show all bills with status indicators)
   const getUpcomingBills = () => {
     const now = new Date();
     const filtered = bills
@@ -7108,21 +7580,41 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         if (selectedCategory !== 'All' && bill.category !== selectedCategory) {
           return false;
         }
-        // Only show unpaid bills on dashboard
-        return bill.status !== 'paid';
+        // Show all bills including paid, paused, and ended ones (they'll have status indicators)
+        return true; // Don't filter out any bills
       })
       .sort((a, b) => {
-        // Sort by urgency: due_today > due_tomorrow > due_week > overdue
-        const statusOrder: { [key: string]: number } = { 'due_today': 1, 'due_tomorrow': 2, 'overdue': 3, 'due_week': 4, 'paid': 5 };
-        const aOrder = statusOrder[a.status] || 5;
-        const bOrder = statusOrder[b.status] || 5;
+        // Sort by urgency: due_today > due_tomorrow > overdue > due_week > paused > paid > ended
+        const statusOrder: { [key: string]: number } = { 
+          'due_today': 1, 
+          'due_tomorrow': 2, 
+          'overdue': 3, 
+          'due_week': 4, 
+          'paused': 5,
+          'paid': 6,
+          'ended': 7
+        };
+        const aOrder = statusOrder[a.status] || 7;
+        const bOrder = statusOrder[b.status] || 7;
         if (aOrder !== bOrder) return aOrder - bOrder;
         // Then by due date
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-      })
-      .slice(0, 5); // Show max 5 bills
+      });
     
-    return filtered;
+    // Separate bills by status for better display control
+    const activeBills = filtered.filter(b => b.status !== 'paid' && b.status !== 'paused' && b.status !== 'ended');
+    const pausedBills = filtered.filter(b => b.status === 'paused');
+    const paidBills = filtered.filter(b => b.status === 'paid');
+    const endedBills = filtered.filter(b => b.status === 'ended');
+    
+    // Show up to 5 active (unpaid) bills, then all paused bills, then paid bills (up to 3), then all ended bills
+    // This ensures paused, paid, and ended bills are always visible
+    const activeToShow = activeBills.slice(0, 5);
+    const pausedToShow = pausedBills; // Show all paused bills
+    const paidToShow = paidBills.slice(0, 3);
+    const endedToShow = endedBills; // Show all ended bills (so users can reactivate them)
+    
+    return [...activeToShow, ...pausedToShow, ...paidToShow, ...endedToShow];
   };
 
   const upcomingBills = getUpcomingBills();
@@ -7136,40 +7628,100 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     navigation.navigate('Bills');
   };
 
-  // Mark bill as paid (simple version for dashboard)
-  const handleMarkAsPaid = useCallback((billId: number | string) => {
+  // Seed mock bills to database (for testing)
+  const handleSeedMockBills = useCallback(async () => {
+    Alert.alert(
+      'Seed Mock Bills',
+      'This will create 3 mock bills (2 due today, 1 due tomorrow) in your database. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Seed',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const results = await seedMockBillsToSupabase();
+              const successful = results.filter(r => r.success).length;
+              const failed = results.filter(r => !r.success).length;
+              
+              Alert.alert(
+                'Seeding Complete',
+                `Successfully created ${successful} bill(s). ${failed > 0 ? `Failed: ${failed}` : ''}`,
+                [{ text: 'OK' }]
+              );
+              
+              // Refresh bills list
+              // You may want to refetch bills here if you have a fetch function
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to seed bills');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
+  // Expose seed function globally for console access
+  useEffect(() => {
+    if (__DEV__ && typeof global !== 'undefined') {
+      (global as any).seedMockBills = handleSeedMockBills;
+      console.log('💡 Seed function available: Call global.seedMockBills() in console');
+    }
+  }, [handleSeedMockBills]);
+
+  // Mark bill as paid (with persistence to Supabase)
+  const handleMarkAsPaid = useCallback(async (billId: number | string) => {
     const bill = bills.find(b => b.id === billId);
     if (!bill) return;
 
     if (bill.status === 'paid') {
       // Toggle back to unpaid
-      setBills(prevBills =>
-        prevBills.map(b => {
-          if (b.id === billId) {
-            // Determine appropriate status based on due date
-            const dueDate = new Date(b.dueDate);
-            const today = new Date();
-            const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
-            let newStatus: 'due_today' | 'due_tomorrow' | 'due_week' | 'paid' | 'overdue';
-            if (diffDays < 0) {
-              newStatus = 'overdue';
-            } else if (diffDays === 0) {
-              newStatus = 'due_today';
-            } else if (diffDays === 1) {
-              newStatus = 'due_tomorrow';
-            } else {
-              newStatus = 'due_week';
-            }
+      Alert.alert(
+        'Unmark as Paid',
+        'Are you sure you want to unmark this bill as paid?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unmark',
+            onPress: async () => {
+              try {
+                const dueDate = new Date(bill.dueDate);
+                const today = new Date();
+                const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                
+                let newStatus: 'due_today' | 'due_tomorrow' | 'due_week' | 'paid' | 'overdue';
+                if (diffDays < 0) {
+                  newStatus = 'overdue';
+                } else if (diffDays === 0) {
+                  newStatus = 'due_today';
+                } else if (diffDays === 1) {
+                  newStatus = 'due_tomorrow';
+                } else {
+                  newStatus = 'due_week';
+                }
 
-            return {
-              ...b,
-              status: newStatus,
-            };
-          }
-          return b;
-        })
+                // Update in Supabase if bill has string ID
+                if (typeof billId === 'string') {
+                  // Map UI status to database status
+                  const dbStatus = mapStatusToDatabase(newStatus);
+                  await updateUpcomingBill(billId, { status: dbStatus as any }, false);
+                }
+
+                // Update local state - this will trigger re-render and bill will appear in unpaid section
+                setBills(prevBills =>
+                  prevBills.map(b => b.id === billId ? { ...b, status: newStatus } : b)
+                );
+              } catch (error: any) {
+                console.error('Error unmarking bill as paid:', error);
+                Alert.alert('Error', error.message || 'Failed to unmark bill as paid. Please try again.');
+              }
+            },
+          },
+        ]
       );
+      return;
     } else {
       // Mark as paid
     Alert.alert(
@@ -7179,26 +7731,50 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Mark Paid',
-          onPress: () => {
-            setBills(prevBills =>
-                prevBills.map(b => {
-                  if (b.id === billId) {
+            onPress: async () => {
+              try {
+                // Update bill status in Supabase
+                if (typeof billId === 'string') {
+                  const today = new Date().toISOString().split('T')[0];
+                  await updateUpcomingBill(billId, { 
+                    status: 'paid' as any,
+                    last_paid_date: today,
+                    last_paid_amount: parseFloat(bill.amount),
+                  }, false);
+                  
+                  // Create payment record
+                  await addBillPayment({
+                    bill_id: billId,
+                    payment_date: today,
+                    amount: parseFloat(bill.amount),
+                    payment_method: bill.paymentMethod === 'Auto Pay' ? 'account' : 'other',
+                    status: 'completed',
+                  }, false);
+                }
+
+                // Update local state
                   const paymentRecord: PaymentRecord = {
                     id: Date.now(),
                     paidDate: new Date().toISOString().split('T')[0],
-                      amount: b.amount,
-                      paymentMethod: b.paymentMethod || 'Manual',
+                  amount: bill.amount,
+                  paymentMethod: bill.paymentMethod || 'Manual',
                   };
 
-                  return {
+                setBills(prevBills =>
+                  prevBills.map(b =>
+                    b.id === billId
+                      ? {
                       ...b,
                     status: 'paid' as const,
                       paymentHistory: [...(b.paymentHistory || []), paymentRecord],
-                  };
                 }
-                  return b;
-              })
+                      : b
+                  )
             );
+              } catch (error: any) {
+                console.error('Error marking bill as paid:', error);
+                Alert.alert('Error', error.message || 'Failed to mark bill as paid. Please try again.');
+              }
           },
         },
       ]
@@ -7222,6 +7798,198 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     );
   }, []);
 
+  // Map UI status to database status
+  const mapStatusToDatabase = (uiStatus: string): string => {
+    // Database uses: 'upcoming', 'pending', 'paid', 'overdue', 'cancelled', 'skipped', 'partial'
+    // UI uses: 'due_today', 'due_tomorrow', 'due_week', 'paid', 'overdue', 'paused', 'ended'
+    switch (uiStatus) {
+      case 'due_today':
+      case 'due_tomorrow':
+      case 'due_week':
+        return 'upcoming';
+      case 'paid':
+      case 'overdue':
+        return uiStatus;
+      case 'paused':
+        return 'cancelled'; // Map paused to cancelled in DB (use is_active flag to distinguish)
+      case 'ended':
+        return 'cancelled'; // Map ended to cancelled in DB
+      default:
+        return 'upcoming';
+    }
+  };
+
+  // Map database status to UI status
+  const mapStatusFromDatabase = (dbStatus: string, dueDate: string): string => {
+    // If status is 'upcoming', determine UI status based on due date
+    if (dbStatus === 'upcoming') {
+      const due = new Date(dueDate);
+      const today = new Date();
+      const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) return 'overdue';
+      if (diffDays === 0) return 'due_today';
+      if (diffDays === 1) return 'due_tomorrow';
+      return 'due_week';
+    }
+    
+    // Map other statuses
+    if (dbStatus === 'cancelled') return 'ended';
+    return dbStatus; // 'paid', 'overdue', 'paused' map directly
+  };
+
+  // Handle pause bill (with persistence to Supabase)
+  const handlePauseBill = useCallback(async (billId: number | string) => {
+    Alert.alert(
+      'Pause Bill',
+      'Are you sure you want to pause this bill? It will stop generating reminders and due dates.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Pause',
+          onPress: async () => {
+            try {
+              // Update in Supabase if bill has string ID
+              if (typeof billId === 'string') {
+                // Use 'cancelled' status (valid database value)
+                // Store original UI status in metadata to distinguish paused from ended
+                const bill = bills.find(b => b.id === billId);
+                const currentMetadata = bill ? (typeof bill === 'object' && 'metadata' in bill ? (bill as any).metadata : {}) : {};
+                await updateUpcomingBill(billId, { 
+                  status: 'cancelled' as any, 
+                  metadata: { ...currentMetadata, ui_status: 'paused' } as any
+                }, false);
+              }
+
+              // Reload bills to get updated data from database
+              const fetchedBills = await fetchUpcomingBills({}, false);
+              const transformedBills = fetchedBills.map(transformDatabaseBillToBill);
+              setBills(transformedBills);
+            } catch (error: any) {
+              console.error('Error pausing bill:', error);
+              Alert.alert('Error', error.message || 'Failed to pause bill. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
+  // Handle end bill (with persistence to Supabase)
+  const handleEndBill = useCallback(async (billId: number | string) => {
+    Alert.alert(
+      'End Bill',
+      'Are you sure you want to end this bill? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Bill',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Update in Supabase if bill has string ID
+              if (typeof billId === 'string') {
+                // Map 'ended' to 'cancelled' in database
+                // Store original UI status in metadata to distinguish ended from paused
+                const bill = bills.find(b => b.id === billId);
+                const currentMetadata = bill ? (typeof bill === 'object' && 'metadata' in bill ? (bill as any).metadata : {}) : {};
+                await updateUpcomingBill(billId, { 
+                  status: 'cancelled' as any, 
+                  metadata: { ...currentMetadata, ui_status: 'ended' } as any
+                }, false);
+              }
+
+              // Update local state (keep as 'ended' for UI)
+              setBills(prevBills =>
+                prevBills.map(bill =>
+                  bill.id === billId ? { ...bill, status: 'ended' as const } : bill
+                )
+              );
+            } catch (error: any) {
+              console.error('Error ending bill:', error);
+              Alert.alert('Error', error.message || 'Failed to end bill. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
+  // Handle resume/reactivate bill (works for both paused and ended bills)
+  const handleResumeBill = useCallback(async (billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    if (!bill) return;
+
+    const actionText = bill.status === 'ended' ? 'Reactivate' : 'Resume';
+    Alert.alert(
+      `${actionText} Bill`,
+      `Are you sure you want to ${actionText.toLowerCase()} this bill?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: actionText,
+          onPress: async () => {
+            try {
+              // Determine appropriate status based on due date
+              const dueDate = new Date(bill.dueDate);
+              const today = new Date();
+              const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              
+              let newStatus: 'due_today' | 'due_tomorrow' | 'due_week' | 'paid' | 'overdue';
+              if (diffDays < 0) {
+                newStatus = 'overdue';
+              } else if (diffDays === 0) {
+                newStatus = 'due_today';
+              } else if (diffDays === 1) {
+                newStatus = 'due_tomorrow';
+              } else {
+                newStatus = 'due_week';
+              }
+
+              // Update in Supabase if bill has string ID
+              if (typeof billId === 'string') {
+                // Map UI status to database status
+                const dbStatus = mapStatusToDatabase(newStatus);
+                // Clear ui_status from metadata when resuming
+                const bill = bills.find(b => b.id === billId);
+                const currentMetadata = bill ? (typeof bill === 'object' && 'metadata' in bill ? (bill as any).metadata : {}) : {};
+                const { ui_status, ...restMetadata } = currentMetadata;
+                await updateUpcomingBill(billId, { 
+                  status: dbStatus as any,
+                  metadata: restMetadata as any
+                }, false);
+              }
+
+              // Update local state
+              setBills(prevBills =>
+                prevBills.map(b =>
+                  b.id === billId ? { ...b, status: newStatus } : b
+                )
+              );
+            } catch (error: any) {
+              console.error(`Error ${actionText.toLowerCase()}ing bill:`, error);
+              Alert.alert('Error', error.message || `Failed to ${actionText.toLowerCase()} bill. Please try again.`);
+            }
+          },
+        },
+      ]
+    );
+  }, [bills]);
+
+  // Get status indicator icon for bill icon overlay
+  const getStatusIndicator = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return { icon: 'checkmark-circle', color: '#10B981' };
+      case 'paused':
+        return { icon: 'pause-circle', color: '#F59E0B' };
+      case 'ended':
+        return { icon: 'stop-circle', color: '#6B7280' };
+      default:
+        return null;
+    }
+  };
+
   // Quick action menu handler
   const handleQuickAction = useCallback((billId: number | string, action: 'paid' | 'unpaid' | 'autopay') => {
     if (action === 'paid' || action === 'unpaid') {
@@ -7230,6 +7998,81 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       handleToggleAutoPay(billId);
     }
   }, [handleMarkAsPaid, handleToggleAutoPay]);
+
+  // Handle view payment history
+  const handleViewHistory = useCallback((billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    if (bill) {
+      setSelectedBillForHistory({
+        id: typeof billId === 'string' ? billId : billId.toString(),
+        name: bill.name,
+      });
+      setShowPaymentHistory(true);
+    }
+  }, [bills]);
+
+  // Handle set reminder
+  const handleSetReminder = useCallback((billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    if (bill) {
+      setSelectedBillForReminder(bill);
+      setShowReminderModal(true);
+    }
+  }, [bills]);
+
+  // Handle save reminder
+  const handleSaveReminder = useCallback(async (billId: number | string, reminder: BillReminder) => {
+    try {
+      if (typeof billId === 'string') {
+        // Update bill with reminder settings
+        const reminderDaysBefore = reminder.enabled ? [reminder.daysBefore] : null;
+        await updateUpcomingBill(billId, {
+          reminder_enabled: reminder.enabled,
+          reminder_days_before: reminderDaysBefore,
+        }, false);
+
+        // Create reminders in bill_reminders table if enabled
+        if (reminder.enabled && reminder.daysBefore) {
+          const bill = bills.find(b => b.id === billId);
+          if (bill) {
+            const { createRemindersForBill } = await import('../../../../services/billRemindersService');
+            await createRemindersForBill(billId, bill.dueDate, [reminder.daysBefore], false);
+          }
+        }
+      }
+
+      // Update local state with reminder including time
+      setBills(prevBills =>
+        prevBills.map(b =>
+          b.id === billId
+            ? {
+                ...b,
+                reminder: {
+                  enabled: reminder.enabled,
+                  daysBefore: reminder.daysBefore,
+                  time: reminder.time || '09:00', // Ensure time is saved
+                },
+              }
+            : b
+        )
+      );
+
+      Alert.alert('Success', reminder.enabled ? 'Reminder set successfully' : 'Reminder removed');
+      setShowReminderModal(false);
+      setSelectedBillForReminder(null);
+    } catch (error: any) {
+      console.error('Error saving reminder:', error);
+      Alert.alert('Error', error.message || 'Failed to save reminder. Please try again.');
+    }
+  }, [bills]);
+
+  // Handle edit bill
+  const handleEditBill = useCallback((billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    if (bill) {
+      setEditingBill(bill);
+    }
+  }, [bills]);
 
   // Handle add bill
   const handleAddBill = useCallback(() => {
@@ -7256,6 +8099,17 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       lateFee: '',
       hasTax: false,
       priority: 'medium',
+      // New Enhanced Fields
+      tags: [],
+      notes: '',
+      reminderDaysBefore: [7, 3, 1],
+      reminderEnabled: true,
+      recurrencePattern: null,
+      recurrenceCount: null,
+      recurrenceEndDate: null,
+      nextDueDate: null,
+      isIncludedInBudget: true,
+      budgetPeriod: 'monthly',
       showAdvanced: false,
     });
     setShowAddModal(true);
@@ -7275,35 +8129,51 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
   };
 
   // Handle save bill
-  const handleSaveBill = useCallback(() => {
+  const handleSaveBill = useCallback(async () => {
     if (!formData.name || !formData.amount) {
       Alert.alert('Error', 'Please fill in bill name and amount');
       return;
     }
 
-    // Determine status based on payment status and due date
-    let billStatus: 'due_today' | 'due_tomorrow' | 'due_week' | 'paid' | 'overdue' = 'due_week';
-    if (formData.paymentStatus === 'paid') {
-      billStatus = 'paid';
-    } else {
-      const dueDate = new Date(formData.dueDate);
-      const today = new Date();
-      const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays < 0) {
-        billStatus = 'overdue';
-      } else if (diffDays === 0) {
-        billStatus = 'due_today';
-      } else if (diffDays === 1) {
-        billStatus = 'due_tomorrow';
-      } else {
-        billStatus = 'due_week';
-      }
-    }
+    try {
+      // Map billing frequency - handle half-yearly
+      const frequency = formData.billingFrequency === 'half-yearly' ? 'semi-annually' : formData.billingFrequency;
 
-    // Map billing frequency to recurring
-    const isRecurring = formData.billingFrequency !== 'one-time';
-    const recurringFrequency = formData.billingFrequency === 'one-time' ? 'monthly' : 
-      formData.billingFrequency === 'half-yearly' ? 'yearly' : formData.billingFrequency;
+      const billData: any = {
+        name: formData.name,
+        amount: parseFloat(formData.amount),
+        due_date: formData.dueDate,
+        frequency: frequency,
+        description: formData.description || null,
+        // New enhanced fields
+        tags: (formData.tags && formData.tags.length > 0) ? formData.tags : null,
+        notes: formData.notes || null,
+        reminder_days_before: formData.reminderEnabled && formData.reminderDaysBefore.length > 0 
+          ? formData.reminderDaysBefore 
+          : null,
+        reminder_enabled: formData.reminderEnabled,
+        recurrence_pattern: formData.recurrencePattern,
+        recurrence_count: formData.recurrenceCount,
+        recurrence_end_date: formData.recurrenceEndDate,
+        next_due_date: formData.nextDueDate,
+        is_included_in_budget: formData.isIncludedInBudget,
+        budget_period: formData.budgetPeriod,
+        autopay: formData.isAutoPay,
+        status: formData.paymentStatus === 'paid' ? 'paid' : 'upcoming',
+      };
+
+      if (editingBill && typeof editingBill.id === 'string') {
+        await updateUpcomingBill(editingBill.id, billData, false);
+        Alert.alert('Success', 'Bill updated successfully');
+    } else {
+        await addUpcomingBill(billData, false);
+        Alert.alert('Success', 'Bill added successfully');
+      }
+
+      // Refresh bills list (you may want to use a hook or service to fetch bills)
+      // For now, we'll keep the local state update for UI responsiveness
+      const billStatus: 'due_today' | 'due_tomorrow' | 'due_week' | 'paid' | 'overdue' = 
+        formData.paymentStatus === 'paid' ? 'paid' : 'due_week';
 
     if (editingBill) {
       setBills(prevBills =>
@@ -7318,18 +8188,15 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                 type: formData.category,
                 description: formData.description,
                 isAutoPay: formData.isAutoPay,
-                isRecurring: isRecurring,
-                recurringFrequency: recurringFrequency as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
                 status: billStatus,
-                paymentMethod: formData.paymentMethod || (formData.isAutoPay ? 'Auto Pay' : 'Manual'),
-                tags: [formData.category],
+                  tags: (formData.tags && formData.tags.length > 0) ? formData.tags : [formData.category],
               }
             : bill
         )
       );
     } else {
       const newBill: Bill = {
-        id: Date.now(),
+          id: Date.now().toString(),
         name: formData.name,
         type: formData.category,
         dueDate: formData.dueDate,
@@ -7341,20 +8208,17 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         status: billStatus,
         isAutoPay: formData.isAutoPay,
         paymentMethod: formData.paymentMethod || (formData.isAutoPay ? 'Auto Pay' : 'Manual'),
-        tags: [formData.category],
-        isRecurring: isRecurring,
-        recurringFrequency: recurringFrequency as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
-        paymentHistory: formData.paymentStatus === 'paid' ? [{
-          id: Date.now(),
-          paidDate: new Date().toISOString().split('T')[0],
-          amount: formData.amount,
-          paymentMethod: formData.paymentMethod || 'Manual',
-        }] : [],
+          tags: formData.tags.length > 0 ? formData.tags : [formData.category],
       };
       setBills(prevBills => [...prevBills, newBill]);
     }
 
     setShowAddModal(false);
+      setEditingBill(null);
+    } catch (error: any) {
+      console.error('Error saving bill:', error);
+      Alert.alert('Error', error.message || 'Failed to save bill. Please try again.');
+    }
     setEditingBill(null);
   }, [formData, editingBill]);
 
@@ -7420,6 +8284,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       case 'due_week': return '#3B82F6';
       case 'paid': return '#10B981';
       case 'overdue': return '#DC2626';
+      case 'paused': return '#F59E0B';
+      case 'ended': return '#6B7280';
       default: return '#6B7280';
     }
   };
@@ -7431,6 +8297,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       case 'due_week': return 'This Week';
       case 'paid': return 'Paid';
       case 'overdue': return 'Overdue';
+      case 'paused': return 'Paused';
+      case 'ended': return 'Ended';
       default: return '';
     }
   };
@@ -7450,6 +8318,19 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
               <Ionicons name="receipt" size={18} color="#10B981" />
             </View>
             <Text style={[styles.title, { color: colors.text }]}>Upcoming Bills</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                handleNavigateToBills();
+              }}
+              style={[styles.viewAllButton, { backgroundColor: colors.filterBackground }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.viewAllText, { color: '#10B981' }]}>View All</Text>
+              <Ionicons name="chevron-forward" size={14} color="#10B981" />
+            </TouchableOpacity>
             {/* Add Bill Button */}
             <TouchableOpacity
               onPress={(e) => {
@@ -7462,17 +8343,6 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
               <Ionicons name="add-circle" size={20} color="#10B981" />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              handleNavigateToBills();
-            }}
-            style={[styles.viewAllButton, { backgroundColor: colors.filterBackground }]}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.viewAllText, { color: '#10B981' }]}>View All</Text>
-            <Ionicons name="chevron-forward" size={14} color="#10B981" />
-          </TouchableOpacity>
         </View>
 
         {/* Category Filter - Quick filter only */}
@@ -7547,16 +8417,27 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
               </Text>
             </View>
           ) : (
-            <View style={styles.billsList}>
-              {upcomingBills.map((bill, index) => {
+            <ScrollView 
+              style={styles.billsList}
+              contentContainerStyle={styles.billsListContent}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
+              {upcomingBills.slice(0, 5).map((bill, index) => {
                 const statusColor = getStatusColor(bill.status);
                 const statusText = getStatusText(bill.status);
                 const dueDate = new Date(bill.dueDate);
                 const today = new Date();
                 const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                const isLast = index === upcomingBills.length - 1 && bills.filter(b => b.status !== 'paid').length <= 5;
+                const unpaidCount = bills.filter(b => b.status !== 'paid' && b.status !== 'ended').length;
+                const paidCount = bills.filter(b => b.status === 'paid').length;
+                const isLast = index === upcomingBills.length - 1 && unpaidCount <= 5 && paidCount <= 3;
                 
                 return (
+                  <View key={bill.id}>
+                    {index > 0 && (
+                      <View style={[styles.billDivider, { backgroundColor: colors.border }]} />
+                    )}
                   <TouchableOpacity
                     key={bill.id}
                     style={[
@@ -7577,6 +8458,16 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                           size={16} 
                           color={getIconColor(bill.icon, bill.category)} 
                         />
+                        {/* Status Indicator Overlay */}
+                        {getStatusIndicator(bill.status) && (
+                          <View style={styles.statusIndicatorOverlay}>
+                            <Ionicons 
+                              name={getStatusIndicator(bill.status)?.icon as any} 
+                              size={10} 
+                              color={getStatusIndicator(bill.status)?.color} 
+                            />
+                          </View>
+                        )}
                       </View>
                       <View style={styles.dashboardBillInfo}>
                         <View style={styles.dashboardBillHeader}>
@@ -7585,9 +8476,11 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                             {bill.name}
                           </Text>
                             {bill.isAutoPay && (
-                              <View style={[styles.autoPayBadge, { backgroundColor: '#10B98115' }]}>
-                                <Ionicons name="sync" size={10} color="#10B981" />
-                                <Text style={styles.autoPayBadgeText}>Auto</Text>
+                              <View style={[styles.autoPayBadge, { backgroundColor: bill.autopay_source ? '#10B98115' : '#EF444415' }]}>
+                                <Ionicons name={bill.autopay_source ? "sync" : "warning"} size={10} color={bill.autopay_source ? "#10B981" : "#EF4444"} />
+                                <Text style={[styles.autoPayBadgeText, { color: bill.autopay_source ? "#10B981" : "#EF4444" }]}>
+                                  {bill.autopay_source ? 'Auto' : 'Setup'}
+                                </Text>
                               </View>
                             )}
                           </View>
@@ -7608,44 +8501,94 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                         </View>
                       </View>
                     </View>
-                    {/* Quick Actions - Only Paid/Unpaid Toggle */}
+                    {/* Three Dots Menu Button */}
                       <TouchableOpacity
-                      style={[
-                        styles.markPaidButton, 
-                        bill.status === 'paid' 
-                          ? { backgroundColor: '#10B98120' } 
-                          : { backgroundColor: '#6B728015' }
-                      ]}
+                      style={styles.dashboardMoreButton}
                         onPress={(e) => {
                           e.stopPropagation();
-                        if (bill.status === 'paid') {
+                        setDashboardMenuBill(bill);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="ellipsis-vertical" size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                  
+                  {/* Action Menu Modal for Dashboard Bills */}
+                  {dashboardMenuBill?.id === bill.id && (
+                    <BillActionMenu
+                      visible={true}
+                      bill={bill}
+                      onClose={() => setDashboardMenuBill(null)}
+                      onEditBill={() => {
+                        setDashboardMenuBill(null);
+                        handleEditBill(bill.id);
+                      }}
+                      onDeleteBill={() => {
+                        setDashboardMenuBill(null);
                           Alert.alert(
-                            'Mark as Unpaid',
-                            'Are you sure you want to mark this bill as unpaid?',
+                          'Delete Bill',
+                          'Are you sure you want to delete this bill?',
                             [
                               { text: 'Cancel', style: 'cancel' },
                               {
-                                text: 'Mark Unpaid',
-                                onPress: () => handleMarkAsPaid(bill.id),
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: () => {
+                                setBills(prevBills => prevBills.filter(b => b.id !== bill.id));
+                              },
                               },
                             ]
                           );
-                        } else {
-                          handleMarkAsPaid(bill.id);
-                        }
                       }}
-                    >
-                      {bill.status === 'paid' ? (
-                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                      ) : (
-                        <Ionicons name="ellipse-outline" size={20} color={colors.textSecondary} />
-                      )}
-                    </TouchableOpacity>
-                  </TouchableOpacity>
+                      onMarkAsPaid={() => {
+                        setDashboardMenuBill(null);
+                          handleMarkAsPaid(bill.id);
+                      }}
+                      onViewHistory={() => {
+                        setDashboardMenuBill(null);
+                        handleViewHistory(bill.id);
+                      }}
+                      onSplitBill={() => {
+                        setDashboardMenuBill(null);
+                        // Navigate to full bills page for split functionality
+                        handleNavigateToBills();
+                      }}
+                      onLinkTransaction={() => {
+                        setDashboardMenuBill(null);
+                        // Navigate to full bills page for link functionality
+                        handleNavigateToBills();
+                      }}
+                      onSetReminder={() => {
+                        setDashboardMenuBill(null);
+                        handleSetReminder(bill.id);
+                      }}
+                      onPauseBill={handlePauseBill ? () => {
+                        setDashboardMenuBill(null);
+                        handlePauseBill(bill.id);
+                      } : undefined}
+                      onEndBill={handleEndBill ? () => {
+                        setDashboardMenuBill(null);
+                        handleEndBill(bill.id);
+                      } : undefined}
+                      onResumeBill={handleResumeBill ? () => {
+                        setDashboardMenuBill(null);
+                        handleResumeBill(bill.id);
+                      } : undefined}
+                    />
+                  )}
+                  </View>
                 );
               })}
               
-              {bills.filter(b => b.status !== 'paid').length > 5 && (
+              {(() => {
+                const unpaidCount = bills.filter(b => b.status !== 'paid' && b.status !== 'ended').length;
+                const paidCount = bills.filter(b => b.status === 'paid').length;
+                const unpaidHidden = Math.max(0, unpaidCount - 5);
+                const paidHidden = Math.max(0, paidCount - 3);
+                const totalHidden = unpaidHidden + paidHidden;
+                
+                return totalHidden > 0 && (
                 <TouchableOpacity
                   style={[styles.viewMoreButton, { borderColor: colors.border, backgroundColor: 'transparent' }]}
                   onPress={(e) => {
@@ -7654,12 +8597,13 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                   }}
                 >
                   <Text style={[styles.viewMoreText, { color: colors.textSecondary }]}>
-                    View {bills.filter(b => b.status !== 'paid').length - 5} more bills
+                      View {totalHidden} more bill{totalHidden !== 1 ? 's' : ''}
                   </Text>
                   <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
-              )}
-            </View>
+                );
+              })()}
+            </ScrollView>
           )}
         </View>
         </View>
@@ -7905,40 +8849,47 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>Reminders & Notifications</Text>
                 </View>
                 
-                <View style={styles.formGroup}>
-                  <Text style={[styles.formLabel, { color: colors.text }]}>Reminder Before Due Date</Text>
-                  <View style={styles.checkboxContainer}>
-                    {(['same-day', '1-day', '3-days', '7-days'] as const).map((reminder) => (
-                      <TouchableOpacity
-                        key={reminder}
-                        style={styles.checkboxRow}
-                        onPress={() => {
-                          const isSelected = formData.reminders.includes(reminder);
+                <BillReminderConfig
+                  reminderDaysBefore={formData.reminderDaysBefore}
+                  reminderEnabled={formData.reminderEnabled}
+                  onUpdate={(daysBefore, enabled) => {
                           setFormData({
                             ...formData,
-                            reminders: isSelected
-                              ? formData.reminders.filter(r => r !== reminder)
-                              : [...formData.reminders, reminder],
+                      reminderDaysBefore: daysBefore,
+                      reminderEnabled: enabled,
                           });
                         }}
-                      >
-                        <View style={[
-                          styles.checkbox,
-                          { borderColor: colors.border },
-                          formData.reminders.includes(reminder) && { backgroundColor: '#10B981', borderColor: '#10B981' },
-                        ]}>
-                          {formData.reminders.includes(reminder) && (
-                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                          )}
+                />
                         </View>
-                        <Text style={[styles.checkboxLabel, { color: colors.text }]}>
-                          {reminder === 'same-day' ? 'Same day' : reminder === '1-day' ? '1 day before' : reminder === '3-days' ? '3 days before' : '7 days before'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+
+              {/* Section 2.5: Recurrence Pattern */}
+              {formData.billingFrequency !== 'one-time' && (
+                <View style={styles.modalSection}>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIconContainer, { backgroundColor: '#10B98115' }]}>
+                      <Ionicons name="repeat" size={18} color="#10B981" />
+                    </View>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Recurrence Pattern</Text>
                   </View>
-                </View>
+                  <RecurrencePatternEditor
+                    frequency={formData.billingFrequency}
+                    recurrencePattern={formData.recurrencePattern}
+                    recurrenceCount={formData.recurrenceCount}
+                    recurrenceEndDate={formData.recurrenceEndDate}
+                    dueDate={formData.dueDate}
+                    onUpdate={(pattern) => {
+                      setFormData({
+                        ...formData,
+                        billingFrequency: pattern.frequency as any,
+                        recurrencePattern: pattern.recurrencePattern,
+                        recurrenceCount: pattern.recurrenceCount,
+                        recurrenceEndDate: pattern.recurrenceEndDate,
+                        nextDueDate: pattern.nextDueDate,
+                      });
+                    }}
+                  />
               </View>
+              )}
 
               {/* Section 3: Payment Method */}
               <View style={styles.modalSection}>
@@ -7998,17 +8949,57 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
                     <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Notes / Description</Text>
+                    <Text style={[styles.formLabel, { color: colors.text }]}>Description</Text>
                   </View>
                   <View style={[styles.inputContainer, styles.inputContainerMultiline, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
                     <TextInput
                       style={[styles.formInput, styles.formInputMultiline, { color: colors.text }]}
-                      placeholder="Optional notes, bill number, meter reading, etc."
+                      placeholder="Optional description"
                       placeholderTextColor={colors.textSecondary}
                       multiline
                       numberOfLines={3}
                       value={formData.description}
                       onChangeText={(text) => setFormData({ ...formData, description: text })}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <View style={styles.labelRow}>
+                    <Ionicons name="pricetag-outline" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.formLabel, { color: colors.text }]}>Tags</Text>
+                  </View>
+                  <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                    <Ionicons name="pricetag" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.formInput, { color: colors.text }]}
+                      placeholder="Enter tags separated by commas (e.g., utilities, monthly)"
+                      placeholderTextColor={colors.textSecondary}
+                      value={(formData.tags || []).join(', ')}
+                      onChangeText={(text) => {
+                        setFormData({
+                          ...formData,
+                          tags: text.split(',').map(t => t.trim()).filter(t => t.length > 0),
+                        });
+                      }}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <View style={styles.labelRow}>
+                    <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.formLabel, { color: colors.text }]}>Notes</Text>
+                  </View>
+                  <View style={[styles.inputContainer, styles.inputContainerMultiline, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                    <TextInput
+                      style={[styles.formInput, styles.formInputMultiline, { color: colors.text }]}
+                      placeholder="Additional notes (optional)"
+                      placeholderTextColor={colors.textSecondary}
+                      multiline
+                      numberOfLines={2}
+                      value={formData.notes}
+                      onChangeText={(text) => setFormData({ ...formData, notes: text })}
                     />
                   </View>
                 </View>
@@ -8181,6 +9172,57 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                       <View style={[styles.toggleKnob, formData.hasTax && styles.toggleKnobActive]} />
                     </View>
                   </TouchableOpacity>
+
+                  {/* Budget Integration */}
+                  <View style={[styles.toggleCard, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                    <TouchableOpacity
+                      style={styles.toggleRow}
+                      onPress={() => setFormData({ ...formData, isIncludedInBudget: !formData.isIncludedInBudget })}
+                    >
+                      <View style={styles.toggleRowLeft}>
+                        <View style={[styles.toggleIconContainer, { backgroundColor: formData.isIncludedInBudget ? '#10B98120' : '#6B728020' }]}>
+                          <Ionicons name="pie-chart" size={20} color={formData.isIncludedInBudget ? "#10B981" : colors.textSecondary} />
+                        </View>
+                        <View>
+                          <Text style={[styles.toggleLabel, { color: colors.text }]}>Include in Budget</Text>
+                          <Text style={[styles.toggleSubtext, { color: colors.textSecondary }]}>
+                            Include this bill in budget calculations
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={[styles.toggleSwitch, formData.isIncludedInBudget && styles.toggleSwitchActive]}>
+                        <View style={[styles.toggleKnob, formData.isIncludedInBudget && styles.toggleKnobActive]} />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+
+                  {formData.isIncludedInBudget && (
+                    <View style={styles.formGroup}>
+                      <Text style={[styles.formLabel, { color: colors.text }]}>Budget Period</Text>
+                      <View style={styles.categoryButtons}>
+                        {(['monthly', 'quarterly', 'yearly'] as const).map((period) => (
+                          <TouchableOpacity
+                            key={period}
+                            style={[
+                              styles.categoryButton,
+                              { borderColor: colors.border },
+                              formData.budgetPeriod === period && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
+                            ]}
+                            onPress={() => setFormData({ ...formData, budgetPeriod: period })}
+                          >
+                            <Text
+                              style={[
+                                styles.categoryButtonText,
+                                { color: formData.budgetPeriod === period ? '#FFFFFF' : colors.textSecondary },
+                              ]}
+                            >
+                              {period.charAt(0).toUpperCase() + period.slice(1)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                 </View>
               )}
             </ScrollView>
@@ -8205,6 +9247,33 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Payment History Modal */}
+      {selectedBillForHistory && (
+        <BillPaymentHistory
+          visible={showPaymentHistory}
+          billId={selectedBillForHistory.id}
+          billName={selectedBillForHistory.name}
+          onClose={() => {
+            setShowPaymentHistory(false);
+            setSelectedBillForHistory(null);
+          }}
+          isDemo={false}
+        />
+      )}
+
+      {/* Reminder Modal */}
+      {selectedBillForReminder && (
+        <BillReminderModal
+          visible={showReminderModal}
+          bill={selectedBillForReminder}
+          onClose={() => {
+            setShowReminderModal(false);
+            setSelectedBillForReminder(null);
+          }}
+          onSave={handleSaveReminder}
+        />
+      )}
     </TouchableOpacity>
   );
 };
@@ -8241,9 +9310,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   cardBackground: {
     borderRadius: 16,
@@ -8252,7 +9321,7 @@ const styles = StyleSheet.create({
   },
   sectionWrapper: {
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 8,
     overflow: 'hidden',
   },
   headerLeft: {
@@ -8365,13 +9434,16 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingBottom: 0,
-    paddingTop: 4,
+    paddingTop: 2,
     overflow: 'hidden',
   },
   billsList: {
-    gap: 6,
-    paddingBottom: 16,
-    overflow: 'hidden',
+    maxHeight: 350, // Max height for ~5 items (each item ~60-70px)
+    paddingBottom: 4,
+  },
+  billsListContent: {
+    gap: 0,
+    paddingBottom: 4,
   },
   viewAllButton: {
     flexDirection: 'row',
@@ -8426,6 +9498,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dashboardMoreButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
   },
   quickActions: {
     flexDirection: 'row',
@@ -8673,6 +9753,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
     borderWidth: 1,
+    position: 'relative',
+  },
+  statusIndicatorOverlay: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#1F2937',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#1F2937',
+  },
+  billDivider: {
+    height: 1,
+    marginLeft: 56,
+    marginRight: 10,
+    marginVertical: 4,
   },
   billIconText: {
     fontSize: 18,
@@ -9130,7 +10230,7 @@ export type {
 // Export PaymentReceipt type (defined later in file)
 export type { PaymentReceipt };
 
-// Export components for reuse in full Bills page
+// Named exports for reuse in full Bills page
 export {
   BudgetIntegration,
   SmartBillDetection,
@@ -9154,4 +10254,5 @@ export {
   MOCK_BUDGETS,
 };
 
-export default UpcomingBillsSection; 
+// Default export - must come last
+export default UpcomingBillsSection;

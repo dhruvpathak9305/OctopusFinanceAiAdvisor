@@ -74,7 +74,7 @@ const MessageList: React.FC<MessageListProps> = ({
       >
         <Text style={styles.emptyIcon}>💰</Text>
         <Text style={[styles.emptyTitle, { color: colors.text }]}>
-          Welcome to Octopus Finance AI Advisor
+          Welcome to Octopus Organizer
         </Text>
         <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
           Ask me anything about personal finance, budgeting, savings, or

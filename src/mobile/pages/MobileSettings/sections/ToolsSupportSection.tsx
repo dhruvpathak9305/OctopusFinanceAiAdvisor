@@ -50,7 +50,7 @@ const ToolsSupportSection: React.FC<ToolsSupportSectionProps> = ({
       <SettingsSeparator colors={colors} />
       <SettingsItem
         icon="heart"
-        title="Rate OctopusFinancer"
+        title="Rate Octopus Organizer"
         colors={colors}
         onPress={() => Alert.alert("Rate", "App store rating coming soon")}
       />
