@@ -12,16 +12,25 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import { BillReminderConfig } from '../../components/Bills/BillReminderConfig';
-import { RecurrencePatternEditor } from '../../components/Bills/RecurrencePatternEditor';
 import { BillPaymentHistory } from '../../components/Bills/BillPaymentHistory';
-import { addUpcomingBill, updateUpcomingBill, fetchUpcomingBills, type UpcomingBill } from '../../../../services/upcomingBillsService';
+import { addUpcomingBill, updateUpcomingBill, deleteUpcomingBill, updateBillAutopay, fetchUpcomingBills, type UpcomingBill } from '../../../../services/upcomingBillsService';
 import { addBillPayment } from '../../../../services/billPaymentsService';
 import { supabase } from '../../../../lib/supabase/client';
+import { BillOperationsErrorBoundary } from '../../components/ErrorBoundary/BillOperationsErrorBoundary';
+import { fetchBudgetCategories, fetchBudgetSubcategories } from '../../../../services/budgetService';
+import { useDemoMode } from '../../../../contexts/DemoModeContext';
+import AddCategoryModal from '../../components/AddCategoryModal';
+import AddSubcategoryModal from '../../components/AddSubcategoryModal';
+import { BudgetCategory as BudgetCategoryType, SubCategory } from '../../../../types/budget';
+import { TouchableWithoutFeedback } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { fetchAccounts } from '../../../../services/accountsService';
+import { fetchCreditCards } from '../../../../services/creditCardService';
 
 interface UpcomingBillsSectionProps {
   className?: string;
@@ -77,6 +86,9 @@ interface Bill {
   linkedTransactionId?: string | number;
   // Bill Reminder fields
   reminder?: BillReminder;
+  // Category/Subcategory IDs for database reference
+  categoryId?: string | null;
+  subcategoryId?: string | null;
 }
 
 // Payment history record
@@ -96,8 +108,8 @@ interface BillCategory {
   emoji: string;
 }
 
-// Budget category mapping for integration
-interface BudgetCategory {
+// Budget category mapping for integration (local interface for display)
+interface BudgetCategoryDisplay {
   name: string;
   budget: number;
   spent: number;
@@ -117,7 +129,7 @@ const BILL_CATEGORIES: BillCategory[] = [
 ];
 
 // Mock budget data for integration
-const MOCK_BUDGETS: BudgetCategory[] = [
+const MOCK_BUDGETS: BudgetCategoryDisplay[] = [
   { name: 'Utilities', budget: 500, spent: 150, billsTotal: 0, color: '#10B981' },
   { name: 'Subscriptions', budget: 200, spent: 50, billsTotal: 0, color: '#F59E0B' },
   { name: 'Insurance', budget: 400, spent: 0, billsTotal: 0, color: '#3B82F6' },
@@ -4846,6 +4858,8 @@ const LinkTransactionModal: React.FC<{
 }> = ({ visible, bill, onClose, onLink }) => {
   const { isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const colors = isDark ? {
     background: '#1F2937',
@@ -4861,16 +4875,62 @@ const LinkTransactionModal: React.FC<{
     inputBg: '#F3F4F6',
   };
 
-  // Mock transactions for linking
-  const mockTransactions = [
-    { id: 'txn-001', name: 'Electricity Payment', amount: '95.50', date: '2025-08-05', category: 'Utilities' },
-    { id: 'txn-002', name: 'Netflix', amount: '14.99', date: '2025-08-06', category: 'Subscriptions' },
-    { id: 'txn-003', name: 'Water Bill Payment', amount: '45.70', date: '2025-08-04', category: 'Utilities' },
-    { id: 'txn-004', name: 'Phone Bill', amount: '85.00', date: '2025-08-07', category: 'Utilities' },
-    { id: 'txn-005', name: 'Internet Service', amount: '65.99', date: '2025-08-10', category: 'Utilities' },
-  ];
+  // Fetch transactions when modal opens
+  useEffect(() => {
+    if (visible && bill) {
+      fetchTransactionsForLinking();
+    }
+  }, [visible, bill]);
 
-  const filteredTransactions = mockTransactions.filter(txn =>
+  const fetchTransactionsForLinking = async () => {
+    try {
+      setLoading(true);
+      const { fetchTransactions } = await import('../../../../services/transactionsService');
+      
+      // Fetch recent transactions (last 3 months)
+      const now = new Date();
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(now.getMonth() - 3);
+      
+      const filters = {
+        dateRange: { start: threeMonthsAgo, end: now },
+        type: 'expense' as const,
+      };
+      
+      const data = await fetchTransactions(filters, false);
+      
+      // Transform to modal format
+      const transformed = data.map((txn: any) => {
+        // Handle category - can be string, object, or undefined
+        let categoryName = 'Other';
+        if (typeof txn.category === 'string') {
+          categoryName = txn.category;
+        } else if (txn.category && typeof txn.category === 'object' && txn.category.name) {
+          categoryName = txn.category.name;
+        } else if (txn.category_id) {
+          categoryName = txn.category_id;
+        }
+        
+        return {
+          id: txn.id,
+          name: txn.name || txn.description || 'Transaction',
+          amount: txn.amount.toString(),
+          date: txn.date,
+          category: categoryName,
+        };
+      });
+      
+      setTransactions(transformed);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      // Fallback to empty array on error
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredTransactions = transactions.filter(txn =>
     txn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     txn.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -4934,11 +4994,18 @@ const LinkTransactionModal: React.FC<{
 
           {/* Transactions List */}
           <ScrollView style={linkModalStyles.transactionsList}>
-            {filteredTransactions.length === 0 ? (
+            {loading ? (
+              <View style={linkModalStyles.emptyState}>
+                <ActivityIndicator size="large" color="#10B981" />
+                <Text style={[linkModalStyles.emptyText, { color: colors.textSecondary, marginTop: 12 }]}>
+                  Loading transactions...
+                </Text>
+              </View>
+            ) : filteredTransactions.length === 0 ? (
               <View style={linkModalStyles.emptyState}>
                 <Ionicons name="receipt-outline" size={40} color={colors.textSecondary} />
                 <Text style={[linkModalStyles.emptyText, { color: colors.textSecondary }]}>
-                  No matching transactions found
+                  {searchQuery ? 'No matching transactions found' : 'No transactions available'}
                 </Text>
               </View>
             ) : (
@@ -6145,7 +6212,7 @@ const BillAnalytics: React.FC<{
     textSecondary: '#9CA3AF',
     border: '#374151',
   } : {
-    card: '#FFFFFF',
+    card: '#F9FAFB', // Light gray for better contrast against white background
     text: '#111827',
     textSecondary: '#6B7280',
     border: '#E5E7EB',
@@ -7122,7 +7189,7 @@ const BillGroup: React.FC<{
     text: '#111827',
     textSecondary: '#6B7280',
     border: '#E5E7EB',
-    card: '#FFFFFF',
+    card: '#F9FAFB', // Light gray for better contrast against white background
   };
 
   const formatCurrency = (value: string) => {
@@ -7356,6 +7423,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
   showBudgetImpact = true,
 }) => {
   const { isDark } = useTheme();
+  const { isDemo } = useDemoMode();
   const navigation = useNavigation<any>();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(false);
@@ -7364,12 +7432,51 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
   const [showBudgetIntegration, setShowBudgetIntegration] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  
+  // Budget categories and subcategories state
+  const [budgetCategories, setBudgetCategories] = useState<any[]>([]);
+  const [budgetSubcategories, setBudgetSubcategories] = useState<any[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showSubcategoryPicker, setShowSubcategoryPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showBillingFrequencyPicker, setShowBillingFrequencyPicker] = useState(false);
+  const [showPaymentStatusPicker, setShowPaymentStatusPicker] = useState(false);
+  const [showReminderPicker, setShowReminderPicker] = useState(false);
+  const [showPaymentMethodPicker, setShowPaymentMethodPicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [selectedEndDate, setSelectedEndDate] = useState(new Date());
+  const [showTagsPicker, setShowTagsPicker] = useState(false);
+  const [showLinkedAccountPicker, setShowLinkedAccountPicker] = useState(false);
+  const [linkedAccountType, setLinkedAccountType] = useState<'account' | 'credit_card' | null>(null);
+  const [allowTypeSelection, setAllowTypeSelection] = useState(true); // Track if type selection should be shown
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [creditCards, setCreditCards] = useState<any[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [selectedStartDate, setSelectedStartDate] = useState(new Date());
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+  
+  // Debug: Track category picker state changes
+  useEffect(() => {
+    console.log('🔵 showCategoryPicker state changed to:', showCategoryPicker);
+  }, [showCategoryPicker]);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showAddSubcategoryModal, setShowAddSubcategoryModal] = useState(false);
+  const [selectedCategoryForSubcategory, setSelectedCategoryForSubcategory] = useState<any | null>(null);
+  const [categoryViewMode, setCategoryViewMode] = useState<'list' | 'grid'>('list');
+  const [subcategoryViewMode, setSubcategoryViewMode] = useState<'list' | 'grid'>('grid');
+  
   const [formData, setFormData] = useState({
     // Core MVP Fields
     name: '',
     amount: '',
     dueDate: new Date().toISOString().split('T')[0],
-    category: 'Utilities',
+    category: '',
+    categoryId: null as string | null,
+    subcategory: '',
+    subcategoryId: null as string | null,
     billingFrequency: 'monthly' as 'one-time' | 'daily' | 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'semi-annually' | 'yearly',
     paymentStatus: 'upcoming' as 'upcoming' | 'paid' | 'skipped',
     isAutoPay: false,
@@ -7414,15 +7521,145 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
   // Reminder modal state
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedBillForReminder, setSelectedBillForReminder] = useState<Bill | null>(null);
+  
+  // Split bill modal state
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [selectedBillForSplit, setSelectedBillForSplit] = useState<Bill | null>(null);
+  
+  // Link transaction modal state
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [selectedBillForLink, setSelectedBillForLink] = useState<Bill | null>(null);
+
+  // Load budget categories and subcategories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setCategoriesLoading(true);
+        const [categoriesData, subcategoriesData] = await Promise.all([
+          fetchBudgetCategories(isDemo),
+          fetchBudgetSubcategories(isDemo),
+        ]);
+        
+        // Filter for expense categories only (bills are expenses)
+        const expenseCategories = categoriesData.filter(
+          (cat: any) => (cat.category_type === 'expense' || !cat.category_type) && (cat.is_active !== 'false' && cat.is_active !== false)
+        );
+        
+        console.log('✅ Categories loaded:', expenseCategories.length);
+        console.log('✅ Subcategories loaded:', subcategoriesData.length);
+        setBudgetCategories(expenseCategories);
+        setBudgetSubcategories(subcategoriesData);
+      } catch (error) {
+        console.error('❌ Error loading categories:', error);
+      } finally {
+        setCategoriesLoading(false);
+        console.log('✅ Categories loading finished');
+      }
+    };
+    
+    loadCategories();
+  }, [isDemo]);
+
+  // Load accounts and credit cards
+  useEffect(() => {
+    const loadAccountsAndCards = async () => {
+      try {
+        setLoadingAccounts(true);
+        
+        // Get current user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          console.error('❌ User not authenticated');
+          setAccounts([]);
+          setCreditCards([]);
+          return;
+        }
+
+        // Directly query accounts_real and credit_cards_real tables
+        const [accountsResult, creditCardsResult] = await Promise.all([
+          supabase
+            .from('accounts_real')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('credit_cards_real')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
+        ]);
+
+        if (accountsResult.error) {
+          console.error('❌ Error fetching accounts:', accountsResult.error);
+        } else {
+          console.log('✅ Fetched accounts:', accountsResult.data?.length || 0);
+          setAccounts(accountsResult.data || []);
+        }
+
+        if (creditCardsResult.error) {
+          console.error('❌ Error fetching credit cards:', creditCardsResult.error);
+        } else {
+          console.log('✅ Fetched credit cards:', creditCardsResult.data?.length || 0);
+          setCreditCards(creditCardsResult.data || []);
+        }
+      } catch (error) {
+        console.error('❌ Error loading accounts/cards:', error);
+        setAccounts([]);
+        setCreditCards([]);
+      } finally {
+        setLoadingAccounts(false);
+      }
+    };
+    
+    loadAccountsAndCards();
+  }, [isDemo]);
 
   // Populate formData when editing a bill
   useEffect(() => {
-    if (editingBill) {
+    if (editingBill && budgetCategories.length > 0) {
+      // First try to find category by ID (from database)
+      let categoryObj = null;
+      let categoryName = '';
+      
+      if ((editingBill as any).categoryId) {
+        categoryObj = budgetCategories.find(cat => cat.id === (editingBill as any).categoryId);
+        categoryName = categoryObj?.name || editingBill.category || '';
+      } else if (editingBill.category) {
+        // Fallback: find by name
+        categoryObj = budgetCategories.find(cat => cat.name === editingBill.category);
+        categoryName = editingBill.category;
+      }
+      
+      // Find subcategory by ID or name
+      let subcategoryObj = null;
+      let subcategoryName = '';
+      
+      if ((editingBill as any).subcategoryId) {
+        subcategoryObj = budgetSubcategories.find(sub => sub.id === (editingBill as any).subcategoryId);
+        subcategoryName = subcategoryObj?.name || editingBill.subcategory || '';
+      } else if (editingBill.subcategory) {
+        // Fallback: find by name
+        subcategoryObj = budgetSubcategories.find(sub => sub.name === editingBill.subcategory);
+        subcategoryName = editingBill.subcategory;
+      }
+      
+      const dueDateValue = editingBill.dueDate || new Date().toISOString().split('T')[0];
+      setSelectedDate(new Date(dueDateValue));
+      const endDateValue = (editingBill as any).recurrenceEndDate || (editingBill as any).endDate || '';
+      if (endDateValue) {
+        setSelectedEndDate(new Date(endDateValue));
+      }
       setFormData({
         name: editingBill.name || '',
         amount: editingBill.amount || '',
-        dueDate: editingBill.dueDate || new Date().toISOString().split('T')[0],
-        category: editingBill.category || 'Utilities',
+        dueDate: dueDateValue,
+        category: categoryName,
+        categoryId: categoryObj?.id || null,
+        subcategory: subcategoryName,
+        subcategoryId: subcategoryObj?.id || null,
         billingFrequency: (editingBill.recurringFrequency || 'monthly') as any,
         paymentStatus: editingBill.status === 'paid' ? 'paid' : 'upcoming',
         isAutoPay: editingBill.isAutoPay || false,
@@ -7430,8 +7667,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         paymentMethod: (editingBill.paymentMethod || '') as any,
         linkedAccount: '',
         startDate: '',
-        endDate: '',
-        hasEndDate: false,
+        endDate: endDateValue,
+        hasEndDate: !!endDateValue,
         isVariableAmount: false,
         lastPaidAmount: '',
         description: editingBill.description || '',
@@ -7446,8 +7683,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         reminderDaysBefore: [7, 3, 1],
         reminderEnabled: true,
         recurrencePattern: null,
-        recurrenceCount: null,
-        recurrenceEndDate: null,
+        recurrenceCount: (editingBill as any).recurrenceCount || null,
+        recurrenceEndDate: endDateValue || null,
         nextDueDate: null,
         isIncludedInBudget: true,
         budgetPeriod: 'monthly',
@@ -7455,7 +7692,151 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       });
       setShowAddModal(true);
     }
-  }, [editingBill]);
+  }, [editingBill, budgetCategories, budgetSubcategories]);
+
+  // Sync categoryId when category name is set but categoryId is not
+  useEffect(() => {
+    if (formData.category && !formData.categoryId && budgetCategories.length > 0) {
+      const categoryObj = budgetCategories.find(cat => cat.name === formData.category);
+      if (categoryObj) {
+        setFormData(prev => ({
+          ...prev,
+          categoryId: categoryObj.id,
+        }));
+      }
+    }
+  }, [formData.category, budgetCategories]);
+
+  // Helper functions for category/subcategory selection
+  const getCurrentCategories = () => {
+    if (categoriesLoading) {
+      console.log('📋 getCurrentCategories: Categories loading, returning empty array');
+      return [];
+    }
+    // Return the actual category objects, not just names
+    // Categories are already filtered when loaded (expense categories only)
+    const filtered = budgetCategories.filter((cat: any) => {
+      // Additional filter: ensure is_active is true
+      return cat.is_active !== 'false' && cat.is_active !== false;
+    });
+    console.log('📋 getCurrentCategories: Returning', filtered.length, 'categories');
+    return filtered;
+  };
+
+  const getCurrentSubcategories = () => {
+    if (categoriesLoading) return [];
+    
+    // Try to find category by ID first, then by name
+    let selectedCategory = null;
+    if (formData.categoryId) {
+      selectedCategory = budgetCategories.find((cat) => cat.id === formData.categoryId);
+    } else if (formData.category) {
+      selectedCategory = budgetCategories.find((cat) => cat.name === formData.category);
+    }
+    
+    if (!selectedCategory) return [];
+    
+    // Return the actual subcategory objects, not just names
+    return budgetSubcategories.filter((sub: any) => {
+      return sub.category_id === selectedCategory.id;
+    });
+  };
+
+  // Handle category added
+  const handleCategoryAdded = (newCategory: BudgetCategoryType) => {
+    setBudgetCategories((prev) => [...prev, newCategory as any]);
+    setFormData({
+      ...formData,
+      category: newCategory.name,
+      categoryId: newCategory.id || null,
+      subcategory: '',
+      subcategoryId: null,
+    });
+    setShowAddCategoryModal(false);
+  };
+
+  // Handle subcategory added
+  const handleSubcategoryAdded = (newSubcategory: SubCategory) => {
+    setBudgetSubcategories((prev) => [...prev, newSubcategory]);
+    setFormData({
+      ...formData,
+      subcategory: newSubcategory.name,
+      subcategoryId: newSubcategory.id || null,
+    });
+    setShowAddSubcategoryModal(false);
+  };
+
+  // Date picker handlers
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      // On Android, close immediately after selection
+      setShowDatePicker(false);
+    if (date) {
+      setSelectedDate(date);
+      setFormData({
+        ...formData,
+        dueDate: date.toISOString().split('T')[0],
+      });
+      }
+    } else {
+      // On iOS, just update the selected date while user is scrolling
+      // Don't close until Done is pressed
+      if (date) {
+        setSelectedDate(date);
+      }
+    }
+  };
+
+  // Handle Done button press for iOS date picker
+  const handleDatePickerDone = () => {
+    setFormData({
+      ...formData,
+      dueDate: selectedDate.toISOString().split('T')[0],
+    });
+    setShowDatePicker(false);
+  };
+
+  // Handle end date change
+  const handleEndDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowEndDatePicker(false);
+      if (date) {
+        setSelectedEndDate(date);
+        setFormData({
+          ...formData,
+          endDate: date.toISOString().split('T')[0],
+          recurrenceEndDate: date.toISOString().split('T')[0],
+        });
+      }
+    } else {
+      if (date) {
+        setSelectedEndDate(date);
+      }
+    }
+  };
+
+  // Handle Done button press for iOS end date picker
+  const handleEndDatePickerDone = () => {
+    setFormData({
+      ...formData,
+      endDate: selectedEndDate.toISOString().split('T')[0],
+      recurrenceEndDate: selectedEndDate.toISOString().split('T')[0],
+    });
+    setShowEndDatePicker(false);
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
   // Helper function to transform database bill to UI Bill format
   const transformDatabaseBillToBill = (dbBill: UpcomingBill): Bill => {
@@ -7469,13 +7850,17 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     
     if (dbBill.status === 'paid') {
       status = 'paid';
+    } else if (dbBill.status === 'paused') {
+      status = 'paused';
+    } else if (dbBill.status === 'ended') {
+      status = 'ended';
     } else if (dbBill.status === 'cancelled') {
-      // Check metadata to distinguish between paused and ended
+      // Legacy: Check metadata to distinguish between paused and ended
       const metadata = dbBill.metadata as any;
       if (metadata && metadata.ui_status === 'ended') {
         status = 'ended';
       } else {
-        // Default to 'paused' if metadata doesn't specify (for backwards compatibility)
+        // Default to 'paused' for cancelled without metadata (backwards compatibility)
         status = 'paused';
       }
     } else if (daysDiff < 0) {
@@ -7490,16 +7875,35 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       status = 'due_week'; // For bills due more than a week away, still show as due_week
     }
 
-    // Derive category from tags (first tag is usually the category) or use default
+    // Get category and subcategory from database
     const tags = dbBill.tags || [];
-    const category = tags.length > 0 && BILL_CATEGORIES.find(cat => cat.name === tags[0]) 
-      ? tags[0] 
-      : (tags.length > 0 ? tags[0] : 'Other');
-    const subcategory = tags.length > 1 ? tags[1] : '';
+    let category = 'Other';
+    let subcategory = '';
+    
+    // Try to get category name from fetched relationship or fallback
+    if ((dbBill as any).category_name) {
+      category = (dbBill as any).category_name;
+    } else if (dbBill.category_id) {
+      // Store the ID - will be resolved to name when categories load
+      category = dbBill.category_id;
+    } else if (tags.length > 0) {
+      // Fallback to tags if no category_id
+      category = tags[0] || 'Other';
+    }
+    
+    // Try to get subcategory name from fetched relationship or fallback
+    if (dbBill.subcategory_name) {
+      subcategory = dbBill.subcategory_name;
+    } else if (dbBill.subcategory_id) {
+      // Store the ID - will be resolved to name when subcategories load
+      subcategory = dbBill.subcategory_id;
+    } else if (tags.length > 1) {
+      subcategory = tags[1] || '';
+    }
 
-    // Get icon based on category
+    // Get icon based on category (fallback to default if category not found)
     const categoryConfig = BILL_CATEGORIES.find(cat => cat.name === category) || BILL_CATEGORIES[0];
-    const icon = categoryConfig.icon;
+    const icon = categoryConfig?.icon || 'document';
 
     return {
       id: dbBill.id,
@@ -7509,6 +7913,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       amount: dbBill.amount?.toString() || '0',
       category: category,
       subcategory: subcategory,
+      categoryId: dbBill.category_id || null,
+      subcategoryId: dbBill.subcategory_id || null,
       description: dbBill.description || '',
       icon: icon,
       status: status,
@@ -7520,7 +7926,9 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       recurringFrequency: dbBill.frequency as any,
       reminder: dbBill.reminder_enabled ? {
         enabled: dbBill.reminder_enabled,
-        daysBefore: dbBill.reminder_days_before || [],
+        daysBefore: Array.isArray(dbBill.reminder_days_before) && dbBill.reminder_days_before.length > 0 
+          ? dbBill.reminder_days_before[0] 
+          : (typeof dbBill.reminder_days_before === 'number' ? dbBill.reminder_days_before : 1),
         time: '09:00', // Default reminder time
       } : undefined,
     };
@@ -7533,7 +7941,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         setLoading(true);
         setError(null);
 
-        const fetchedBills = await fetchUpcomingBills({}, false); // isDemo = false for real table
+        // Fetch all bills including paid ones so users can unmark them
+        const fetchedBills = await fetchUpcomingBills({ status: 'all' }, false); // isDemo = false for real table
         const transformedBills = fetchedBills.map(transformDatabaseBillToBill);
         
         setBills(transformedBills);
@@ -7551,6 +7960,45 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     loadBills();
   }, []);
 
+  // Resolve category and subcategory names after categories are loaded
+  useEffect(() => {
+    if (bills.length > 0 && budgetCategories.length > 0 && budgetSubcategories.length > 0) {
+      setBills(prevBills => 
+        prevBills.map(bill => {
+          let categoryName = bill.category;
+          let subcategoryName = bill.subcategory;
+          
+          // Resolve category name from ID
+          if ((bill as any).categoryId) {
+            const categoryObj = budgetCategories.find(cat => cat.id === (bill as any).categoryId);
+            if (categoryObj) {
+              categoryName = categoryObj.name;
+            }
+          }
+          
+          // Resolve subcategory name from ID
+          if ((bill as any).subcategoryId) {
+            const subcategoryObj = budgetSubcategories.find(sub => sub.id === (bill as any).subcategoryId);
+            if (subcategoryObj) {
+              subcategoryName = subcategoryObj.name;
+            }
+          }
+          
+          // Only update if names changed
+          if (categoryName !== bill.category || subcategoryName !== bill.subcategory) {
+            return {
+              ...bill,
+              category: categoryName,
+              subcategory: subcategoryName,
+            };
+          }
+          
+          return bill;
+        })
+      );
+    }
+  }, [budgetCategories, budgetSubcategories]);
+
   // Note: Auto-seeding of mock bills has been disabled
   // Users should add bills manually or import them
 
@@ -7561,13 +8009,15 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     textSecondary: '#9CA3AF',
     border: '#374151',
     filterBackground: '#374151',
+    primary: '#10B981',
   } : {
     background: '#FFFFFF',
-    card: '#FFFFFF',
+    card: '#F9FAFB', // Light gray for better contrast against white background
     text: '#111827',
     textSecondary: '#6B7280',
     border: '#E5E7EB',
     filterBackground: '#F3F4F6',
+    primary: '#10B981',
   };
 
   // Get most urgent bills for dashboard (show all bills with status indicators)
@@ -7739,21 +8189,101 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     }
   }, [bills]);
 
-  // Toggle auto pay
-  const handleToggleAutoPay = useCallback((billId: number | string) => {
+  // Handle delete bill (with persistence to Supabase and local DB)
+  const handleDeleteBill = useCallback(async (billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    const billName = bill?.name || 'this bill';
+    
+    Alert.alert(
+      'Delete Bill',
+      `Are you sure you want to delete "${billName}"? This action cannot be undone and will also delete all associated payment history and reminders.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete from database (handles both Supabase and local DB)
+              await deleteUpcomingBill(billId, false);
+
+              // Remove from local state immediately for better UX
+              setBills(prevBills => prevBills.filter(b => b.id !== billId));
+              
+              // Refresh bills list to ensure consistency
+              try {
+                const fetchedBills = await fetchUpcomingBills({ status: 'all' }, false);
+                const transformedBills = fetchedBills.map(transformDatabaseBillToBill);
+                setBills(transformedBills);
+              } catch (refreshError) {
+                console.warn('Failed to refresh bills after deletion:', refreshError);
+                // Don't show error to user since deletion succeeded
+              }
+              
+              Alert.alert('Success', `"${billName}" deleted successfully`);
+            } catch (error: any) {
+              console.error('Error deleting bill:', error);
+              
+              // Provide more specific error messages
+              let errorMessage = 'Failed to delete bill. Please try again.';
+              if (error?.code === '23503') {
+                errorMessage = 'Cannot delete bill: It has related records that prevent deletion.';
+              } else if (error?.message) {
+                errorMessage = error.message;
+              }
+              
+              Alert.alert('Error', errorMessage);
+            }
+          },
+        },
+      ]
+    );
+  }, [bills]);
+
+  // Toggle auto pay (with persistence to Supabase)
+  const handleToggleAutoPay = useCallback(async (billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    if (!bill) return;
+
+    const newAutopayState = !bill.isAutoPay;
+
+    try {
+      // Update in Supabase if bill has string ID
+      if (typeof billId === 'string') {
+        // Use updateBillAutopay service which handles autopay_source validation
+        // If enabling autopay, it will try to use existing account_id or credit_card_id
+        // If no source available, it will disable autopay automatically
+        const billAny = bill as any; // Type assertion for accessing optional fields
+        await updateBillAutopay(
+          billId,
+          newAutopayState,
+          bill.autopay_source as 'account' | 'credit_card' | undefined,
+          billAny.autopay_account_id || billAny.account_id || undefined,
+          billAny.autopay_credit_card_id || billAny.credit_card_id || undefined,
+          false
+        );
+      }
+
+      // Update local state
     setBills((prevBills: Bill[]) =>
       prevBills.map((bill: Bill) => {
         if (bill.id === billId) {
           return {
             ...bill,
-            isAutoPay: !bill.isAutoPay,
-            paymentMethod: !bill.isAutoPay ? 'Auto Pay' : 'Manual',
+              isAutoPay: newAutopayState,
+              paymentMethod: newAutopayState ? 'Auto Pay' : 'Manual',
+              // If autopay was disabled, clear autopay_source
+              autopay_source: newAutopayState ? bill.autopay_source : null,
           };
         }
         return bill;
       })
     );
-  }, []);
+    } catch (error: any) {
+      console.error('Error toggling autopay:', error);
+      Alert.alert('Error', error.message || 'Failed to update autopay settings. Please try again.');
+    }
+  }, [bills]);
 
   // Map UI status to database status
   const mapStatusToDatabase = (uiStatus: string): string => {
@@ -7778,6 +8308,11 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
 
   // Map database status to UI status
   const mapStatusFromDatabase = (dbStatus: string, dueDate: string): string => {
+    // Handle 'paused' and 'ended' statuses directly (now supported in DB)
+    if (dbStatus === 'paused' || dbStatus === 'ended') {
+      return dbStatus;
+    }
+    
     // If status is 'upcoming', determine UI status based on due date
     if (dbStatus === 'upcoming') {
       const due = new Date(dueDate);
@@ -7790,9 +8325,14 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       return 'due_week';
     }
     
-    // Map other statuses
-    if (dbStatus === 'cancelled') return 'ended';
-    return dbStatus; // 'paid', 'overdue', 'paused' map directly
+    // Map legacy 'cancelled' status to 'ended' for backward compatibility
+    if (dbStatus === 'cancelled') {
+      // Check metadata to see if it was paused or ended
+      return 'ended'; // Default to 'ended' for cancelled
+    }
+    
+    // Map other statuses directly
+    return dbStatus; // 'paid', 'overdue' map directly
   };
 
   // Handle pause bill (with persistence to Supabase)
@@ -7808,29 +8348,47 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
             try {
               // Update in Supabase if bill has string ID
               if (typeof billId === 'string') {
-                // Use 'cancelled' status (valid database value)
-                // Store original UI status in metadata to distinguish paused from ended
-                const bill = bills.find(b => b.id === billId);
-                const currentMetadata = bill ? (typeof bill === 'object' && 'metadata' in bill ? (bill as any).metadata : {}) : {};
+                // Use 'paused' status (now supported in database after migration)
                 await updateUpcomingBill(billId, { 
-                  status: 'cancelled' as any, 
-                  metadata: { ...currentMetadata, ui_status: 'paused' } as any
+                  status: 'paused' as any
                 }, false);
+              } else {
+                // For local-only bills, update local state
+                setBills(prevBills =>
+                  prevBills.map(bill =>
+                    bill.id === billId ? { ...bill, status: 'paused' as const } : bill
+                  )
+                );
               }
 
               // Reload bills to get updated data from database
-              const fetchedBills = await fetchUpcomingBills({}, false);
+              const fetchedBills = await fetchUpcomingBills({ status: 'all' }, false);
               const transformedBills = fetchedBills.map(transformDatabaseBillToBill);
               setBills(transformedBills);
+              
+              Alert.alert('Success', 'Bill paused successfully');
             } catch (error: any) {
               console.error('Error pausing bill:', error);
-              Alert.alert('Error', error.message || 'Failed to pause bill. Please try again.');
+              
+              // Check if it's a constraint violation
+              if (error?.code === '23514' || error?.message?.includes('check constraint')) {
+                Alert.alert(
+                  'Migration Required',
+                  'The database needs to be updated to support pausing bills. Please run the migration:\n\n' +
+                  'lib/supabase/migrations/20250119_fix_status_constraint_upcoming_bills_real.sql\n\n' +
+                  'In your Supabase SQL Editor.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                const errorMessage = error?.message || error?.details || 'Failed to pause bill. Please try again.';
+                Alert.alert('Error', `Failed to pause bill: ${errorMessage}`);
+              }
             }
           },
         },
       ]
     );
-  }, []);
+  }, [bills]);
 
   // Handle end bill (with persistence to Supabase)
   const handleEndBill = useCallback(async (billId: number | string) => {
@@ -7846,31 +8404,47 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
             try {
               // Update in Supabase if bill has string ID
               if (typeof billId === 'string') {
-                // Map 'ended' to 'cancelled' in database
-                // Store original UI status in metadata to distinguish ended from paused
-                const bill = bills.find(b => b.id === billId);
-                const currentMetadata = bill ? (typeof bill === 'object' && 'metadata' in bill ? (bill as any).metadata : {}) : {};
+                // Use 'ended' status (now supported in database after migration)
                 await updateUpcomingBill(billId, { 
-                  status: 'cancelled' as any, 
-                  metadata: { ...currentMetadata, ui_status: 'ended' } as any
+                  status: 'ended' as any
                 }, false);
-              }
-
-              // Update local state (keep as 'ended' for UI)
+              } else {
+                // For local-only bills, update local state
               setBills(prevBills =>
                 prevBills.map(bill =>
                   bill.id === billId ? { ...bill, status: 'ended' as const } : bill
                 )
               );
+              }
+
+              // Reload bills to get updated data from database
+              const fetchedBills = await fetchUpcomingBills({ status: 'all' }, false);
+              const transformedBills = fetchedBills.map(transformDatabaseBillToBill);
+              setBills(transformedBills);
+              
+              Alert.alert('Success', 'Bill ended successfully');
             } catch (error: any) {
               console.error('Error ending bill:', error);
-              Alert.alert('Error', error.message || 'Failed to end bill. Please try again.');
+              
+              // Check if it's a constraint violation
+              if (error?.code === '23514' || error?.message?.includes('check constraint')) {
+                Alert.alert(
+                  'Migration Required',
+                  'The database needs to be updated to support ending bills. Please run the migration:\n\n' +
+                  'lib/supabase/migrations/20250119_fix_status_constraint_upcoming_bills_real.sql\n\n' +
+                  'In your Supabase SQL Editor.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                const errorMessage = error?.message || error?.details || 'Failed to end bill. Please try again.';
+                Alert.alert('Error', `Failed to end bill: ${errorMessage}`);
+              }
             }
           },
         },
       ]
     );
-  }, []);
+  }, [bills]);
 
   // Handle resume/reactivate bill (works for both paused and ended bills)
   const handleResumeBill = useCallback(async (billId: number | string) => {
@@ -7907,25 +8481,28 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
               if (typeof billId === 'string') {
                 // Map UI status to database status
                 const dbStatus = mapStatusToDatabase(newStatus);
-                // Clear ui_status from metadata when resuming
-                const bill = bills.find(b => b.id === billId);
-                const currentMetadata = bill ? (typeof bill === 'object' && 'metadata' in bill ? (bill as any).metadata : {}) : {};
-                const { ui_status, ...restMetadata } = currentMetadata;
                 await updateUpcomingBill(billId, { 
-                  status: dbStatus as any,
-                  metadata: restMetadata as any
+                  status: dbStatus as any
                 }, false);
-              }
-
-              // Update local state
+              } else {
+                // For local-only bills, update local state
               setBills(prevBills =>
                 prevBills.map(b =>
                   b.id === billId ? { ...b, status: newStatus } : b
                 )
               );
+              }
+
+              // Reload bills to get updated data from database
+              const fetchedBills = await fetchUpcomingBills({ status: 'all' }, false);
+              const transformedBills = fetchedBills.map(transformDatabaseBillToBill);
+              setBills(transformedBills);
+              
+              Alert.alert('Success', `Bill ${actionText.toLowerCase()}d successfully`);
             } catch (error: any) {
               console.error(`Error ${actionText.toLowerCase()}ing bill:`, error);
-              Alert.alert('Error', error.message || `Failed to ${actionText.toLowerCase()} bill. Please try again.`);
+              const errorMessage = error?.message || error?.details || `Failed to ${actionText.toLowerCase()} bill. Please try again.`;
+              Alert.alert('Error', `Failed to ${actionText.toLowerCase()} bill: ${errorMessage}`);
             }
           },
         },
@@ -7982,7 +8559,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     try {
       if (typeof billId === 'string') {
         // Update bill with reminder settings
-        const reminderDaysBefore = reminder.enabled ? [reminder.daysBefore] : null;
+        // Convert single daysBefore number to array format expected by database
+        const reminderDaysBefore = reminder.enabled && reminder.daysBefore ? [reminder.daysBefore] : null;
         await updateUpcomingBill(billId, {
           reminder_enabled: reminder.enabled,
           reminder_days_before: reminderDaysBefore,
@@ -7992,8 +8570,13 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
         if (reminder.enabled && reminder.daysBefore) {
           const bill = bills.find(b => b.id === billId);
           if (bill) {
+            try {
             const { createRemindersForBill } = await import('../../../../services/billRemindersService');
             await createRemindersForBill(billId, bill.dueDate, [reminder.daysBefore], false);
+            } catch (reminderError) {
+              // If reminder service fails, log but don't fail the update
+              console.warn('Error creating bill reminders:', reminderError);
+            }
           }
         }
       }
@@ -8031,6 +8614,85 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
     }
   }, [bills]);
 
+  // Handle split bill
+  const handleSplitBill = useCallback((billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    if (bill) {
+      setSelectedBillForSplit(bill);
+      setShowSplitModal(true);
+    }
+  }, [bills]);
+
+  // Handle save split bill
+  const handleSaveSplit = useCallback(async (updatedBill: Bill) => {
+    try {
+      // Update in Supabase if bill has string ID
+      if (typeof updatedBill.id === 'string') {
+        // Store split participants in metadata
+        const splitData = {
+          isSplit: updatedBill.isSplit || false,
+          splitParticipants: updatedBill.splitParticipants || [],
+        };
+        
+        const currentMetadata = (updatedBill as any).metadata || {};
+        await updateUpcomingBill(updatedBill.id, {
+          metadata: { ...currentMetadata, split: splitData } as any,
+        }, false);
+      }
+
+      // Update local state
+      setBills(prevBills =>
+        prevBills.map(bill =>
+          bill.id === updatedBill.id ? updatedBill : bill
+        )
+      );
+
+      Alert.alert('Success', 'Bill split updated successfully');
+      setShowSplitModal(false);
+      setSelectedBillForSplit(null);
+    } catch (error: any) {
+      console.error('Error saving split bill:', error);
+      Alert.alert('Error', error.message || 'Failed to save split bill. Please try again.');
+    }
+  }, []);
+
+  // Handle link transaction
+  const handleLinkTransaction = useCallback((billId: number | string) => {
+    const bill = bills.find(b => b.id === billId);
+    if (bill) {
+      setSelectedBillForLink(bill);
+      setShowLinkModal(true);
+    }
+  }, [bills]);
+
+  // Handle save linked transaction
+  const handleSaveLinkedTransaction = useCallback(async (billId: number | string, transactionId: string) => {
+    try {
+      // Update in Supabase if bill has string ID
+      if (typeof billId === 'string') {
+        await updateUpcomingBill(billId, {
+          transaction_id: transactionId,
+        }, false);
+      }
+
+      // Update local state
+      setBills(prevBills =>
+        prevBills.map(bill =>
+          bill.id === billId
+            ? { ...bill, linkedTransactionId: transactionId }
+            : bill
+        )
+      );
+
+      Alert.alert('Success', 'Bill linked to transaction successfully');
+      setShowLinkModal(false);
+      setSelectedBillForLink(null);
+    } catch (error: any) {
+      console.error('Error linking transaction:', error);
+      Alert.alert('Error', error.message || 'Failed to link transaction. Please try again.');
+    }
+  }, []);
+
   // Handle add bill
   const handleAddBill = useCallback(() => {
     setEditingBill(null);
@@ -8038,7 +8700,10 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       name: '',
       amount: '',
       dueDate: new Date().toISOString().split('T')[0],
-      category: 'Utilities',
+      category: '',
+      categoryId: null,
+      subcategory: '',
+      subcategoryId: null,
       billingFrequency: 'monthly',
       paymentStatus: 'upcoming',
       isAutoPay: false,
@@ -8092,18 +8757,33 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
       return;
     }
 
+    if (!formData.categoryId) {
+      Alert.alert('Error', 'Please select a category');
+      return;
+    }
+
     try {
-      // Map billing frequency - handle half-yearly
-      const frequency = formData.billingFrequency === 'half-yearly' ? 'semi-annually' : formData.billingFrequency;
+      // Use billing frequency directly (already in correct format)
+      const frequency = formData.billingFrequency;
+
+      // Build tags array - include category name and subcategory if available
+      const tagsArray: string[] = [];
+      if (formData.category) tagsArray.push(formData.category);
+      if (formData.subcategory) tagsArray.push(formData.subcategory);
+      if (formData.tags && formData.tags.length > 0) {
+        tagsArray.push(...formData.tags.filter(tag => tag !== formData.category && tag !== formData.subcategory));
+      }
 
       const billData: any = {
         name: formData.name,
         amount: parseFloat(formData.amount),
         due_date: formData.dueDate,
         frequency: frequency,
+        category_id: formData.categoryId,
+        subcategory_id: formData.subcategoryId || null,
         description: formData.description || null,
         // New enhanced fields
-        tags: (formData.tags && formData.tags.length > 0) ? formData.tags : null,
+        tags: tagsArray.length > 0 ? tagsArray : null,
         notes: formData.notes || null,
         reminder_days_before: formData.reminderEnabled && formData.reminderDaysBefore.length > 0 
           ? formData.reminderDaysBefore 
@@ -8261,8 +8941,14 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
   };
 
   return (
+    <BillOperationsErrorBoundary
+      onError={(error, errorInfo) => {
+        console.error('Bill operations error:', error, errorInfo);
+      }}
+    >
+      <View style={styles.container}>
     <TouchableOpacity 
-      style={styles.container}
+          style={styles.cardTouchable}
       activeOpacity={0.7}
       onPress={handleNavigateToBills}
     >
@@ -8376,9 +9062,10 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
           ) : (
             <ScrollView 
               style={styles.billsList}
-              contentContainerStyle={styles.billsListContent}
+              contentContainerStyle={[styles.billsListContent, { paddingBottom: 20 }]}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
+              scrollEnabled={true}
             >
               {upcomingBills.slice(0, 5).map((bill, index) => {
                 const statusColor = getStatusColor(bill.status);
@@ -8483,20 +9170,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                       }}
                       onDeleteBill={() => {
                         setDashboardMenuBill(null);
-                          Alert.alert(
-                          'Delete Bill',
-                          'Are you sure you want to delete this bill?',
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              {
-                              text: 'Delete',
-                              style: 'destructive',
-                              onPress: () => {
-                                setBills(prevBills => prevBills.filter(b => b.id !== bill.id));
-                              },
-                              },
-                            ]
-                          );
+                        handleDeleteBill(bill.id);
                       }}
                       onMarkAsPaid={() => {
                         setDashboardMenuBill(null);
@@ -8508,13 +9182,11 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                       }}
                       onSplitBill={() => {
                         setDashboardMenuBill(null);
-                        // Navigate to full bills page for split functionality
-                        handleNavigateToBills();
+                        handleSplitBill(bill.id);
                       }}
                       onLinkTransaction={() => {
                         setDashboardMenuBill(null);
-                        // Navigate to full bills page for link functionality
-                        handleNavigateToBills();
+                        handleLinkTransaction(bill.id);
                       }}
                       onSetReminder={() => {
                         setDashboardMenuBill(null);
@@ -8564,6 +9236,8 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
           )}
         </View>
         </View>
+        </View>
+      </TouchableOpacity>
       </View>
 
       {/* Add/Edit Bill Modal */}
@@ -8601,19 +9275,12 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
             </View>
 
             <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-              {/* Section 1: Basic Info */}
+              {/* Section 1: Required Fields */}
               <View style={styles.modalSection}>
-                <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIconContainer, { backgroundColor: '#3B82F615' }]}>
-                    <Ionicons name="document-text" size={18} color="#3B82F6" />
-                  </View>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
-                </View>
-                
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
                     <Ionicons name="pricetag" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Bill Name *</Text>
+                    <Text style={[styles.formLabel, { color: colors.text }]}>Bill Name <Text style={{ color: '#EF4444' }}>*</Text></Text>
                   </View>
                   <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
                     <Ionicons name="receipt-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
@@ -8630,226 +9297,502 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
                     <Ionicons name="grid" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Category *</Text>
+                    <Text style={[styles.formLabel, { color: colors.text }]}>Category <Text style={{ color: '#EF4444' }}>*</Text></Text>
                   </View>
-                  <View style={styles.categoryButtons}>
-                    {['Utilities', 'Subscriptions', 'Insurance', 'Housing', 'Loan', 'Credit Card', 'Internet', 'Mobile', 'Other'].map((cat) => {
-                      const categoryIcons: { [key: string]: string } = {
-                        'Utilities': 'flash',
-                        'Subscriptions': 'tv',
-                        'Insurance': 'shield-checkmark',
-                        'Housing': 'home',
-                        'Loan': 'card',
-                        'Credit Card': 'card-outline',
-                        'Internet': 'wifi',
-                        'Mobile': 'phone-portrait',
-                        'Other': 'ellipse',
-                      };
-                      const isActive = formData.category === cat;
-                      return (
+                  <View style={styles.selectContainer}>
                         <TouchableOpacity
-                          key={cat}
                           style={[
-                            styles.categoryButton,
-                            { borderColor: colors.border },
-                            isActive && styles.categoryButtonActive,
-                          ]}
-                          onPress={() => setFormData({ ...formData, category: cat })}
-                        >
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.filterBackground,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        console.log('🔵 Category button pressed');
+                        console.log('🔵 categoriesLoading:', categoriesLoading);
+                        console.log('🔵 budgetCategories.length:', budgetCategories.length);
+                        console.log('🔵 getCurrentCategories().length:', getCurrentCategories().length);
+                        if (categoriesLoading) {
+                          console.log('⚠️ Categories still loading, cannot open picker');
+                          return;
+                        }
+                        console.log('✅ Opening category picker');
+                        setShowCategoryPicker(true);
+                      }}
+                    >
+                      <View style={styles.selectTextContainer}>
+                        {(() => {
+                          const selectedCat = formData.categoryId 
+                            ? budgetCategories.find(cat => cat.id === formData.categoryId)
+                            : formData.category
+                            ? budgetCategories.find(cat => cat.name === formData.category)
+                            : null;
+                          
+                          if (selectedCat?.icon) {
+                            return (
                           <Ionicons 
-                            name={categoryIcons[cat] as any} 
-                            size={14} 
-                            color={isActive ? '#FFFFFF' : colors.textSecondary} 
-                            style={{ marginRight: 4 }}
-                          />
+                                name={selectedCat.icon as any}
+                                size={16}
+                                color={colors.textSecondary}
+                                style={{ marginRight: 8 }}
+                              />
+                            );
+                          }
+                          return null;
+                        })()}
                           <Text
                             style={[
-                              styles.categoryButtonText,
-                              { color: isActive ? '#FFFFFF' : colors.textSecondary },
-                            ]}
-                          >
-                            {cat}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.formGroup}>
-                  <View style={styles.labelRow}>
-                    <Ionicons name="cash" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Amount Due ($) *</Text>
-                  </View>
-                  <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
-                    <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>$</Text>
-                    <TextInput
-                      style={[styles.formInput, { color: colors.text }]}
-                      placeholder="0.00"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="decimal-pad"
-                      value={formData.amount}
-                      onChangeText={(text) => setFormData({ ...formData, amount: text })}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.formGroup}>
-                  <View style={styles.labelRow}>
-                    <Ionicons name="calendar" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Due Date *</Text>
-                  </View>
-                  <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
-                    <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.formInput, { color: colors.text }]}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={colors.textSecondary}
-                      value={formData.dueDate}
-                      onChangeText={(text) => setFormData({ ...formData, dueDate: text })}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.formGroup}>
-                  <View style={styles.labelRow}>
-                    <Ionicons name="repeat" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Billing Frequency *</Text>
-                  </View>
-                  <View style={styles.categoryButtons}>
-                    {(['one-time', 'monthly', 'quarterly', 'half-yearly', 'yearly'] as const).map((freq) => {
-                      const isActive = formData.billingFrequency === freq;
-                      return (
-                        <TouchableOpacity
-                          key={freq}
-                          style={[
-                            styles.categoryButton,
-                            { borderColor: colors.border },
-                            isActive && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
+                            styles.selectText,
+                            {
+                              color: (formData.category || formData.categoryId) ? colors.text : colors.textSecondary,
+                            },
                           ]}
-                          onPress={() => setFormData({ ...formData, billingFrequency: freq })}
+                          numberOfLines={1}
                         >
-                          <Ionicons 
-                            name="time-outline" 
-                            size={14} 
-                            color={isActive ? '#FFFFFF' : colors.textSecondary} 
-                            style={{ marginRight: 4 }}
-                          />
-                          <Text
-                            style={[
-                              styles.categoryButtonText,
-                              { color: isActive ? '#FFFFFF' : colors.textSecondary },
-                            ]}
-                          >
-                            {freq === 'one-time' ? 'One-time' : freq.charAt(0).toUpperCase() + freq.slice(1).replace('-', ' ')}
+                          {(() => {
+                            // Try to get category name from ID if category name is not set
+                            if (formData.category) {
+                              return formData.category;
+                            }
+                            if (formData.categoryId) {
+                              const selectedCat = budgetCategories.find(cat => cat.id === formData.categoryId);
+                              return selectedCat?.name || "Select category";
+                            }
+                            return categoriesLoading
+                              ? "Loading..."
+                              : budgetCategories.length > 0
+                              ? "Select category"
+                              : "No categories available";
+                          })()}
                           </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                         </TouchableOpacity>
-                      );
-                    })}
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: colors.filterBackground,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      onPress={() => setShowAddCategoryModal(true)}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
                   </View>
                 </View>
 
+                {/* Subcategory Field - Always visible, disabled when no category selected */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.formLabel, { color: colors.text }]}>Payment Status</Text>
-                  <View style={styles.categoryButtons}>
-                    {(['upcoming', 'paid', 'skipped'] as const).map((status) => (
-                      <TouchableOpacity
-                        key={status}
-                        style={[
-                          styles.categoryButton,
-                          { borderColor: colors.border },
-                          formData.paymentStatus === status && { backgroundColor: status === 'paid' ? '#10B981' : status === 'skipped' ? '#EF4444' : '#3B82F6', borderColor: status === 'paid' ? '#10B981' : status === 'skipped' ? '#EF4444' : '#3B82F6' },
-                        ]}
-                        onPress={() => setFormData({ ...formData, paymentStatus: status })}
-                      >
+                  <View style={styles.labelRow}>
+                    <Ionicons name="list" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.formLabel, { color: colors.text }]}>Subcategory</Text>
+                  </View>
+                  <View style={styles.selectContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.filterBackground,
+                          borderColor: colors.border,
+                          opacity: formData.categoryId ? 1 : 0.6,
+                        },
+                      ]}
+                      disabled={categoriesLoading || !formData.categoryId}
+                      onPress={() => {
+                        if (categoriesLoading || !formData.categoryId) return;
+                        setShowSubcategoryPicker(true);
+                      }}
+                    >
+                      <View style={styles.selectTextContainer}>
+                        {(() => {
+                          if (!formData.categoryId) return null;
+                          const selectedSub = formData.subcategoryId
+                            ? budgetSubcategories.find(sub => sub.id === formData.subcategoryId)
+                            : formData.subcategory
+                            ? budgetSubcategories.find(sub => sub.name === formData.subcategory && sub.category_id === formData.categoryId)
+                            : null;
+                          
+                          if (selectedSub) {
+                            const {
+                              getSubcategoryIconFromDB,
+                            } = require("../../../../utils/subcategoryIcons");
+                            
+                            const dbIconName = selectedSub?.icon;
+                            const iconElement =
+                              getSubcategoryIconFromDB(
+                                dbIconName,
+                                selectedSub.name,
+                                16,
+                                colors.textSecondary
+                              );
+                            
+                            if (iconElement) {
+                              return (
+                                <View style={{ marginRight: 8 }}>
+                                  {iconElement}
+                                </View>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
                         <Text
                           style={[
-                            styles.categoryButtonText,
-                            { color: colors.textSecondary },
-                            formData.paymentStatus === status && { color: '#FFFFFF' },
+                            styles.selectText,
+                            {
+                              color: (formData.subcategory || formData.subcategoryId) ? colors.text : colors.textSecondary,
+                            },
                           ]}
+                          numberOfLines={1}
                         >
-                          {status === 'upcoming' ? 'Upcoming' : status.charAt(0).toUpperCase() + status.slice(1)}
+                          {(() => {
+                            // Try to get subcategory name from ID if subcategory name is not set
+                            if (formData.subcategory) {
+                              return formData.subcategory;
+                            }
+                            if (formData.subcategoryId) {
+                              const selectedSub = budgetSubcategories.find(sub => sub.id === formData.subcategoryId);
+                              return selectedSub?.name || "Select subcategory";
+                            }
+                            return categoriesLoading
+                              ? "Loading..."
+                              : !formData.categoryId
+                              ? "Select category first"
+                              : budgetSubcategories.filter(sub => sub.category_id === formData.categoryId).length > 0
+                              ? "Select subcategory"
+                              : "No subcategories available";
+                          })()}
                         </Text>
-                      </TouchableOpacity>
-                    ))}
+                      </View>
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: colors.filterBackground,
+                          borderColor: colors.border,
+                          opacity: formData.categoryId ? 1 : 0.6,
+                        },
+                      ]}
+                      disabled={!formData.categoryId}
+                      onPress={() => {
+                        if (!formData.categoryId) {
+                          Alert.alert('Error', 'Please select a category first');
+                          return;
+                        }
+                        const selectedCat = budgetCategories.find(cat => cat.id === formData.categoryId);
+                        if (selectedCat) {
+                          setSelectedCategoryForSubcategory(selectedCat);
+                          setShowAddSubcategoryModal(true);
+                        } else {
+                          Alert.alert('Error', 'Please select a category first');
+                        }
+                      }}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
                   </View>
                 </View>
 
-                <View style={[styles.toggleCard, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                <View style={styles.formGroup}>
+                  <View style={styles.rowContainer}>
+                    <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="cash" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.formLabel, { color: colors.text }]}>Amount Due ($) <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                      </View>
+                      <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                        <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>$</Text>
+                        <TextInput
+                          style={[styles.formInput, { color: colors.text }]}
+                          placeholder="0.00"
+                          placeholderTextColor={colors.textSecondary}
+                          keyboardType="decimal-pad"
+                          value={formData.amount}
+                          onChangeText={(text) => setFormData({ ...formData, amount: text })}
+                        />
+                      </View>
+                    </View>
+                    <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="calendar" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.formLabel, { color: colors.text }]}>Due Date <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}
+                        onPress={() => {
+                          const currentDate = formData.dueDate ? new Date(formData.dueDate) : new Date();
+                          setSelectedDate(currentDate);
+                          setShowDatePicker(true);
+                        }}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+                        <Text
+                          style={[styles.formInput, { color: colors.text, flex: 1 }]}
+                        >
+                          {formData.dueDate ? formatDate(formData.dueDate) : 'Select date'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <View style={styles.rowContainer}>
+                    <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                  <View style={styles.labelRow}>
+                    <Ionicons name="repeat" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.formLabel, { color: colors.text }]}>Billing Frequency <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                  </View>
+                        <TouchableOpacity
+                          style={[
+                          styles.selectButton,
+                          {
+                            backgroundColor: colors.filterBackground,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => setShowBillingFrequencyPicker(true)}
+                      >
+                        <View style={styles.selectTextContainer}>
+                          <Ionicons name="time-outline" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                          <Text
+                            style={[
+                              styles.selectText,
+                              { color: colors.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {formData.billingFrequency === 'one-time' ? 'One-time' : formData.billingFrequency.charAt(0).toUpperCase() + formData.billingFrequency.slice(1).replace('-', ' ')}
+                          </Text>
+                        </View>
+                          <Ionicons 
+                          name="chevron-down"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        </TouchableOpacity>
+                  </View>
+                    <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="checkmark-circle" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.formLabel, { color: colors.text }]}>Payment Status</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.selectButton,
+                          {
+                            backgroundColor: colors.filterBackground,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => setShowPaymentStatusPicker(true)}
+                      >
+                        <View style={styles.selectTextContainer}>
+                          <Text
+                            style={[
+                              styles.selectText,
+                              { color: colors.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {formData.paymentStatus === 'upcoming' ? 'Upcoming' : formData.paymentStatus.charAt(0).toUpperCase() + formData.paymentStatus.slice(1)}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name="chevron-down"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        </TouchableOpacity>
+                  </View>
+                  </View>
+              </View>
+                </View>
+
+              {/* Section 2: Auto-Pay & Reminders */}
+              <View style={styles.modalSection}>
+                <View style={styles.formGroup}>
+                  <View style={styles.rowContainer}>
+                    <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="repeat" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.formLabel, { color: colors.text }]}>Auto-Pay</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.selectButton,
+                          {
+                            backgroundColor: colors.filterBackground,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => setFormData({ ...formData, isAutoPay: !formData.isAutoPay })}
+                      >
+                        <View style={styles.selectTextContainer}>
+                          <Ionicons 
+                            name={formData.isAutoPay ? "checkmark-circle" : "ellipse-outline"} 
+                            size={16} 
+                            color={formData.isAutoPay ? "#10B981" : colors.textSecondary} 
+                            style={{ marginRight: 8 }} 
+                          />
+                        <Text
+                          style={[
+                              styles.selectText,
+                              { color: colors.text },
+                          ]}
+                            numberOfLines={1}
+                        >
+                            {formData.isAutoPay ? 'Enabled' : 'Disabled'}
+                        </Text>
+                        </View>
+                        <Ionicons
+                          name="chevron-down"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                  </View>
+                    <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="notifications" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.formLabel, { color: colors.text }]}>Remind me</Text>
+                </View>
                   <TouchableOpacity
-                    style={styles.toggleRow}
-                    onPress={() => setFormData({ ...formData, isAutoPay: !formData.isAutoPay })}
-                  >
-                    <View style={styles.toggleRowLeft}>
-                      <View style={[styles.toggleIconContainer, { backgroundColor: formData.isAutoPay ? '#10B98120' : '#6B728020' }]}>
-                        <Ionicons name="repeat" size={20} color={formData.isAutoPay ? "#10B981" : colors.textSecondary} />
+                        style={[
+                          styles.selectButton,
+                          {
+                            backgroundColor: colors.filterBackground,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => setShowReminderPicker(true)}
+                      >
+                        <View style={styles.selectTextContainer}>
+                          <Text
+                            style={[
+                              styles.selectText,
+                              { color: colors.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {formData.reminderEnabled 
+                              ? `${formData.reminderDaysBefore.join(', ')} day${formData.reminderDaysBefore.length > 1 ? 's' : ''}`
+                              : 'No reminder'}
+                          </Text>
                       </View>
-                      <View>
-                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Auto-Pay Enabled</Text>
-                        <Text style={[styles.toggleSubtext, { color: colors.textSecondary }]}>Automatically pay this bill</Text>
+                        <Ionicons
+                          name="chevron-down"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                      </TouchableOpacity>
                       </View>
                     </View>
-                    <View style={[styles.toggleSwitch, formData.isAutoPay && styles.toggleSwitchActive]}>
-                      <View style={[styles.toggleKnob, formData.isAutoPay && styles.toggleKnobActive]} />
-                    </View>
-                  </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Section 2: Schedule & Reminders */}
+              {/* Section 2.5: Recurrence Settings */}
+              {formData.billingFrequency !== 'one-time' && (
               <View style={styles.modalSection}>
                 <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIconContainer, { backgroundColor: '#F59E0B15' }]}>
-                    <Ionicons name="notifications" size={18} color="#F59E0B" />
-                  </View>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Reminders & Notifications</Text>
-                </View>
-                
-                <BillReminderConfig
-                  reminderDaysBefore={formData.reminderDaysBefore}
-                  reminderEnabled={formData.reminderEnabled}
-                  onUpdate={(daysBefore, enabled) => {
-                          setFormData({
-                            ...formData,
-                      reminderDaysBefore: daysBefore,
-                      reminderEnabled: enabled,
-                          });
-                        }}
-                />
-                        </View>
-
-              {/* Section 2.5: Recurrence Pattern */}
-              {formData.billingFrequency !== 'one-time' && (
-                <View style={styles.modalSection}>
-                  <View style={styles.sectionHeader}>
                     <View style={[styles.sectionIconContainer, { backgroundColor: '#10B98115' }]}>
                       <Ionicons name="repeat" size={18} color="#10B981" />
-                    </View>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Recurrence Pattern</Text>
                   </View>
-                  <RecurrencePatternEditor
-                    frequency={formData.billingFrequency}
-                    recurrencePattern={formData.recurrencePattern}
-                    recurrenceCount={formData.recurrenceCount}
-                    recurrenceEndDate={formData.recurrenceEndDate}
-                    dueDate={formData.dueDate}
-                    onUpdate={(pattern) => {
-                      setFormData({
-                        ...formData,
-                        billingFrequency: pattern.frequency as any,
-                        recurrencePattern: pattern.recurrencePattern,
-                        recurrenceCount: pattern.recurrenceCount,
-                        recurrenceEndDate: pattern.recurrenceEndDate,
-                        nextDueDate: pattern.nextDueDate,
-                      });
-                    }}
-                  />
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Recurrence Settings</Text>
+                </View>
+                
+                  {/* Set End Date and Number of Occurrences in Single Row */}
+                  <View style={styles.formGroup}>
+                    <View style={styles.rowContainer}>
+                      <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="calendar" size={16} color={colors.textSecondary} />
+                          <Text style={[styles.formLabel, { color: colors.text }]}>Set end date</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.selectButton,
+                            {
+                              backgroundColor: colors.filterBackground,
+                              borderColor: colors.border,
+                              opacity: formData.hasEndDate ? 1 : 0.6,
+                            },
+                          ]}
+                          onPress={() => {
+                            if (!formData.hasEndDate) {
+                              setFormData({ ...formData, hasEndDate: true });
+                            }
+                            const currentEndDate = formData.endDate ? new Date(formData.endDate) : new Date();
+                            setSelectedEndDate(currentEndDate);
+                            setShowEndDatePicker(true);
+                          }}
+                        >
+                          <View style={styles.selectTextContainer}>
+                            <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                            <Text
+                              style={[
+                                styles.selectText,
+                                { color: formData.endDate ? colors.text : colors.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {formData.endDate ? formatDate(formData.endDate) : 'Select date'}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-down"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                        </View>
+                      <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="repeat" size={16} color={colors.textSecondary} />
+                          <Text style={[styles.formLabel, { color: colors.text }]}>Occurrences</Text>
+                    </View>
+                        <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                          <TextInput
+                            style={[styles.formInput, { color: colors.text }]}
+                            placeholder="e.g., 12"
+                            placeholderTextColor={colors.textSecondary}
+                            keyboardType="number-pad"
+                            value={formData.recurrenceCount?.toString() || ''}
+                            onChangeText={(text) => {
+                              const num = text ? parseInt(text, 10) : null;
+                              setFormData({ ...formData, recurrenceCount: num });
+                            }}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  </View>
               </View>
               )}
 
               {/* Section 3: Payment Method */}
-              <View style={styles.modalSection}>
+              <View style={[styles.modalSection, { borderBottomWidth: 0 }]}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.sectionIconContainer, { backgroundColor: '#8B5CF615' }]}>
                     <Ionicons name="wallet" size={18} color="#8B5CF6" />
@@ -8858,29 +9801,75 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                 </View>
                 
                 <View style={styles.formGroup}>
+                  <View style={styles.rowContainer}>
+                    <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="wallet" size={16} color={colors.textSecondary} />
                   <Text style={[styles.formLabel, { color: colors.text }]}>Payment Method</Text>
-                  <View style={styles.categoryButtons}>
-                    {(['', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Cash', 'Wallet'] as const).map((method) => (
+                      </View>
                       <TouchableOpacity
-                        key={method || 'none'}
                         style={[
-                          styles.categoryButton,
-                          { borderColor: colors.border },
-                          formData.paymentMethod === method && styles.categoryButtonActive,
+                          styles.selectButton,
+                          {
+                            backgroundColor: colors.filterBackground,
+                            borderColor: colors.border,
+                          },
                         ]}
-                        onPress={() => setFormData({ ...formData, paymentMethod: method })}
+                        onPress={() => setShowPaymentMethodPicker(true)}
                       >
+                        <View style={styles.selectTextContainer}>
                         <Text
                           style={[
-                            styles.categoryButtonText,
-                            { color: colors.textSecondary },
-                            formData.paymentMethod === method && styles.categoryButtonTextActive,
+                              styles.selectText,
+                              { color: formData.paymentMethod ? colors.text : colors.textSecondary },
                           ]}
+                            numberOfLines={1}
                         >
-                          {method || 'None'}
+                            {formData.paymentMethod || 'Select payment method'}
                         </Text>
+                        </View>
+                        <Ionicons
+                          name="chevron-down"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
                       </TouchableOpacity>
-                    ))}
+                    </View>
+                    <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="pricetag-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.formLabel, { color: colors.text }]}>Tags</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.selectButton,
+                          {
+                            backgroundColor: colors.filterBackground,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => setShowTagsPicker(true)}
+                      >
+                        <View style={styles.selectTextContainer}>
+                          <Text
+                            style={[
+                              styles.selectText,
+                              { color: (formData.tags && formData.tags.length > 0) ? colors.text : colors.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {formData.tags && formData.tags.length > 0 
+                              ? formData.tags.join(', ') 
+                              : 'Select tags'}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name="chevron-down"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
 
@@ -8890,16 +9879,56 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                       <Ionicons name="card" size={16} color={colors.textSecondary} />
                       <Text style={[styles.formLabel, { color: colors.text }]}>Linked Account / Card</Text>
                     </View>
-                    <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
-                      <Ionicons name="card-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.formInput, { color: colors.text }]}
-                        placeholder="e.g., **** 1234"
-                        placeholderTextColor={colors.textSecondary}
-                        value={formData.linkedAccount}
-                        onChangeText={(text) => setFormData({ ...formData, linkedAccount: text })}
+                    <TouchableOpacity
+                      style={[
+                        styles.selectButton,
+                        {
+                          backgroundColor: colors.filterBackground,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        // Determine which account types to show based on payment method
+                        const paymentMethod = formData.paymentMethod?.toLowerCase() || '';
+                        let initialType: 'account' | 'credit_card' | null = null;
+                        let shouldAllowTypeSelection = true;
+                        
+                        // Credit Card payment method -> show credit cards directly
+                        if (paymentMethod.includes('credit')) {
+                          initialType = 'credit_card';
+                          shouldAllowTypeSelection = false;
+                        }
+                        // Debit Card, Net Banking, UPI -> show accounts directly
+                        else if (paymentMethod.includes('debit') || paymentMethod.includes('net banking') || paymentMethod.includes('upi')) {
+                          initialType = 'account';
+                          shouldAllowTypeSelection = false;
+                        }
+                        // Cash, Wallet, None -> show both options
+                        // Otherwise show type selection
+                        
+                        setAllowTypeSelection(shouldAllowTypeSelection);
+                        setLinkedAccountType(initialType);
+                        setShowLinkedAccountPicker(true);
+                      }}
+                    >
+                      <View style={styles.selectTextContainer}>
+                        <Ionicons name="card-outline" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                        <Text
+                          style={[
+                            styles.selectText,
+                            { color: formData.linkedAccount ? colors.text : colors.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {formData.linkedAccount || 'Select account or card'}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
                       />
-                    </View>
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -8917,28 +9946,6 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
                       numberOfLines={3}
                       value={formData.description}
                       onChangeText={(text) => setFormData({ ...formData, description: text })}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.formGroup}>
-                  <View style={styles.labelRow}>
-                    <Ionicons name="pricetag-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Tags</Text>
-                  </View>
-                  <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
-                    <Ionicons name="pricetag" size={18} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.formInput, { color: colors.text }]}
-                      placeholder="Enter tags separated by commas (e.g., utilities, monthly)"
-                      placeholderTextColor={colors.textSecondary}
-                      value={(formData.tags || []).join(', ')}
-                      onChangeText={(text) => {
-                        setFormData({
-                          ...formData,
-                          tags: text.split(',').map(t => t.trim()).filter(t => t.length > 0),
-                        });
-                      }}
                     />
                   </View>
                 </View>
@@ -8964,7 +9971,7 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
 
               {/* Advanced Options - Collapsible */}
               <TouchableOpacity
-                style={[styles.advancedHeader, { borderTopColor: colors.border }]}
+                style={[styles.advancedHeader, { borderTopColor: colors.border, borderTopWidth: 1, marginTop: 4 }]}
                 onPress={() => setFormData({ ...formData, showAdvanced: !formData.showAdvanced })}
               >
                 <View style={styles.advancedHeaderLeft}>
@@ -8982,204 +9989,232 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
 
               {formData.showAdvanced && (
                 <View style={styles.modalSection}>
-                  <View style={styles.formGroup}>
+                  <View style={[styles.formGroup, { marginBottom: 12 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="business-outline" size={16} color={colors.textSecondary} />
                     <Text style={[styles.formLabel, { color: colors.text }]}>Service Provider</Text>
+                      </View>
+                      <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                        <Ionicons name="business" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                     <TextInput
-                      style={[styles.formInput, { backgroundColor: colors.filterBackground, color: colors.text, borderColor: colors.border }]}
+                          style={[styles.formInput, { color: colors.text }]}
                       placeholder="e.g., BESCOM, Airtel"
                       placeholderTextColor={colors.textSecondary}
                       value={formData.serviceProvider}
                       onChangeText={(text) => setFormData({ ...formData, serviceProvider: text })}
                     />
+                      </View>
                   </View>
 
-                  <View style={styles.formGroup}>
+                  <View style={[styles.formGroup, { marginBottom: 12 }]}>
+                    <View style={styles.rowContainer}>
+                      <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="id-card-outline" size={16} color={colors.textSecondary} />
                     <Text style={[styles.formLabel, { color: colors.text }]}>Consumer / Customer ID</Text>
+                        </View>
+                        <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                          <Ionicons name="id-card" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                     <TextInput
-                      style={[styles.formInput, { backgroundColor: colors.filterBackground, color: colors.text, borderColor: colors.border }]}
+                            style={[styles.formInput, { color: colors.text }]}
                       placeholder="Optional"
                       placeholderTextColor={colors.textSecondary}
                       value={formData.consumerId}
                       onChangeText={(text) => setFormData({ ...formData, consumerId: text })}
                     />
                   </View>
-
-                  <View style={styles.formGroup}>
+                      </View>
+                      <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="alert-circle-outline" size={16} color={colors.textSecondary} />
                     <Text style={[styles.formLabel, { color: colors.text }]}>Late Fee / Penalty</Text>
+                        </View>
+                        <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                          <Ionicons name="cash-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                     <TextInput
-                      style={[styles.formInput, { backgroundColor: colors.filterBackground, color: colors.text, borderColor: colors.border }]}
+                            style={[styles.formInput, { color: colors.text }]}
                       placeholder="0.00"
                       placeholderTextColor={colors.textSecondary}
                       keyboardType="decimal-pad"
                       value={formData.lateFee}
                       onChangeText={(text) => setFormData({ ...formData, lateFee: text })}
                     />
+                        </View>
+                      </View>
+                    </View>
                   </View>
 
+                  <View style={[styles.formGroup, { marginBottom: 12 }]}>
+                    <View style={styles.rowContainer}>
+                      <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="swap-horizontal" size={16} color={colors.textSecondary} />
+                          <Text style={[styles.formLabel, { color: colors.text }]}>Variable Amount</Text>
+                        </View>
+                        <View style={[styles.toggleCard, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
                   <TouchableOpacity
                     style={styles.toggleRow}
                     onPress={() => setFormData({ ...formData, isVariableAmount: !formData.isVariableAmount })}
                   >
                     <View style={styles.toggleRowLeft}>
-                      <Ionicons name="swap-horizontal" size={20} color="#F59E0B" />
-                      <View>
-                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Variable Amount</Text>
-                        <Text style={[styles.toggleSubtext, { color: colors.textSecondary }]}>For utility bills with varying amounts</Text>
+                              <Ionicons name="swap-horizontal" size={16} color={colors.textSecondary} />
+                      </View>
+                            <View style={[
+                              styles.toggleSwitchCompact, 
+                              { backgroundColor: formData.isVariableAmount ? colors.primary : (isDark ? '#4B5563' : '#D1D5DB') },
+                              formData.isVariableAmount && styles.toggleSwitchActiveCompact
+                            ]}>
+                              <View style={[styles.toggleKnobCompact, formData.isVariableAmount && styles.toggleKnobActiveCompact]} />
+                    </View>
+                          </TouchableOpacity>
+                    </View>
+                      </View>
+                      <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="flag-outline" size={16} color={colors.textSecondary} />
+                          <Text style={[styles.formLabel, { color: colors.text }]}>Priority</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.selectButton,
+                            {
+                              backgroundColor: colors.filterBackground,
+                              borderColor: colors.border,
+                            },
+                          ]}
+                          onPress={() => setShowPriorityPicker(true)}
+                        >
+                          <View style={styles.selectTextContainer}>
+                            <Text
+                              style={[
+                                styles.selectText,
+                                { color: formData.priority ? colors.text : colors.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {formData.priority ? formData.priority.charAt(0).toUpperCase() + formData.priority.slice(1) : 'Select priority'}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-down"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                  </TouchableOpacity>
                       </View>
                     </View>
-                    <View style={[styles.toggleSwitch, formData.isVariableAmount && { backgroundColor: '#F59E0B' }]}>
-                      <View style={[styles.toggleKnob, formData.isVariableAmount && styles.toggleKnobActive]} />
-                    </View>
-                  </TouchableOpacity>
+                  </View>
 
                   {formData.isVariableAmount && (
-                    <View style={styles.formGroup}>
+                    <View style={[styles.formGroup, { marginBottom: 12 }]}>
+                      <View style={styles.labelRow}>
+                        <Ionicons name="cash" size={16} color={colors.textSecondary} />
                       <Text style={[styles.formLabel, { color: colors.text }]}>Last Paid Amount (Estimate)</Text>
+                      </View>
+                      <View style={[styles.inputContainer, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
+                        <Ionicons name="cash-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                       <TextInput
-                        style={[styles.formInput, { backgroundColor: colors.filterBackground, color: colors.text, borderColor: colors.border }]}
+                          style={[styles.formInput, { color: colors.text }]}
                         placeholder="0.00"
                         placeholderTextColor={colors.textSecondary}
                         keyboardType="decimal-pad"
                         value={formData.lastPaidAmount}
                         onChangeText={(text) => setFormData({ ...formData, lastPaidAmount: text })}
                       />
+                      </View>
                     </View>
                   )}
-
-                  <View style={styles.formGroup}>
-                    <Text style={[styles.formLabel, { color: colors.text }]}>Priority</Text>
-                    <View style={styles.categoryButtons}>
-                      {(['high', 'medium', 'low'] as const).map((priority) => (
-                        <TouchableOpacity
-                          key={priority}
-                          style={[
-                            styles.categoryButton,
-                            { borderColor: colors.border },
-                            formData.priority === priority && { 
-                              backgroundColor: priority === 'high' ? '#EF4444' : priority === 'medium' ? '#F59E0B' : '#10B981', 
-                              borderColor: priority === 'high' ? '#EF4444' : priority === 'medium' ? '#F59E0B' : '#10B981' 
-                            },
-                          ]}
-                          onPress={() => setFormData({ ...formData, priority })}
-                        >
-                          <Text
-                            style={[
-                              styles.categoryButtonText,
-                              { color: colors.textSecondary },
-                              formData.priority === priority && { color: '#FFFFFF' },
-                            ]}
-                          >
-                            {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
 
                   {formData.billingFrequency !== 'one-time' && (
-                    <>
-                      <View style={styles.formGroup}>
+                      <View style={[styles.formGroup, { marginBottom: 12 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
                         <Text style={[styles.formLabel, { color: colors.text }]}>Start Date</Text>
-                        <TextInput
-                          style={[styles.formInput, { backgroundColor: colors.filterBackground, color: colors.text, borderColor: colors.border }]}
-                          placeholder="YYYY-MM-DD"
-                          placeholderTextColor={colors.textSecondary}
-                          value={formData.startDate}
-                          onChangeText={(text) => setFormData({ ...formData, startDate: text })}
-                        />
                       </View>
-
-                      <TouchableOpacity
-                        style={styles.toggleRow}
-                        onPress={() => setFormData({ ...formData, hasEndDate: !formData.hasEndDate })}
-                      >
-                        <View style={styles.toggleRowLeft}>
-                          <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
-                          <Text style={[styles.toggleLabel, { color: colors.text }]}>Set End Date</Text>
-                        </View>
-                        <View style={[styles.toggleSwitch, formData.hasEndDate && { backgroundColor: '#3B82F6' }]}>
-                          <View style={[styles.toggleKnob, formData.hasEndDate && styles.toggleKnobActive]} />
-                        </View>
-                      </TouchableOpacity>
-
-                      {formData.hasEndDate && (
-                        <View style={styles.formGroup}>
-                          <Text style={[styles.formLabel, { color: colors.text }]}>End Date</Text>
-                          <TextInput
-                            style={[styles.formInput, { backgroundColor: colors.filterBackground, color: colors.text, borderColor: colors.border }]}
-                            placeholder="YYYY-MM-DD"
-                            placeholderTextColor={colors.textSecondary}
-                            value={formData.endDate}
-                            onChangeText={(text) => setFormData({ ...formData, endDate: text })}
+                        <TouchableOpacity
+                          style={[
+                            styles.selectButton,
+                            {
+                              backgroundColor: colors.filterBackground,
+                              borderColor: colors.border,
+                            },
+                          ]}
+                          onPress={() => {
+                            setSelectedStartDate(formData.startDate ? new Date(formData.startDate) : new Date());
+                            setShowStartDatePicker(true);
+                          }}
+                        >
+                          <View style={styles.selectTextContainer}>
+                            <Ionicons name="calendar" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                          <Text
+                            style={[
+                                styles.selectText,
+                                { color: formData.startDate ? colors.text : colors.textSecondary },
+                            ]}
+                              numberOfLines={1}
+                          >
+                              {formData.startDate || 'Select start date'}
+                          </Text>
+                    </View>
+                          <Ionicons
+                            name="chevron-down"
+                            size={16}
+                            color={colors.textSecondary}
                           />
+                      </TouchableOpacity>
                         </View>
-                      )}
-                    </>
                   )}
 
+                  <View style={[styles.formGroup, { marginBottom: 12 }]}>
+                    <View style={styles.rowContainer}>
+                      <View style={[styles.halfWidth, { marginRight: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="receipt-outline" size={16} color={colors.textSecondary} />
+                          <Text style={[styles.formLabel, { color: colors.text }]}>Tax / GST Included</Text>
+                        </View>
+                        <View style={[styles.toggleCard, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
                   <TouchableOpacity
                     style={styles.toggleRow}
                     onPress={() => setFormData({ ...formData, hasTax: !formData.hasTax })}
                   >
                     <View style={styles.toggleRowLeft}>
-                      <Ionicons name="receipt" size={20} color="#8B5CF6" />
-                      <Text style={[styles.toggleLabel, { color: colors.text }]}>Tax / GST Included</Text>
+                              <Ionicons name="receipt-outline" size={16} color={colors.textSecondary} />
                     </View>
-                    <View style={[styles.toggleSwitch, formData.hasTax && { backgroundColor: '#8B5CF6' }]}>
-                      <View style={[styles.toggleKnob, formData.hasTax && styles.toggleKnobActive]} />
+                            <View style={[
+                              styles.toggleSwitchCompact, 
+                              { backgroundColor: formData.hasTax ? colors.primary : (isDark ? '#4B5563' : '#D1D5DB') },
+                              formData.hasTax && styles.toggleSwitchActiveCompact
+                            ]}>
+                              <View style={[styles.toggleKnobCompact, formData.hasTax && styles.toggleKnobActiveCompact]} />
                     </View>
                   </TouchableOpacity>
-
-                  {/* Budget Integration */}
+                        </View>
+                      </View>
+                      <View style={[styles.halfWidth, { marginLeft: 8 }]}>
+                        <View style={styles.labelRow}>
+                          <Ionicons name="pie-chart-outline" size={16} color={colors.textSecondary} />
+                          <Text style={[styles.formLabel, { color: colors.text }]}>Include in Budget</Text>
+                        </View>
                   <View style={[styles.toggleCard, { backgroundColor: colors.filterBackground, borderColor: colors.border }]}>
                     <TouchableOpacity
                       style={styles.toggleRow}
                       onPress={() => setFormData({ ...formData, isIncludedInBudget: !formData.isIncludedInBudget })}
                     >
                       <View style={styles.toggleRowLeft}>
-                        <View style={[styles.toggleIconContainer, { backgroundColor: formData.isIncludedInBudget ? '#10B98120' : '#6B728020' }]}>
-                          <Ionicons name="pie-chart" size={20} color={formData.isIncludedInBudget ? "#10B981" : colors.textSecondary} />
+                              <Ionicons name="pie-chart-outline" size={16} color={colors.textSecondary} />
                         </View>
-                        <View>
-                          <Text style={[styles.toggleLabel, { color: colors.text }]}>Include in Budget</Text>
-                          <Text style={[styles.toggleSubtext, { color: colors.textSecondary }]}>
-                            Include this bill in budget calculations
-                          </Text>
+                            <View style={[
+                              styles.toggleSwitchCompact, 
+                              { backgroundColor: formData.isIncludedInBudget ? colors.primary : (isDark ? '#4B5563' : '#D1D5DB') },
+                              formData.isIncludedInBudget && styles.toggleSwitchActiveCompact
+                            ]}>
+                              <View style={[styles.toggleKnobCompact, formData.isIncludedInBudget && styles.toggleKnobActiveCompact]} />
                         </View>
-                      </View>
-                      <View style={[styles.toggleSwitch, formData.isIncludedInBudget && styles.toggleSwitchActive]}>
-                        <View style={[styles.toggleKnob, formData.isIncludedInBudget && styles.toggleKnobActive]} />
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-
-                  {formData.isIncludedInBudget && (
-                    <View style={styles.formGroup}>
-                      <Text style={[styles.formLabel, { color: colors.text }]}>Budget Period</Text>
-                      <View style={styles.categoryButtons}>
-                        {(['monthly', 'quarterly', 'yearly'] as const).map((period) => (
-                          <TouchableOpacity
-                            key={period}
-                            style={[
-                              styles.categoryButton,
-                              { borderColor: colors.border },
-                              formData.budgetPeriod === period && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
-                            ]}
-                            onPress={() => setFormData({ ...formData, budgetPeriod: period })}
-                          >
-                            <Text
-                              style={[
-                                styles.categoryButtonText,
-                                { color: formData.budgetPeriod === period ? '#FFFFFF' : colors.textSecondary },
-                              ]}
-                            >
-                              {period.charAt(0).toUpperCase() + period.slice(1)}
-                            </Text>
                           </TouchableOpacity>
-                        ))}
                       </View>
-                    </View>
-                  )}
+                      </View>
+                  </View>
+                      </View>
                 </View>
               )}
             </ScrollView>
@@ -9203,7 +10238,1465 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
             </View>
           </View>
         </KeyboardAvoidingView>
+        
+        {/* Category Picker Overlay - Rendered inside Add/Edit Bill Modal */}
+        {showCategoryPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => {
+                console.log('🔴 Category picker overlay backdrop pressed');
+                setShowCategoryPicker(false);
+              }}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🔴 Category picker close button pressed');
+                          setShowCategoryPicker(false);
+                        }}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons
+                          name="close"
+                          size={24}
+                          color={colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                      <View style={styles.pickerTitleRow}>
+                        <Text
+                          style={[styles.pickerTitle, { color: colors.text }]}
+                        >
+                          Select Category
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.viewToggleSingleButton,
+                            { backgroundColor: categoryViewMode === "grid" ? colors.primary : colors.card }
+                          ]}
+                          onPress={() => setCategoryViewMode(categoryViewMode === "grid" ? "list" : "grid")}
+                        >
+                          <Ionicons
+                            name="grid"
+                            size={16}
+                            color={categoryViewMode === "grid" ? "#fff" : colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🔴 Category picker checkmark pressed');
+                          setShowCategoryPicker(false);
+                        }}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons
+                          name="checkmark"
+                          size={24}
+                          color={colors.primary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.pickerContent}>
+                      {(() => {
+                        console.log('🔵 Category Picker Overlay Content Rendering');
+                        console.log('🔵 showCategoryPicker:', showCategoryPicker);
+                        console.log('🔵 categoriesLoading:', categoriesLoading);
+                        console.log('🔵 budgetCategories.length:', budgetCategories.length);
+                        const currentCats = getCurrentCategories();
+                        console.log('🔵 getCurrentCategories().length:', currentCats.length);
+                        return null;
+                      })()}
+                      {categoriesLoading ? (
+                        <View style={styles.emptyState}>
+                          <ActivityIndicator size="large" color={colors.primary} />
+                          <Text style={[styles.emptyStateText, { color: colors.textSecondary, marginTop: 12 }]}>
+                            Loading categories...
+                          </Text>
+                        </View>
+                      ) : getCurrentCategories().length === 0 ? (
+                        <View style={styles.emptyState}>
+                          <Ionicons name="folder-outline" size={48} color={colors.textSecondary} />
+                          <Text style={[styles.emptyStateText, { color: colors.textSecondary, marginTop: 12 }]}>
+                            No categories available
+                          </Text>
+                          <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: 12, marginTop: 4 }]}>
+                            Tap the + button to add a category
+                          </Text>
+                        </View>
+                      ) : categoryViewMode === "list" ? (
+                        // List View
+                        getCurrentCategories().map((categoryObj: any, index: number) => {
+                          const isSelected = formData.categoryId === categoryObj.id || formData.category === categoryObj.name;
+                          return (
+                            <TouchableOpacity
+                              key={categoryObj.id || index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                console.log('🔵 Category selected:', categoryObj.name);
+                                setFormData({
+                                  ...formData,
+                                  category: categoryObj.name,
+                                  categoryId: categoryObj.id,
+                                  subcategory: '',
+                                  subcategoryId: null,
+                                });
+                                setShowCategoryPicker(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.pickerItemText,
+                                  {
+                                    color:
+                                      isSelected
+                                        ? colors.primary
+                                        : colors.text,
+                                    fontWeight:
+                                      isSelected ? "600" : "400",
+                                  },
+                                ]}
+                              >
+                                {categoryObj.name}
+                              </Text>
+                              {isSelected && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })
+                      ) : (
+                        // Grid View
+                        <View style={styles.gridContainer}>
+                          {getCurrentCategories().map((categoryObj: any, index: number) => {
+                            const isSelected = formData.categoryId === categoryObj.id || formData.category === categoryObj.name;
+                            return (
+                              <TouchableOpacity
+                                key={categoryObj.id || index}
+                                style={[
+                                  styles.gridItem,
+                                  {
+                                    backgroundColor: isSelected ? colors.primary + "20" : colors.card,
+                                    borderColor: isSelected ? colors.primary : colors.border,
+                                  },
+                                ]}
+                                onPress={() => {
+                                  console.log('🔵 Category selected:', categoryObj.name);
+                                  setFormData({
+                                    ...formData,
+                                    category: categoryObj.name,
+                                    categoryId: categoryObj.id,
+                                    subcategory: '',
+                                    subcategoryId: null,
+                                  });
+                                  setShowCategoryPicker(false);
+                                }}
+                              >
+                                <Text
+                                  style={[
+                                    styles.gridItemText,
+                                    {
+                                      color:
+                                        isSelected
+                                          ? colors.primary
+                                          : colors.text,
+                                    },
+                                  ]}
+                                >
+                                  {categoryObj.name}
+                                </Text>
+                                {isSelected && (
+                                  <Ionicons
+                                    name="checkmark-circle"
+                                    size={16}
+                                    color={colors.primary}
+                                    style={styles.gridItemCheckmark}
+                                  />
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+        
+        {/* Subcategory Picker Overlay - Rendered inside Add/Edit Bill Modal */}
+        {showSubcategoryPicker && (formData.categoryId || formData.category) && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => {
+                console.log('🔴 Subcategory picker overlay backdrop pressed');
+                setShowSubcategoryPicker(false);
+              }}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🔴 Subcategory picker close button pressed');
+                          setShowSubcategoryPicker(false);
+                        }}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons
+                          name="close"
+                          size={24}
+                          color={colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                      <View style={styles.pickerTitleRow}>
+                        <Text
+                          style={[styles.pickerTitle, { color: colors.text }]}
+                        >
+                          Select Subcategory
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.viewToggleSingleButton,
+                            { backgroundColor: subcategoryViewMode === "grid" ? colors.primary : colors.card }
+                          ]}
+                          onPress={() => setSubcategoryViewMode(subcategoryViewMode === "grid" ? "list" : "grid")}
+                        >
+                          <Ionicons
+                            name="grid"
+                            size={16}
+                            color={subcategoryViewMode === "grid" ? "#fff" : colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🔴 Subcategory picker checkmark pressed');
+                          setShowSubcategoryPicker(false);
+                        }}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons
+                          name="checkmark"
+                          size={24}
+                          color={colors.primary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView 
+                      style={[
+                        styles.pickerContent,
+                        subcategoryViewMode === "grid" ? styles.pickerContentGrid : undefined
+                      ]}
+                      showsVerticalScrollIndicator={true}
+                      nestedScrollEnabled={true}
+                      contentContainerStyle={subcategoryViewMode === "grid" ? styles.gridScrollContent : undefined}
+                    >
+                      {categoriesLoading ? (
+                        <View style={styles.emptyState}>
+                          <ActivityIndicator size="large" color={colors.primary} />
+                          <Text style={[styles.emptyStateText, { color: colors.textSecondary, marginTop: 12 }]}>
+                            Loading subcategories...
+                          </Text>
+                        </View>
+                      ) : getCurrentSubcategories().length === 0 ? (
+                        <View style={styles.emptyState}>
+                          <Ionicons name="list-outline" size={48} color={colors.textSecondary} />
+                          <Text style={[styles.emptyStateText, { color: colors.textSecondary, marginTop: 12 }]}>
+                            No subcategories available
+                          </Text>
+                          <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: 12, marginTop: 4 }]}>
+                            Tap the + button to add a subcategory
+                          </Text>
+                        </View>
+                      ) : subcategoryViewMode === "list" ? (
+                        // List View
+                        getCurrentSubcategories().map((subcategoryObj: any, index: number) => {
+                          const {
+                            getSubcategoryIconFromDB,
+                          } = require("../../../../utils/subcategoryIcons");
+                          
+                          const isSelected = formData.subcategoryId === subcategoryObj.id || formData.subcategory === subcategoryObj.name;
+                          const dbIconName = subcategoryObj?.icon;
+                          const iconElement =
+                            getSubcategoryIconFromDB(
+                              dbIconName,
+                              subcategoryObj.name,
+                              20,
+                              isSelected ? colors.primary : colors.textSecondary
+                            );
+
+                          return (
+                            <TouchableOpacity
+                              key={subcategoryObj.id || index}
+                              style={[
+                                styles.pickerItem,
+                                { borderBottomColor: colors.border },
+                              ]}
+                              onPress={() => {
+                                console.log('🔵 Subcategory selected:', subcategoryObj.name);
+                                setFormData({
+                                  ...formData,
+                                  subcategory: subcategoryObj.name,
+                                  subcategoryId: subcategoryObj.id,
+                                });
+                                setShowSubcategoryPicker(false);
+                              }}
+                            >
+                              <View style={styles.pickerItemContent}>
+                                <View style={styles.pickerItemIcon}>
+                                  {iconElement || <Text style={styles.pickerItemEmoji}>📄</Text>}
+                                </View>
+                                <Text
+                                  style={[
+                                    styles.pickerItemText,
+                                    {
+                                      color:
+                                        isSelected
+                                          ? colors.primary
+                                          : colors.text,
+                                      fontWeight:
+                                        isSelected ? "600" : "400",
+                                    },
+                                  ]}
+                                >
+                                  {subcategoryObj.name}
+                                </Text>
+                              </View>
+                              {isSelected && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })
+                      ) : (
+                        // Grid View
+                        <View style={styles.gridContainer}>
+                          {getCurrentSubcategories().map((subcategoryObj: any, index: number) => {
+                            const {
+                              getSubcategoryIconFromDB,
+                            } = require("../../../../utils/subcategoryIcons");
+                            
+                            const isSelected = formData.subcategoryId === subcategoryObj.id || formData.subcategory === subcategoryObj.name;
+                            const dbIconName = subcategoryObj?.icon;
+                            const iconElement =
+                              getSubcategoryIconFromDB(
+                                dbIconName,
+                                subcategoryObj.name,
+                                20,
+                                isSelected ? colors.primary : colors.text
+                              );
+
+                            return (
+                              <TouchableOpacity
+                                key={subcategoryObj.id || index}
+                                style={[
+                                  styles.gridItemLarge,
+                                  {
+                                    backgroundColor: isSelected ? colors.primary + "20" : colors.card,
+                                    borderColor: isSelected ? colors.primary : colors.border,
+                                  },
+                                ]}
+                                onPress={() => {
+                                  console.log('🔵 Subcategory selected:', subcategoryObj.name);
+                                  setFormData({
+                                    ...formData,
+                                    subcategory: subcategoryObj.name,
+                                    subcategoryId: subcategoryObj.id,
+                                  });
+                                  setShowSubcategoryPicker(false);
+                                }}
+                              >
+                                <View style={styles.gridItemIcon}>
+                                  {iconElement || <Text style={{fontSize: 20}}>📄</Text>}
+                                </View>
+                                <Text
+                                  style={[
+                                    styles.gridItemTextLarge,
+                                    {
+                                      color:
+                                        isSelected
+                                          ? colors.primary
+                                          : colors.text,
+                                    },
+                                  ]}
+                                  numberOfLines={2}
+                                >
+                                  {subcategoryObj.name}
+                                </Text>
+                                {isSelected && (
+                                  <Ionicons
+                                    name="checkmark-circle"
+                                    size={16}
+                                    color={colors.primary}
+                                    style={styles.gridItemCheckmark}
+                                  />
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Date Picker - Rendered inside modal */}
+        {showDatePicker && Platform.OS === "ios" && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowDatePicker(false)}
+            >
+              <View style={[styles.datePickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View
+                style={[
+                  styles.datePickerContainer,
+                  { backgroundColor: colors.background },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.datePickerHeader,
+                    {
+                      backgroundColor: colors.card,
+                      borderBottomColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Text
+                      style={[
+                        styles.datePickerButton,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                        onPress={handleDatePickerDone}
+                  >
+                    <Text
+                      style={[
+                        styles.datePickerButton,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      Done
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                    <View style={styles.datePickerContent}>
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleDateChange}
+                        style={styles.datePicker}
+                        textColor={colors.text}
+                        themeVariant={isDark ? 'dark' : 'light'}
+                      />
+                    </View>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Billing Frequency Picker */}
+        {showBillingFrequencyPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowBillingFrequencyPicker(false)}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Billing Frequency</Text>
+                      <TouchableOpacity
+                        onPress={() => setShowBillingFrequencyPicker(false)}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                </View>
+                    <ScrollView style={styles.pickerScrollView}>
+                      {(['one-time', 'monthly', 'quarterly', 'semi-annually', 'yearly'] as const).map((freq) => {
+                        const isSelected = formData.billingFrequency === freq;
+                        return (
+                          <TouchableOpacity
+                            key={freq}
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: isSelected ? colors.primary + "20" : 'transparent',
+                                borderLeftColor: isSelected ? colors.primary : 'transparent',
+                                borderLeftWidth: isSelected ? 3 : 0,
+                              },
+                            ]}
+                            onPress={() => {
+                              setFormData({ ...formData, billingFrequency: freq });
+                              setShowBillingFrequencyPicker(false);
+                            }}
+                          >
+                            <Ionicons name="time-outline" size={20} color={isSelected ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: isSelected ? colors.primary : colors.text },
+                              ]}
+                            >
+                              {freq === 'one-time' ? 'One-time' : freq.charAt(0).toUpperCase() + freq.slice(1).replace('-', ' ')}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark" size={20} color={colors.primary} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+              </View>
+                </TouchableWithoutFeedback>
+            </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Payment Status Picker */}
+        {showPaymentStatusPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowPaymentStatusPicker(false)}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Payment Status</Text>
+                      <TouchableOpacity
+                        onPress={() => setShowPaymentStatusPicker(false)}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.pickerScrollView}>
+                      {(['upcoming', 'paid', 'skipped'] as const).map((status) => {
+                        const isSelected = formData.paymentStatus === status;
+                        const statusColor = status === 'paid' ? '#10B981' : status === 'skipped' ? '#EF4444' : '#3B82F6';
+                        return (
+                          <TouchableOpacity
+                            key={status}
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: isSelected ? statusColor + "20" : 'transparent',
+                                borderLeftColor: isSelected ? statusColor : 'transparent',
+                                borderLeftWidth: isSelected ? 3 : 0,
+                              },
+                            ]}
+                            onPress={() => {
+                              setFormData({ ...formData, paymentStatus: status });
+                              setShowPaymentStatusPicker(false);
+                            }}
+                          >
+                            <Ionicons name="checkmark-circle" size={20} color={isSelected ? statusColor : colors.textSecondary} style={{ marginRight: 12 }} />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: isSelected ? statusColor : colors.text },
+                              ]}
+                            >
+                              {status === 'upcoming' ? 'Upcoming' : status.charAt(0).toUpperCase() + status.slice(1)}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark" size={20} color={statusColor} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Reminder Picker */}
+        {showReminderPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowReminderPicker(false)}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Reminder</Text>
+                      <TouchableOpacity
+                        onPress={() => setShowReminderPicker(false)}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.pickerScrollView}>
+                      <TouchableOpacity
+                        style={[
+                          styles.pickerItem,
+                          {
+                            backgroundColor: !formData.reminderEnabled ? colors.primary + "20" : 'transparent',
+                            borderLeftColor: !formData.reminderEnabled ? colors.primary : 'transparent',
+                            borderLeftWidth: !formData.reminderEnabled ? 3 : 0,
+                          },
+                        ]}
+                        onPress={() => {
+                          setFormData({ ...formData, reminderEnabled: false });
+                          setShowReminderPicker(false);
+                        }}
+                      >
+                        <Ionicons name="notifications-off" size={20} color={!formData.reminderEnabled ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            { color: !formData.reminderEnabled ? colors.primary : colors.text },
+                          ]}
+                        >
+                          No reminder
+                        </Text>
+                        {!formData.reminderEnabled && (
+                          <Ionicons name="checkmark" size={20} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                      {([1, 3, 7, 14] as const).map((days) => {
+                        const isSelected = formData.reminderEnabled && formData.reminderDaysBefore.includes(days);
+                        return (
+                          <TouchableOpacity
+                            key={days}
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: isSelected ? colors.primary + "20" : 'transparent',
+                                borderLeftColor: isSelected ? colors.primary : 'transparent',
+                                borderLeftWidth: isSelected ? 3 : 0,
+                              },
+                            ]}
+                            onPress={() => {
+                              const currentDays = formData.reminderDaysBefore || [];
+                              const newDays = currentDays.includes(days)
+                                ? currentDays.filter(d => d !== days)
+                                : [...currentDays, days].sort((a, b) => a - b);
+                              setFormData({
+                                ...formData,
+                                reminderEnabled: newDays.length > 0,
+                                reminderDaysBefore: newDays,
+                              });
+                              if (newDays.length === 0) {
+                                setShowReminderPicker(false);
+                              }
+                            }}
+                          >
+                            <Ionicons name="notifications" size={20} color={isSelected ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: isSelected ? colors.primary : colors.text },
+                              ]}
+                            >
+                              {days} day{days > 1 ? 's' : ''} before
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark" size={20} color={colors.primary} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Payment Method Picker */}
+        {showPaymentMethodPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowPaymentMethodPicker(false)}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Payment Method</Text>
+                      <TouchableOpacity
+                        onPress={() => setShowPaymentMethodPicker(false)}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.pickerScrollView}>
+                      <TouchableOpacity
+                        style={[
+                          styles.pickerItem,
+                          {
+                            backgroundColor: !formData.paymentMethod ? colors.primary + "20" : 'transparent',
+                            borderLeftColor: !formData.paymentMethod ? colors.primary : 'transparent',
+                            borderLeftWidth: !formData.paymentMethod ? 3 : 0,
+                          },
+                        ]}
+                        onPress={() => {
+                          setFormData({ ...formData, paymentMethod: '' });
+                          setShowPaymentMethodPicker(false);
+                        }}
+                      >
+                        <Ionicons name="close-circle" size={20} color={!formData.paymentMethod ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            { color: !formData.paymentMethod ? colors.primary : colors.text },
+                          ]}
+                        >
+                          None
+                        </Text>
+                        {!formData.paymentMethod && (
+                          <Ionicons name="checkmark" size={20} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                      {(['UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Cash', 'Wallet'] as const).map((method) => {
+                        const isSelected = formData.paymentMethod === method;
+                        return (
+                          <TouchableOpacity
+                            key={method}
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: isSelected ? colors.primary + "20" : 'transparent',
+                                borderLeftColor: isSelected ? colors.primary : 'transparent',
+                                borderLeftWidth: isSelected ? 3 : 0,
+                              },
+                            ]}
+                            onPress={() => {
+                              setFormData({ ...formData, paymentMethod: method });
+                              setShowPaymentMethodPicker(false);
+                            }}
+                          >
+                            <Ionicons name="wallet" size={20} color={isSelected ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: isSelected ? colors.primary : colors.text },
+                              ]}
+                            >
+                              {method}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark" size={20} color={colors.primary} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* End Date Picker - Rendered inside modal */}
+        {showEndDatePicker && Platform.OS === "ios" && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowEndDatePicker(false)}
+            >
+              <View style={[styles.datePickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                  <View
+                    style={[
+                      styles.datePickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.datePickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        onPress={() => setShowEndDatePicker(false)}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleEndDatePickerDone}
+                      >
+                        <Text
+                          style={[
+                            styles.datePickerButton,
+                            { color: colors.primary },
+                          ]}
+                        >
+                          Done
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.datePickerContent}>
+                      <DateTimePicker
+                        value={selectedEndDate}
+                        mode="date"
+                        display="spinner"
+                        onChange={handleEndDateChange}
+                        style={styles.datePicker}
+                    textColor={colors.text}
+                        themeVariant={isDark ? 'dark' : 'light'}
+                  />
+                </View>
+              </View>
+                </TouchableWithoutFeedback>
+            </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Tags Picker */}
+        {showTagsPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowTagsPicker(false)}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Tags</Text>
+                      <TouchableOpacity
+                        onPress={() => setShowTagsPicker(false)}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.pickerScrollView}>
+                      {(['utilities', 'monthly', 'quarterly', 'yearly', 'subscription', 'insurance', 'rent', 'loan', 'credit card', 'debit card', 'auto-pay', 'manual', 'urgent', 'important'] as const).map((tag) => {
+                        const isSelected = formData.tags && formData.tags.includes(tag);
+                        return (
+                          <TouchableOpacity
+                            key={tag}
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: isSelected ? colors.primary + "20" : 'transparent',
+                                borderLeftColor: isSelected ? colors.primary : 'transparent',
+                                borderLeftWidth: isSelected ? 3 : 0,
+                              },
+                            ]}
+                            onPress={() => {
+                              const currentTags = formData.tags || [];
+                              const newTags = isSelected
+                                ? currentTags.filter(t => t !== tag)
+                                : [...currentTags, tag];
+                              setFormData({
+                                ...formData,
+                                tags: newTags,
+                              });
+                            }}
+                          >
+                            <Ionicons name="pricetag" size={20} color={isSelected ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: isSelected ? colors.primary : colors.text },
+                              ]}
+                            >
+                              {tag.charAt(0).toUpperCase() + tag.slice(1).replace('-', ' ')}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark" size={20} color={colors.primary} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Priority Picker */}
+        {showPriorityPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowPriorityPicker(false)}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Priority</Text>
+                      <TouchableOpacity
+                        onPress={() => setShowPriorityPicker(false)}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.pickerScrollView}>
+                      {(['high', 'medium', 'low'] as const).map((priority) => {
+                        const isSelected = formData.priority === priority;
+                        return (
+                          <TouchableOpacity
+                            key={priority}
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: isSelected ? colors.primary + "20" : 'transparent',
+                                borderLeftColor: isSelected ? colors.primary : 'transparent',
+                                borderLeftWidth: isSelected ? 3 : 0,
+                              },
+                            ]}
+                            onPress={() => {
+                              setFormData({ ...formData, priority });
+                              setShowPriorityPicker(false);
+                            }}
+                          >
+                            <Ionicons 
+                              name="flag" 
+                              size={20} 
+                              color={isSelected ? colors.primary : colors.textSecondary} 
+                              style={{ marginRight: 12 }} 
+                            />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: isSelected ? colors.primary : colors.text },
+                              ]}
+                            >
+                              {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark" size={20} color={colors.primary} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Start Date Picker */}
+        {showStartDatePicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowStartDatePicker(false)}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.datePickerContainer,
+                      {
+                        backgroundColor: colors.card,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Start Date</Text>
+                      <TouchableOpacity
+                        onPress={() => setShowStartDatePicker(false)}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.datePickerContent}>
+                      {Platform.OS === 'ios' ? (
+                        <>
+                          <DateTimePicker
+                            value={selectedStartDate}
+                            mode="date"
+                            display="spinner"
+                            onChange={(event, date) => {
+                              if (date) {
+                                setSelectedStartDate(date);
+                              }
+                            }}
+                            textColor={colors.text}
+                            themeVariant={isDark ? 'dark' : 'light'}
+                            style={styles.datePicker}
+                          />
+                          <TouchableOpacity
+                            style={[styles.datePickerDoneButton, { backgroundColor: colors.primary }]}
+                            onPress={() => {
+                              const formattedDate = selectedStartDate.toISOString().split('T')[0];
+                              setFormData({ ...formData, startDate: formattedDate });
+                              setShowStartDatePicker(false);
+                            }}
+                          >
+                            <Text style={styles.datePickerDoneText}>Done</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <DateTimePicker
+                          value={selectedStartDate}
+                          mode="date"
+                          display="default"
+                          onChange={(event, date) => {
+                            if (date) {
+                              const formattedDate = date.toISOString().split('T')[0];
+                              setFormData({ ...formData, startDate: formattedDate });
+                              setShowStartDatePicker(false);
+                            }
+                          }}
+                          textColor={colors.text}
+                          themeVariant={isDark ? 'dark' : 'light'}
+                        />
+                      )}
+                    </View>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
+
+        {/* Linked Account/Card Picker */}
+        {showLinkedAccountPicker && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            <TouchableWithoutFeedback
+              onPress={() => {
+                setShowLinkedAccountPicker(false);
+                setLinkedAccountType(null);
+              }}
+            >
+              <View style={[styles.pickerOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { 
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.pickerHeader,
+                        {
+                          backgroundColor: colors.card,
+                          borderBottomColor: colors.border,
+                        },
+                      ]}
+                    >
+                      {linkedAccountType ? (
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (allowTypeSelection) {
+                              setLinkedAccountType(null);
+                            } else {
+                              // If type selection is not allowed, close the modal instead
+                              setShowLinkedAccountPicker(false);
+                              setLinkedAccountType(null);
+                            }
+                          }}
+                          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                        >
+                          <Ionicons name="arrow-back" size={20} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                          <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                            {linkedAccountType === 'account' ? 'Select Account' : 'Select Credit Card'}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Type</Text>
+                      )}
+                      <TouchableOpacity
+                        onPress={() => {
+                          setShowLinkedAccountPicker(false);
+                          setLinkedAccountType(null);
+                          setAllowTypeSelection(true);
+                        }}
+                        style={styles.pickerHeaderButton}
+                      >
+                        <Ionicons name="close" size={24} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView 
+                      style={styles.pickerScrollView}
+                      contentContainerStyle={{ paddingVertical: 8 }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {!linkedAccountType ? (
+                        // Type Selection
+                        <>
+                          <TouchableOpacity
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: 'transparent',
+                              },
+                            ]}
+                            onPress={() => {
+                              setLinkedAccountType('account');
+                            }}
+                          >
+                            <Ionicons name="wallet" size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Accounts
+                            </Text>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.pickerItem,
+                              {
+                                backgroundColor: 'transparent',
+                              },
+                            ]}
+                            onPress={() => {
+                              setLinkedAccountType('credit_card');
+                            }}
+                          >
+                            <Ionicons name="card" size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
+                            <Text
+                              style={[
+                                styles.pickerItemText,
+                                { color: colors.text },
+                              ]}
+                            >
+                              Credit Cards
+                            </Text>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                        </>
+                      ) : linkedAccountType === 'account' ? (
+                        // Accounts List
+                        loadingAccounts ? (
+                          <View style={{ padding: 20, alignItems: 'center' }}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                            <Text style={[styles.pickerItemText, { color: colors.textSecondary, marginTop: 10 }]}>Loading accounts...</Text>
+                          </View>
+                        ) : accounts.length === 0 ? (
+                          <View style={{ padding: 20, alignItems: 'center' }}>
+                            <Text style={[styles.pickerItemText, { color: colors.textSecondary }]}>No accounts available</Text>
+                          </View>
+                        ) : (
+                          accounts.map((account) => {
+                            const isSelected = formData.linkedAccount === account.name || formData.linkedAccount === `${account.name} (${account.account_number?.slice(-4) || ''})`;
+                            return (
+                              <TouchableOpacity
+                                key={account.id}
+                                style={[
+                                  styles.pickerItem,
+                                  {
+                                    backgroundColor: isSelected ? colors.primary + "20" : 'transparent',
+                                    borderLeftColor: isSelected ? colors.primary : 'transparent',
+                                    borderLeftWidth: isSelected ? 3 : 0,
+                                  },
+                                ]}
+                                onPress={() => {
+                                  const displayName = account.account_number 
+                                    ? `${account.name} (****${account.account_number.slice(-4)})`
+                                    : account.name;
+                                  setFormData({
+                                    ...formData,
+                                    linkedAccount: displayName,
+                                  });
+                                  setShowLinkedAccountPicker(false);
+                                  setLinkedAccountType(null);
+                                }}
+                              >
+                                <Ionicons name="wallet" size={20} color={isSelected ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                                <View style={{ flex: 1 }}>
+                                  <Text
+                                    style={[
+                                      styles.pickerItemText,
+                                      { color: isSelected ? colors.primary : colors.text },
+                                    ]}
+                                  >
+                                    {account.name}
+                                  </Text>
+                                  {account.institution && (
+                                    <Text
+                                      style={[
+                                        styles.pickerItemText,
+                                        { 
+                                          color: colors.textSecondary, 
+                                          fontSize: 12,
+                                          marginTop: 2,
+                                        },
+                                      ]}
+                                    >
+                                      {account.institution}
+                                    </Text>
+                                  )}
+                                </View>
+                                {isSelected && (
+                                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })
+                        )
+                      ) : (
+                        // Credit Cards List
+                        loadingAccounts ? (
+                          <View style={{ padding: 20, alignItems: 'center' }}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                            <Text style={[styles.pickerItemText, { color: colors.textSecondary, marginTop: 10 }]}>Loading credit cards...</Text>
+                          </View>
+                        ) : creditCards.length === 0 ? (
+                          <View style={{ padding: 20, alignItems: 'center' }}>
+                            <Text style={[styles.pickerItemText, { color: colors.textSecondary }]}>No credit cards available</Text>
+                          </View>
+                        ) : (
+                          creditCards.map((card) => {
+                            const isSelected = formData.linkedAccount === card.name || formData.linkedAccount === `${card.name} (${card.card_number?.slice(-4) || ''})`;
+                            return (
+                              <TouchableOpacity
+                                key={card.id}
+                                style={[
+                                  styles.pickerItem,
+                                  {
+                                    backgroundColor: isSelected ? colors.primary + "20" : 'transparent',
+                                    borderLeftColor: isSelected ? colors.primary : 'transparent',
+                                    borderLeftWidth: isSelected ? 3 : 0,
+                                  },
+                                ]}
+                                onPress={() => {
+                                  const displayName = card.card_number 
+                                    ? `${card.name} (****${card.card_number.slice(-4)})`
+                                    : card.name;
+                                  setFormData({
+                                    ...formData,
+                                    linkedAccount: displayName,
+                                  });
+                                  setShowLinkedAccountPicker(false);
+                                  setLinkedAccountType(null);
+                                }}
+                              >
+                                <Ionicons name="card" size={20} color={isSelected ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                                <View style={{ flex: 1 }}>
+                                  <Text
+                                    style={[
+                                      styles.pickerItemText,
+                                      { color: isSelected ? colors.primary : colors.text },
+                                    ]}
+                                  >
+                                    {card.name}
+                                  </Text>
+                                  {card.institution && (
+                                    <Text
+                                      style={[
+                                        styles.pickerItemText,
+                                        { 
+                                          color: colors.textSecondary, 
+                                          fontSize: 12,
+                                          marginTop: 2,
+                                        },
+                                      ]}
+                                    >
+                                      {card.institution}
+                                    </Text>
+                                  )}
+                                </View>
+                                {isSelected && (
+                                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })
+                        )
+                      )}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        )}
       </Modal>
+
+        {/* Android Date Picker */}
+        {showDatePicker && Platform.OS === "android" && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+          />
+        )}
+
+      {/* Android End Date Picker */}
+      {showEndDatePicker && Platform.OS === "android" && (
+        <DateTimePicker
+          value={selectedEndDate}
+          mode="date"
+          display="default"
+          onChange={handleEndDateChange}
+        />
+      )}
 
       {/* Payment History Modal */}
       {selectedBillForHistory && (
@@ -9231,13 +11724,63 @@ const UpcomingBillsSection: React.FC<UpcomingBillsSectionProps> = ({
           onSave={handleSaveReminder}
         />
       )}
-    </TouchableOpacity>
+
+      {/* Split Bill Modal */}
+      {selectedBillForSplit && (
+        <BillSplitModal
+          visible={showSplitModal}
+          bill={selectedBillForSplit}
+          onClose={() => {
+            setShowSplitModal(false);
+            setSelectedBillForSplit(null);
+          }}
+          onSave={handleSaveSplit}
+        />
+      )}
+
+      {/* Link Transaction Modal */}
+      {selectedBillForLink && (
+        <LinkTransactionModal
+          visible={showLinkModal}
+          bill={selectedBillForLink}
+          onClose={() => {
+            setShowLinkModal(false);
+            setSelectedBillForLink(null);
+          }}
+          onLink={handleSaveLinkedTransaction}
+        />
+      )}
+
+      {/* Add Category Modal */}
+      <AddCategoryModal
+        visible={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onCategoryAdded={handleCategoryAdded}
+      />
+
+      {/* Add Subcategory Modal */}
+      {selectedCategoryForSubcategory && (
+        <AddSubcategoryModal
+          visible={showAddSubcategoryModal}
+          onClose={() => {
+            setShowAddSubcategoryModal(false);
+            setSelectedCategoryForSubcategory(null);
+          }}
+          onSubcategoryAdded={handleSubcategoryAdded}
+          parentCategory={selectedCategoryForSubcategory}
+        />
+      )}
+    </BillOperationsErrorBoundary>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     marginBottom: 24,
+    paddingBottom: 120, // Add padding for floating action buttons
+  },
+  cardTouchable: {
+    width: '100%',
   },
   loadingContainer: {
     padding: 40,
@@ -9909,16 +12452,29 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 10,
   },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    flex: 1,
+  },
   sectionIconContainer: {
     width: 32,
     height: 32,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
   },
   labelRow: {
     flexDirection: 'row',
@@ -9950,8 +12506,9 @@ const styles = StyleSheet.create({
   toggleCard: {
     borderRadius: 12,
     borderWidth: 1,
-    padding: 12,
-    marginTop: 8,
+    padding: 0,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   toggleIconContainer: {
     width: 36,
@@ -9964,8 +12521,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
+    minHeight: 48,
   },
   toggleRowLeft: {
     flexDirection: 'row',
@@ -10000,6 +12558,42 @@ const styles = StyleSheet.create({
   },
   toggleKnobActive: {
     transform: [{ translateX: 22 }],
+  },
+  toggleRowCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  toggleRowLeftCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  toggleLabelCompact: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  toggleSwitchCompact: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#374151',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleSwitchActiveCompact: {
+    backgroundColor: '#10B981',
+  },
+  toggleKnobCompact: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  toggleKnobActiveCompact: {
+    transform: [{ translateX: 20 }],
   },
   checkboxContainer: {
     gap: 10,
@@ -10171,6 +12765,259 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  // Picker Modal Styles
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerContainer: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '85%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  pickerHeaderButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  viewToggleSingleButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  pickerScrollView: {
+    maxHeight: 400,
+  },
+  pickerContentGrid: {
+    maxHeight: 220,
+    flexGrow: 0,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    marginHorizontal: 4,
+    borderRadius: 12,
+    marginVertical: 2,
+  },
+  pickerItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  pickerItemIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  pickerItemEmoji: {
+    fontSize: 16,
+  },
+  pickerItemText: {
+    fontSize: 15,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  gridScrollContent: {
+    paddingBottom: 8,
+    flexGrow: 0,
+  },
+  gridItem: {
+    width: '30%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    position: 'relative',
+  },
+  gridItemText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  gridItemLarge: {
+    width: '32.5%',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 70,
+    position: 'relative',
+    marginBottom: 10,
+  },
+  gridItemIcon: {
+    marginBottom: 4,
+  },
+  gridItemTextLarge: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  gridItemCheckmark: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+  selectContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  selectButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    minHeight: 48,
+  },
+  selectTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  selectText: {
+    fontSize: 15,
+    flex: 1,
+  },
+  addButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+  },
+  // Date Picker Styles
+  datePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+    zIndex: 10000,
+  },
+  datePickerContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    width: '100%',
+    minHeight: 400,
+    maxHeight: '75%',
+    alignItems: 'stretch',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    minHeight: 56,
+  },
+  datePickerButton: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  datePickerContent: {
+    width: '100%',
+    height: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 0,
+  },
+  datePicker: {
+    width: '100%',
+    height: 320,
+    backgroundColor: 'transparent',
+  },
+  datePickerDoneButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  datePickerDoneText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Row container for side-by-side fields
+  rowContainer: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  halfWidth: {
+    flex: 1,
+  },
 });
 
 // Export types for reuse in full Bills page
@@ -10180,7 +13027,7 @@ export type {
   PaymentRecord,
   BillSplitParticipant,
   BillCategory,
-  BudgetCategory,
+  BudgetCategoryDisplay,
   GroupedBills,
 };
 

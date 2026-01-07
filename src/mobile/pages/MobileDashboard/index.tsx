@@ -19,6 +19,7 @@ import BudgetProgressSection from "./BudgetProgressSection";
 import RecentTransactionsSection from "./RecentTransactionsSection";
 import RecentTransactionsErrorBoundary from "./RecentTransactionsErrorBoundary";
 import UpcomingBillsSection from "./UpcomingBillsSection";
+import UpcomingBillsErrorBoundary from "./UpcomingBillsErrorBoundary";
 import QuickAddButton from "../../components/QuickAddButton";
 
 // Import Financial Summary cards
@@ -187,7 +188,7 @@ export default function MobileDashboard() {
       }
     : {
         background: "#FFFFFF",
-        card: "#FFFFFF",
+        card: "#F9FAFB", // Light gray for better contrast against white background
         text: "#111827",
         textSecondary: "#6B7280",
         border: "#E5E7EB",
@@ -236,11 +237,13 @@ export default function MobileDashboard() {
             <RecentTransactionsErrorBoundary>
               <RecentTransactionsSection />
             </RecentTransactionsErrorBoundary>
-            <UpcomingBillsSection 
-              useTestData={useTestData} 
-              showSmartDetection={false}
-              showBudgetImpact={false}
-            />
+            <UpcomingBillsErrorBoundary>
+              <UpcomingBillsSection 
+                useTestData={useTestData} 
+                showSmartDetection={false}
+                showBudgetImpact={false}
+              />
+            </UpcomingBillsErrorBoundary>
           </>
         );
       case "sms":
@@ -281,6 +284,7 @@ export default function MobileDashboard() {
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 120 }} // Add padding for floating action buttons
         showsVerticalScrollIndicator={false}
         scrollEnabled={true} // Always allow scrolling for navigation
       >
