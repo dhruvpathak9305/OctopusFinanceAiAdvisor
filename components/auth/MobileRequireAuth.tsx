@@ -68,8 +68,8 @@ export default function MobileRequireAuth({ children }: MobileRequireAuthProps) 
           <View style={styles.titleSection}>
             <Text style={[styles.title, { color: colors.text }]}>Sign in Required</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Please sign in or create an account to access this feature
-            </Text>
+          Please sign in or create an account to access this feature
+        </Text>
           </View>
 
           {/* Benefits Card */}
@@ -97,9 +97,9 @@ export default function MobileRequireAuth({ children }: MobileRequireAuthProps) 
 
           {/* Action Buttons */}
           <View style={styles.actionsSection}>
-            <TouchableOpacity 
+        <TouchableOpacity 
               style={styles.buttonBase}
-              onPress={() => navigation.navigate('Auth' as never)}
+          onPress={() => navigation.navigate('Auth' as never)}
               activeOpacity={0.8}
             >
               <LinearGradient
@@ -111,11 +111,11 @@ export default function MobileRequireAuth({ children }: MobileRequireAuthProps) 
                 <Ionicons name="log-in-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.buttonText}>Sign In</Text>
               </LinearGradient>
-            </TouchableOpacity>
+        </TouchableOpacity>
 
-            <TouchableOpacity 
+        <TouchableOpacity 
               style={[styles.buttonBase, styles.outlineButton, { borderColor: colors.border }]}
-              onPress={() => {
+          onPress={() => {
                 (navigation as any).navigate('Auth', { mode: 'signup' });
               }}
               activeOpacity={0.7}
@@ -126,8 +126,8 @@ export default function MobileRequireAuth({ children }: MobileRequireAuthProps) 
                   Sign Up
                 </Text>
               </View>
-            </TouchableOpacity>
-          </View>
+        </TouchableOpacity>
+      </View>
         </View>
       </ScrollView>
     );
@@ -293,4 +293,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-});
+}); 

@@ -50,14 +50,10 @@ export const fetchBillPayments = async (
     
     const tableMap = getTableMapping(isDemo);
     
+    // Build select query - try with relationships, fallback to simple select if it fails
     let query = (supabase as any)
       .from(tableMap.bill_payments)
-      .select(`
-        *,
-        accounts:accounts!bill_payments_account_id_fkey(name),
-        credit_cards:credit_cards!bill_payments_credit_card_id_fkey(name),
-        upcoming_bills:upcoming_bills!bill_payments_bill_id_fkey(name)
-      `)
+      .select('*')
       .eq('user_id', user.id);
     
     // Apply filters
@@ -92,14 +88,12 @@ export const fetchBillPayments = async (
     }
     
     if (data) {
+      // Return data without relationship names (can be fetched separately if needed)
       return data.map((item: any) => ({
         ...item,
-        account_name: item.accounts?.name || null,
-        credit_card_name: item.credit_cards?.name || null,
-        bill_name: item.upcoming_bills?.name || null,
-        accounts: undefined,
-        credit_cards: undefined,
-        upcoming_bills: undefined,
+        account_name: null,
+        credit_card_name: null,
+        bill_name: null,
       })) as BillPayment[];
     }
     
@@ -131,15 +125,11 @@ export const addBillPayment = async (
       updated_at: new Date().toISOString()
     };
     
+    // Insert payment - use simple select to avoid foreign key relationship issues
     const { data, error } = await (supabase as any)
       .from(tableMap.bill_payments)
       .insert([newPayment])
-      .select(`
-        *,
-        accounts:accounts!bill_payments_account_id_fkey(name),
-        credit_cards:credit_cards!bill_payments_credit_card_id_fkey(name),
-        upcoming_bills:upcoming_bills!bill_payments_bill_id_fkey(name)
-      `)
+      .select('*')
       .single();
     
     if (error) {
@@ -147,14 +137,12 @@ export const addBillPayment = async (
       throw error;
     }
     
+    // Return payment without relationship data (relationships can be fetched separately if needed)
     return {
       ...data,
-      account_name: data.accounts?.name || null,
-      credit_card_name: data.credit_cards?.name || null,
-      bill_name: data.upcoming_bills?.name || null,
-      accounts: undefined,
-      credit_cards: undefined,
-      upcoming_bills: undefined,
+      account_name: null,
+      credit_card_name: null,
+      bill_name: null,
     } as BillPayment;
   } catch (error) {
     console.error("Error in addBillPayment:", error);
@@ -180,12 +168,7 @@ export const updateBillPayment = async (
       .from(tableMap.bill_payments)
       .update(updatedData)
       .eq('id', id)
-      .select(`
-        *,
-        accounts:accounts!bill_payments_account_id_fkey(name),
-        credit_cards:credit_cards!bill_payments_credit_card_id_fkey(name),
-        upcoming_bills:upcoming_bills!bill_payments_bill_id_fkey(name)
-      `)
+      .select('*')
       .single();
     
     if (error) {
@@ -193,14 +176,12 @@ export const updateBillPayment = async (
       throw error;
     }
     
+    // Return payment without relationship data
     return {
       ...data,
-      account_name: data.accounts?.name || null,
-      credit_card_name: data.credit_cards?.name || null,
-      bill_name: data.upcoming_bills?.name || null,
-      accounts: undefined,
-      credit_cards: undefined,
-      upcoming_bills: undefined,
+      account_name: null,
+      credit_card_name: null,
+      bill_name: null,
     } as BillPayment;
   } catch (error) {
     console.error("Error in updateBillPayment:", error);

@@ -36,7 +36,7 @@ const BudgetSummaryCard: React.FC<{
     textSecondary: '#9CA3AF',
     border: '#4B5563',
   } : {
-    card: '#F3F4F6',
+    card: '#F9FAFB', // Light gray for better contrast against white background
     text: '#111827',
     textSecondary: '#6B7280',
     border: '#E5E7EB',
@@ -444,7 +444,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
       }
     : {
         background: "#FFFFFF",
-        card: "#FFFFFF",
+        card: "#F9FAFB", // Light gray for better contrast against white background
         text: "#111827",
         textSecondary: "#6B7280",
         border: "#E5E7EB",

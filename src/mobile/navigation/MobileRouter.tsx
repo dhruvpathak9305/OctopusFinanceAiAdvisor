@@ -277,14 +277,14 @@ const MainTabNavigator: React.FC = () => {
 
   return (
     <TabSwitchContext.Provider value={{ switchToTab }}>
-      <View style={{ flex: 1 }}>
-        {renderActiveScreen()}
-        <ScrollableBottomNav
-          activeTab={activeTab}
-          onTabPress={setActiveTab}
+    <View style={{ flex: 1 }}>
+      {renderActiveScreen()}
+      <ScrollableBottomNav
+        activeTab={activeTab}
+        onTabPress={setActiveTab}
           navigation={rootNavigation}
-        />
-      </View>
+      />
+    </View>
     </TabSwitchContext.Provider>
   );
 };

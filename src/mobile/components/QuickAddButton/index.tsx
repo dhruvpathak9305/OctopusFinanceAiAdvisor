@@ -31,6 +31,7 @@ import {
 } from "../../../../services/budgetService";
 import { fetchAccounts } from "../../../../services/accountsService";
 import { Account } from "../../../../contexts/AccountsContext";
+import { supabase } from "../../../../lib/supabase/client";
 import {
   addTransaction,
   updateTransaction,
@@ -312,12 +313,30 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     try {
       setLoading(true);
 
+      // Get current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.error("User not authenticated");
+        setBudgetCategories([]);
+        setBudgetSubcategories([]);
+        setAccounts([]);
+        return;
+      }
+
       // Fetch all required data in parallel
-      const [categoriesData, subcategoriesData, accountsData] =
+      const [categoriesData, subcategoriesData, accountsResult] =
         await Promise.all([
           fetchBudgetCategories(isDemo),
           fetchBudgetSubcategories(isDemo),
-          fetchAccounts(isDemo),
+          // Directly query accounts_real table
+          supabase
+            .from('accounts_real')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
         ]);
 
       // Map the database results to the expected format
@@ -328,6 +347,26 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         ringColor: cat.ring_color || "#10b981",
         is_active: cat.is_active === "true" || cat.is_active === true,
       }));
+
+      // Map accounts from database to Account format
+      let accountsData: Account[] = [];
+      if (accountsResult.error) {
+        console.error("Error fetching accounts:", accountsResult.error);
+      } else {
+        accountsData = (accountsResult.data || []).map((acc: any) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.type,
+          institution: acc.institution || "",
+          balance: 0, // Balance would need to be fetched separately from balance_real
+          account_number: acc.account_number || undefined,
+          logo_url: acc.logo_url || undefined,
+          user_id: acc.user_id,
+          created_at: acc.created_at,
+          updated_at: acc.updated_at,
+        }));
+        console.log("✅ Fetched accounts:", accountsData.length);
+      }
 
       setBudgetCategories(mappedCategories);
       setBudgetSubcategories(subcategoriesData);

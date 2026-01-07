@@ -13,6 +13,7 @@ import { createRemindersForBill } from './billRemindersService';
 export type UpcomingBill = Database['public']['Tables']['upcoming_bills']['Row'] & {
   account_name?: string;
   credit_card_name?: string;
+  category_name?: string;
   subcategory_name?: string;
   is_overdue?: boolean;
   due_status: 'overdue' | 'today' | 'upcoming';
@@ -76,6 +77,12 @@ const buildUpcomingBillsSelectQuery = (tableMap: TableMap): string => {
       foreignKey: 'credit_card_id', 
       columns: 'name',
       alias: 'credit_cards'
+    },
+    {
+      table: 'budget_categories',
+      foreignKey: 'category_id',
+      columns: 'name',
+      alias: 'budget_categories'
     },
     {
       table: 'budget_subcategories',
@@ -170,12 +177,14 @@ const transformUpcomingBillResponse = (rawData: any): UpcomingBill => {
     ...rawData,
     account_name: rawData.accounts?.name || rawData.account_name || null,
     credit_card_name: rawData.credit_cards?.name || rawData.credit_card_name || null,
+    category_name: rawData.budget_categories?.name || rawData.category_name || null,
     subcategory_name: rawData.budget_subcategories?.name || rawData.subcategory_name || null,
     is_overdue: getBillDueStatus(rawData.due_date) === 'overdue',
     due_status: getBillDueStatus(rawData.due_date),
     // Remove nested objects to keep structure clean
     accounts: undefined,
     credit_cards: undefined,
+    budget_categories: undefined,
     budget_subcategories: undefined,
   } as UpcomingBill;
 };
@@ -205,10 +214,9 @@ export const fetchUpcomingBills = async (
     // Apply status filter
     if (filters.status && filters.status !== 'all') {
       query = query.eq('status', filters.status);
-    } else {
-      // By default, only show upcoming and overdue bills
-      query = query.in('status', ['upcoming', 'overdue']);
     }
+    // If status is 'all' or not specified, don't filter by status (show all bills)
+    // Note: For dashboard, we may want to filter out cancelled/ended bills, but paid bills should be shown
     
     // Apply due date filter with overdue consideration
     if (filters.dueWithin && filters.dueWithin !== 'all') {
@@ -471,7 +479,7 @@ export const addUpcomingBill = async (
         }
       }
     }
-
+    
     const newBill = {
       ...bill,
       user_id: user.id,
@@ -541,7 +549,7 @@ export const addUpcomingBill = async (
             throw error;
           }
         } else {
-          throw error;
+      throw error;
         }
       }
     }
@@ -601,8 +609,106 @@ export const updateUpcomingBill = async (
       }
     }
     
+    // Validate autopay constraints (similar to addUpcomingBill)
+    // The constraint requires: if autopay = true, then autopay_source must be set
+    // And if autopay_source = 'account', then autopay_account_id must be set
+    // And if autopay_source = 'credit_card', then autopay_credit_card_id must be set
+    let finalAutopay: boolean | undefined = updates.autopay !== undefined ? updates.autopay : undefined;
+    let autopaySource: string | null | undefined = updates.autopay_source !== undefined ? updates.autopay_source : undefined;
+    
+    // Get current bill to check existing autopay settings (needed for validation)
+    const { data: currentBill } = await (supabase as any)
+      .from(tableMap.upcoming_bills)
+      .select('autopay, autopay_source, autopay_account_id, autopay_credit_card_id, account_id, credit_card_id')
+      .eq('id', id)
+      .single();
+    
+    // If autopay is being set to true, validate the source
+    if (finalAutopay === true) {
+      // If autopay_source is not provided, try to determine from available IDs
+      if (!autopaySource) {
+        if (updates.autopay_account_id) {
+          autopaySource = 'account';
+        } else if (updates.autopay_credit_card_id) {
+          autopaySource = 'credit_card';
+        } else if (updates.account_id) {
+          autopaySource = 'account';
+          // Use account_id as autopay_account_id if not specified
+          if (!updates.autopay_account_id) {
+            (updates as any).autopay_account_id = updates.account_id;
+          }
+        } else if (updates.credit_card_id) {
+          autopaySource = 'credit_card';
+          // Use credit_card_id as autopay_credit_card_id if not specified
+          if (!updates.autopay_credit_card_id) {
+            (updates as any).autopay_credit_card_id = updates.credit_card_id;
+          }
+        } else {
+          // Use current bill data to check existing autopay settings
+          if (currentBill) {
+            // Try to use existing autopay settings
+            if (currentBill.autopay_source && 
+                ((currentBill.autopay_source === 'account' && currentBill.autopay_account_id) ||
+                 (currentBill.autopay_source === 'credit_card' && currentBill.autopay_credit_card_id))) {
+              autopaySource = currentBill.autopay_source;
+            } else if (currentBill.account_id) {
+              autopaySource = 'account';
+              (updates as any).autopay_account_id = currentBill.account_id;
+            } else if (currentBill.credit_card_id) {
+              autopaySource = 'credit_card';
+              (updates as any).autopay_credit_card_id = currentBill.credit_card_id;
+            } else {
+              // No valid autopay source available, disable autopay
+              console.warn('Autopay is true but no valid autopay source found. Disabling autopay.');
+              finalAutopay = false;
+              autopaySource = null;
+            }
+          } else {
+            // No current bill found, disable autopay
+            console.warn('Autopay is true but no valid autopay source found. Disabling autopay.');
+            finalAutopay = false;
+            autopaySource = null;
+          }
+        }
+      } else {
+        // autopay_source is set, verify the corresponding ID exists
+        if (autopaySource === 'account' && !updates.autopay_account_id && !updates.account_id) {
+          // Use current bill to check existing account_id
+          if (currentBill?.autopay_account_id || currentBill?.account_id) {
+            (updates as any).autopay_account_id = currentBill.autopay_account_id || currentBill.account_id;
+          } else {
+            console.warn('Autopay source is "account" but no account_id found. Disabling autopay.');
+            finalAutopay = false;
+            autopaySource = null;
+          }
+        } else if (autopaySource === 'credit_card' && !updates.autopay_credit_card_id && !updates.credit_card_id) {
+          // Use current bill to check existing credit_card_id
+          if (currentBill?.autopay_credit_card_id || currentBill?.credit_card_id) {
+            (updates as any).autopay_credit_card_id = currentBill.autopay_credit_card_id || currentBill.credit_card_id;
+          } else {
+            console.warn('Autopay source is "credit_card" but no credit_card_id found. Disabling autopay.');
+            finalAutopay = false;
+            autopaySource = null;
+          }
+        } else if (autopaySource === 'account' && !updates.autopay_account_id && updates.account_id) {
+          // Use account_id as autopay_account_id
+          (updates as any).autopay_account_id = updates.account_id;
+        } else if (autopaySource === 'credit_card' && !updates.autopay_credit_card_id && updates.credit_card_id) {
+          // Use credit_card_id as autopay_credit_card_id
+          (updates as any).autopay_credit_card_id = updates.credit_card_id;
+        }
+      }
+    } else if (finalAutopay === false) {
+      // If autopay is being disabled, clear autopay_source and IDs
+      autopaySource = null;
+      (updates as any).autopay_account_id = null;
+      (updates as any).autopay_credit_card_id = null;
+    }
+    
     const updatedData = {
       ...updates,
+      ...(finalAutopay !== undefined && { autopay: finalAutopay }),
+      ...(autopaySource !== undefined && { autopay_source: autopaySource }),
       ...(nextDueDate !== undefined && { next_due_date: nextDueDate }),
       updated_at: new Date().toISOString()
     };
@@ -647,12 +753,66 @@ export const updateUpcomingBill = async (
 
 // Delete an upcoming bill
 export const deleteUpcomingBill = async (
-  id: string,
+  id: string | number,
   isDemo: boolean = false
 ): Promise<void> => {
   try {
+    // Handle local DB bills (number IDs)
+    if (typeof id === 'number') {
+      try {
+        // Dynamic import for local DB (same pattern as insertBillToLocalDB)
+        let getLocalDb: any;
+        try {
+          // @ts-ignore - Dynamic import may not be recognized by TypeScript
+          const localDbModule = await import('../localDb');
+          getLocalDb = localDbModule.getLocalDb;
+        } catch (importError) {
+          try {
+            // @ts-ignore - Dynamic import may not be recognized by TypeScript
+            const localDbModule = require('../localDb');
+            getLocalDb = localDbModule.getLocalDb;
+          } catch (requireError) {
+            console.error('Failed to import local DB module:', requireError);
+            throw new Error('Local database not available');
+          }
+        }
+
+        const db = await getLocalDb();
+        
+        // Delete from local DB (cascading deletes will handle related records)
+        await db.runAsync(
+          'DELETE FROM upcoming_bills_local WHERE id = ?',
+          [id.toString()]
+        );
+        
+        console.log(`✅ Successfully deleted bill ${id} from local DB`);
+        return;
+      } catch (localError: any) {
+        console.error("Error deleting bill from local DB:", localError);
+        throw new Error(`Failed to delete bill from local database: ${localError.message}`);
+      }
+    }
+
+    // Handle Supabase bills (string UUIDs)
     const tableMap = getTableMapping(isDemo);
 
+    // First verify the bill exists
+    const { data: existingBill, error: fetchError } = await (supabase as any)
+      .from(tableMap.upcoming_bills)
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = not found
+      console.error("Error checking if bill exists:", fetchError);
+      throw fetchError;
+    }
+
+    if (!existingBill) {
+      throw new Error(`Bill with id ${id} not found`);
+    }
+
+    // Delete from Supabase (cascading deletes will handle bill_payments and bill_reminders)
     const { error } = await (supabase as any)
       .from(tableMap.upcoming_bills)
       .delete()
@@ -662,6 +822,8 @@ export const deleteUpcomingBill = async (
       console.error("Error deleting upcoming bill:", error);
       throw error;
     }
+
+    console.log(`✅ Successfully deleted bill ${id} from Supabase`);
   } catch (error) {
     console.error("Error in deleteUpcomingBill:", error);
     throw error;

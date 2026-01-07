@@ -585,7 +585,7 @@ export const LOCAL_SCHEMA = {
       
       -- Status & Lifecycle
       status TEXT NOT NULL DEFAULT 'upcoming' CHECK (status IN (
-        'upcoming', 'pending', 'paid', 'overdue', 'cancelled', 'skipped', 'partial'
+        'upcoming', 'pending', 'paid', 'overdue', 'cancelled', 'skipped', 'partial', 'paused', 'ended'
       )),
       is_active INTEGER DEFAULT 1,
       

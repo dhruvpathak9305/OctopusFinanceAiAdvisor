@@ -87,7 +87,7 @@ export const lightTheme = {
   error: "#EF4444",
   success: "#10B981",
   warning: "#F59E0B",
-  card: "#FFFFFF",
+  card: "#F9FAFB", // Light gray for better contrast against white background
   tabBar: "#FFFFFF",
   tabBarBorder: "#E5E7EB",
 };
