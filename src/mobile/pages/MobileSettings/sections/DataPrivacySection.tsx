@@ -7,6 +7,8 @@ import {
   SettingsSwitch,
 } from "../components";
 import { ThemeColors, SettingsHandlers, SettingsState } from "../types";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import { useSecurity } from "@/contexts/SecurityContext";
 
 interface DataPrivacySectionProps {
   colors: ThemeColors;
@@ -21,8 +23,25 @@ const DataPrivacySection: React.FC<DataPrivacySectionProps> = ({
   settingsState,
   setBiometricEnabled,
 }) => {
+  const { deleteAccount } = useUnifiedAuth();
+  const { isAppLockEnabled, setAppLockEnabled } = useSecurity();
+  
   return (
     <SettingsSection title="Data & Privacy" colors={colors}>
+      <SettingsItem
+        icon="scan-outline"
+        title="Biometric App Lock"
+        subtitle="Require FaceID/TouchID to open"
+        colors={colors}
+        showArrow={false}
+        rightComponent={
+          <SettingsSwitch
+            value={isAppLockEnabled}
+            onValueChange={setAppLockEnabled}
+            colors={colors}
+          />
+        }
+      />
       <SettingsItem
         icon="shield-checkmark"
         title="Data Security"
@@ -55,21 +74,21 @@ const DataPrivacySection: React.FC<DataPrivacySectionProps> = ({
       />
       <SettingsSeparator colors={colors} />
       <SettingsItem
-        icon="trash"
-        title="Clear Data"
-        subtitle="Reset all financial data"
+        icon="trash-bin" 
+        title="Delete Account"
+        subtitle="Permanently delete your account and data"
         colors={colors}
+        titleStyle={{ color: colors.error }}
         onPress={() =>
           Alert.alert(
-            "Clear Data",
-            "This will permanently delete all your financial data. This action cannot be undone.",
+            "Delete Account",
+            "Are you sure you want to delete your account? This will permanently erase all your data from our servers. This action CANNOT be undone.",
             [
               { text: "Cancel", style: "cancel" },
               {
-                text: "Clear All Data",
+                text: "Delete Forever",
                 style: "destructive",
-                onPress: () =>
-                  Alert.alert("Cleared", "All data has been cleared."),
+                onPress: () => deleteAccount(),
               },
             ]
           )

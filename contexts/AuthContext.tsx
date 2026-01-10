@@ -1,9 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { Alert, Platform } from "react-native";
 import { Session, User } from "@supabase/supabase-js";
 // Note: Navigation removed to avoid react-router-dom dependency in React Native
 import { supabase } from "../lib/supabase/client";
-import { useToast } from "../common/hooks/use-toast";
 
 interface AuthContextType {
   session: Session | null;
@@ -17,6 +17,7 @@ interface AuthContextType {
   ) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -29,8 +30,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  // Navigation removed for React Native compatibility
-  const { toast } = useToast();
 
   useEffect(() => {
     // Set up the auth state listener first
@@ -44,21 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsAuthenticated(!!currentSession?.user);
 
       if (event === "SIGNED_IN" && currentSession?.user) {
-        // Show success message
-        setTimeout(() => {
-          toast({
-            title: "Welcome back!",
-            description: "You have successfully logged in.",
-          });
-        }, 100);
+        // Optional: specific logic on sign in
       } else if (event === "SIGNED_OUT") {
-        // Show logout message
-        setTimeout(() => {
-          toast({
-            title: "Logged out",
-            description: "You have been successfully logged out.",
-          });
-        }, 100);
+         // Optional: specific logic on sign out
       }
     });
 
@@ -70,16 +57,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(currentSession?.user ?? null);
       setIsAuthenticated(!!currentSession?.user);
 
-      // Set session marker if we restored a session
-      if (currentSession) {
-        sessionStorage.setItem("octopusSession", "true");
-      }
-
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, toast]);
+  }, []);
 
   const signUp = async (email: string, password: string) => {
     try {
@@ -90,20 +72,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (error) throw error;
 
-      toast({
-        title: "Check your email",
-        description: "We've sent you a confirmation link.",
-      });
+      Alert.alert("Check your email", "We've sent you a confirmation link.");
     } catch (error: unknown) {
       const msg =
         error instanceof Error
           ? error.message
           : "An error occurred during sign up.";
-      toast({
-        title: "Sign up failed",
-        description: msg,
-        variant: "destructive",
-      });
+      Alert.alert("Sign up failed", msg);
       throw error;
     }
   };
@@ -116,9 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       console.log("Attempting sign in for:", email);
 
-      // Clear any existing session marker before new login attempt
-      sessionStorage.removeItem("octopusSession");
-
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -130,16 +102,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       console.log("Sign in successful for:", email);
-      // The onAuthStateChange will handle the redirect and session marking
     } catch (error: unknown) {
       console.log("Sign in caught error:", error);
       const msg =
         error instanceof Error ? error.message : "Invalid email or password.";
-      toast({
-        title: "Login failed",
-        description: msg,
-        variant: "destructive",
-      });
+      Alert.alert("Login failed", msg);
       throw error;
     }
   };
@@ -151,45 +118,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (error) throw error;
 
       console.log("Sign out successful");
-      // Clear session marker on explicit sign out
-      sessionStorage.removeItem("octopusSession");
     } catch (error: unknown) {
       console.log("Sign out error:", error);
       const msg =
         error instanceof Error
           ? error.message
           : "An error occurred during sign out.";
-      toast({
-        title: "Sign out failed",
-        description: msg,
-        variant: "destructive",
-      });
+      Alert.alert("Sign out failed", msg);
       throw error;
     }
   };
 
   const resetPassword = async (email: string) => {
     try {
+      // Use a deep link scheme for config, or fallback to generic
+      const redirectTo = "octopus-finance://reset-password";
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo,
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Password reset email sent",
-        description: "Check your email for the password reset link.",
-      });
+      Alert.alert("Password reset email sent", "Check your email for the password reset link.");
     } catch (error: unknown) {
       const msg =
         error instanceof Error
           ? error.message
           : "An error occurred while sending the reset email.";
-      toast({
-        title: "Password reset failed",
-        description: msg,
-        variant: "destructive",
-      });
+      Alert.alert("Password reset failed", msg);
+      throw error;
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      console.log("Attempting account deletion");
+      
+      // Call Supabase Edge Function to delete user data + auth account
+      const { error } = await supabase.functions.invoke('delete-account');
+
+      if (error) throw error;
+
+      // Force sign out locally
+      await signOut();
+
+      Alert.alert("Account deleted", "Your account and all data have been permanently deleted.");
+    } catch (error: unknown) {
+      console.error("Account deletion error:", error);
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "An error occurred during account deletion.";
+      Alert.alert("Deletion failed", msg);
       throw error;
     }
   };
@@ -202,6 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     signIn,
     signOut,
     resetPassword,
+    deleteAccount,
     isAuthenticated,
   };
 

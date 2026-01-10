@@ -5,6 +5,7 @@ import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { Ionicons } from "@expo/vector-icons";
+import { SecurityProvider } from "../contexts/SecurityContext";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -16,9 +17,9 @@ export default function RootLayout() {
   }
 
   return (
-    <>
-      <StatusBar style="light" />
-      <Stack
+      <SecurityProvider>
+        <StatusBar style="light" />
+        <Stack
         screenOptions={{
           headerShown: true, // Allow headers to show
           headerStyle: {
@@ -52,6 +53,6 @@ export default function RootLayout() {
         <Stack.Screen name="ios" />
         <Stack.Screen name="android" />
       </Stack>
-    </>
+      </SecurityProvider>
   );
 }

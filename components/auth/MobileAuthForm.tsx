@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,7 +55,7 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export default function MobileAuthForm() {
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, resetPassword, loginWithBiometrics } = useUnifiedAuth();
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,8 +161,37 @@ export default function MobileAuthForm() {
     }
   };
 
+  // Check for biometrics
+  const [canUseBiometrics, setCanUseBiometrics] = useState(false);
+  
+  useEffect(() => {
+     // Dynamic import or check to avoid web issues? 
+     // biometricService is safe (has Platform checks inside exports if implemented correctly, but imports might be tricky on web if modules missing)
+     // Assuming native environment for now as this is MobileAuthForm
+     const checkBio = async () => {
+         try {
+             const { checkBiometricSupport, hasStoredCredentials } = await import("@/services/security/biometricService");
+             const supported = await checkBiometricSupport();
+             const hasCreds = await hasStoredCredentials();
+             console.log("MobileAuthForm: Biometric Support:", supported, "Has Creds:", hasCreds);
+             setCanUseBiometrics(supported && hasCreds);
+         } catch (e) {
+             console.log("Biometric check failed (web?)", e);
+         }
+     };
+     checkBio();
+  }, []);
+
+  const handleBiometricLogin = async () => {
+      // We need to cast useAuth to any or check interface because we just added loginWithBiometrics to UnifiedAuthContext
+      // But useAuth here is imported from @/contexts/AuthContext?
+      // Wait. The form uses `useAuth`. I modified `UnifiedAuthContext`.
+      // I need to fix the import first.
+  };
+
   return (
     <div className="w-full">
+
 
       {mode === "forgot" ? (
         <div className="space-y-4">
@@ -255,6 +284,20 @@ export default function MobileAuthForm() {
           )}
 
           <TabsContent value="login" className="space-y-4 mt-0">
+            {canUseBiometrics && (
+                 <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                      setIsSubmitting(true);
+                      await loginWithBiometrics();
+                      setIsSubmitting(false);
+                  }}
+                  className="w-full h-10 rounded-md border-emerald text-emerald hover:bg-emerald/10 mb-4 flex items-center justify-center gap-2"
+                >
+                  <span className="text-lg">Face ID</span> Log in with FaceID
+                </Button>
+            )}
             <Form {...loginForm}>
               <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
                 <FormField

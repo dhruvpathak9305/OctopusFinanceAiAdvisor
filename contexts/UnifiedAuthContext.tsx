@@ -4,6 +4,11 @@ import { Platform, Alert } from "react-native";
 import { Session, User, AuthChangeEvent } from "@supabase/supabase-js";
 import { supabase } from "../services/supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { 
+  authenticateUser, 
+  getBiometricCredentials, 
+  saveBiometricCredentials 
+} from "../services/security/biometricService";
 
 const getStorage = () => {
   if (Platform.OS === "web") {
@@ -78,6 +83,8 @@ interface UnifiedAuthContextType {
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   signOut: () => Promise<boolean>;
   resetPassword: (email: string) => Promise<boolean>;
+  deleteAccount: () => Promise<boolean>;
+  loginWithBiometrics: () => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -234,6 +241,11 @@ export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setUser(data.user);
         setIsAuthenticated(true);
         await setSessionMarker("true");
+        // Save credentials for future biometric login
+        if (Platform.OS !== "web") {
+           const saved = await saveBiometricCredentials(email, password);
+           console.log("UnifiedAuth: Credentials saved for biometrics:", saved);
+        }
       }
 
       console.log("UnifiedAuth: Sign in successful for:", email);
@@ -319,11 +331,65 @@ export const UnifiedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       return false;
     }
+
   }, []);
+
+  const deleteAccount = useCallback(async (): Promise<boolean> => {
+    setError(null);
+    try {
+      console.log("UnifiedAuth: Attempting account deletion");
+      
+      const { error } = await supabase.functions.invoke('delete-account');
+
+      if (error) throw error;
+
+      // Sign out after successful deletion
+      await signOut();
+
+      if (Platform.OS !== "web") {
+        Alert.alert("Account Deleted", "Your account and all data have been permanently deleted.", [{ text: "OK" }]);
+      }
+      return true;
+    } catch (err) {
+      const userMsg = getUserFriendlyError(err instanceof Error ? err : "Unknown error");
+      setError(userMsg);
+      if (Platform.OS !== "web") {
+        Alert.alert("Deletion Failed", userMsg, [{ text: "OK" }]);
+      }
+      return false;
+    }
+  }, [signOut]);
+
+  const loginWithBiometrics = useCallback(async (): Promise<boolean> => {
+    setError(null);
+    try {
+      console.log("UnifiedAuth: Attempting biometric login");
+      
+      const credentials = await getBiometricCredentials();
+      if (!credentials) {
+         setError("No biometric credentials found. Please log in with password first.");
+         return false;
+      }
+
+      // Authenticate
+      const authenticated = await authenticateUser();
+      if (!authenticated) {
+        return false; // User cancelled or failed
+      }
+      
+      // Attempt login with stored credentials
+      return await signIn(credentials.email, credentials.password);
+
+    } catch (err) {
+      console.error("Biometric login error", err);
+      setError("Biometric login failed.");
+      return false;
+    }
+  }, [signIn]);
 
   const value: UnifiedAuthContextType = {
     session, user, loading, error, isAuthenticated,
-    signUp, signIn, signOut, resetPassword, clearError,
+    signUp, signIn, signOut, resetPassword, deleteAccount, loginWithBiometrics, clearError,
   };
 
   return (

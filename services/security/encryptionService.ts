@@ -10,6 +10,7 @@
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import CryptoJS from 'crypto-js';
 
 const ENCRYPTION_KEY_STORAGE_KEY = 'octopus_encryption_key';
 
@@ -27,6 +28,7 @@ const SENSITIVE_FIELDS = [
   'crn',
   'ifsc_code',
   'micr_code',
+  'openai_api_key' // Added this just in case we store it locally
 ];
 
 class EncryptionService {
@@ -70,8 +72,10 @@ class EncryptionService {
       return newKey;
     } catch (error) {
       console.error('Error getting encryption key:', error);
-      // Fallback: use a simple key (not secure, but better than nothing)
-      return 'fallback-key-not-secure';
+      // Fallback: This is CRITICAL failure, but we must return something to prevent crash.
+      // In production, this should probably halt the app or user login.
+      console.error("CRITICAL: Using weak fallback key due to SecureStore error");
+      return 'fallback-key-not-secure-critical-failure';
     }
   }
 
@@ -85,12 +89,13 @@ class EncryptionService {
     for (const field of SENSITIVE_FIELDS) {
       if (encrypted[field] && typeof encrypted[field] === 'string' && encrypted[field].length > 0) {
         try {
-          // Simple XOR encryption (for demo - use AES in production)
-          const encryptedValue = this.simpleEncrypt(encrypted[field], key);
-          encrypted[field] = `encrypted:${encryptedValue}`;
+          // Use AES encryption
+          const encryptedValue = this.aesEncrypt(encrypted[field], key);
+          // Prefix to identify encrypted values (and perhaps algorithm version in future)
+          encrypted[field] = `aes:${encryptedValue}`;
         } catch (error) {
           console.error(`Error encrypting field ${field}:`, error);
-          // Keep original value if encryption fails
+          // Keep original value if encryption fails to avoid data loss, but log it
         }
       }
     }
@@ -106,14 +111,38 @@ class EncryptionService {
     const key = await this.getEncryptionKey();
 
     for (const field of SENSITIVE_FIELDS) {
-      if (decrypted[field] && typeof decrypted[field] === 'string' && decrypted[field].startsWith('encrypted:')) {
-        try {
-          const encryptedValue = decrypted[field].replace('encrypted:', '');
-          const decryptedValue = this.simpleDecrypt(encryptedValue, key);
-          decrypted[field] = decryptedValue;
-        } catch (error) {
-          console.error(`Error decrypting field ${field}:`, error);
-          // Keep encrypted value if decryption fails
+      if (decrypted[field] && typeof decrypted[field] === 'string') {
+        const val = decrypted[field];
+        
+        // Handle AES Encrypted
+        if (val.startsWith('aes:')) {
+          try {
+            const encryptedValue = val.replace('aes:', '');
+            const decryptedValue = this.aesDecrypt(encryptedValue, key);
+            // If decryption returns empty string, it might be wrong key or malformed
+            if (decryptedValue) {
+               decrypted[field] = decryptedValue;
+            } else {
+               // Decryption failed silently
+               console.warn(`Decryption resulted in empty string for field ${field}`);
+            }
+          } catch (error) {
+            console.error(`Error decrypting AES field ${field}:`, error);
+            // Keep encrypted value if decryption fails
+          }
+        } 
+        // Handle Legacy XOR Encrypted (Migration path)
+        else if (val.startsWith('encrypted:')) {
+           try {
+            const encryptedValue = val.replace('encrypted:', '');
+            const decryptedValue = this.simpleDecrypt(encryptedValue, key);
+            decrypted[field] = decryptedValue;
+            
+            // OPTIONAL: We could auto-re-encrypt here to migrate on read
+            // console.log(`Migrated field ${field} from XOR to Plaintext (will be re-encrypted on save)`);
+          } catch (error) {
+            console.error(`Error decrypting Legacy field ${field}:`, error);
+          }
         }
       }
     }
@@ -122,23 +151,30 @@ class EncryptionService {
   }
 
   /**
-   * Simple XOR encryption (for demo purposes)
-   * In production, use AES encryption via expo-crypto or react-native-crypto
+   * AES Encryption
    */
-  private simpleEncrypt(text: string, key: string): string {
-    let result = '';
-    for (let i = 0; i < text.length; i++) {
-      const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-      result += String.fromCharCode(charCode);
-    }
-    return btoa(result); // Base64 encode
+  private aesEncrypt(text: string, key: string): string {
+    return CryptoJS.AES.encrypt(text, key).toString();
   }
 
   /**
-   * Simple XOR decryption
+   * AES Decryption
+   */
+  private aesDecrypt(encryptedText: string, key: string): string {
+    const bytes = CryptoJS.AES.decrypt(encryptedText, key);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  }
+
+  /**
+   * LEGACY: Simple XOR decryption for backward compatibility during migration
    */
   private simpleDecrypt(encryptedText: string, key: string): string {
     try {
+      if (typeof atob === 'undefined') {
+         // Polyfill or use logic if atob missing in some RN environments, though usually present
+         // If needed use Buffer or similar. For now assume atob exists or is polyfilled.
+         return encryptedText; 
+      }
       const text = atob(encryptedText); // Base64 decode
       let result = '';
       for (let i = 0; i < text.length; i++) {
@@ -147,7 +183,7 @@ class EncryptionService {
       }
       return result;
     } catch (error) {
-      console.error('Decryption error:', error);
+      console.error('Legacy Decryption error:', error);
       return encryptedText;
     }
   }

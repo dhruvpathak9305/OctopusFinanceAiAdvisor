@@ -30,6 +30,7 @@
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = OctopusOrganizer/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* OctopusOrganizer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "OctopusOrganizer-Bridging-Header.h"; path = "OctopusOrganizer/OctopusOrganizer-Bridging-Header.h"; sourceTree = "<group>"; };
 		FB35B9BAD204D3E61AAE015C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = OctopusOrganizer/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		36553B87695D492A805392CA /* SplashScreen.storyboard */ = {isa = PBXFileReference; name = "SplashScreen.storyboard"; path = "OctopusFinanceAiAdvisor/SplashScreen.storyboard"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,6 +100,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				945BE0AA1319556468DA2C3A /* Pods */,
 				71AB88CC29C5F2C0D58FA562 /* ExpoModulesProviders */,
+				36553B87695D492A805392CA /* SplashScreen.storyboard */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -197,6 +199,7 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				6D06188BD6944B230316524C /* PrivacyInfo.xcprivacy in Resources */,
+				DD4514AA4335424E921A2BBB /* SplashScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,7 +346,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = OctopusOrganizer/OctopusOrganizer.entitlements;
+				CODE_SIGN_ENTITLEMENTS = OctopusFinanceAiAdvisor/OctopusOrganizer.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -363,8 +366,8 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.OctopusOrganizer;
-				PRODUCT_NAME = OctopusOrganizer;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.octopus.organizer";
+				PRODUCT_NAME = "OctopusOrganizer";
 				SWIFT_OBJC_BRIDGING_HEADER = "OctopusOrganizer/OctopusOrganizer-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -379,7 +382,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = OctopusOrganizer/OctopusOrganizer.entitlements;
+				CODE_SIGN_ENTITLEMENTS = OctopusFinanceAiAdvisor/OctopusOrganizer.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = OctopusOrganizer/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -394,8 +397,8 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.OctopusOrganizer;
-				PRODUCT_NAME = OctopusOrganizer;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.octopus.organizer";
+				PRODUCT_NAME = "OctopusOrganizer";
 				SWIFT_OBJC_BRIDGING_HEADER = "OctopusOrganizer/OctopusOrganizer-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

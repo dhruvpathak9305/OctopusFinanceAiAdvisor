@@ -45,6 +45,25 @@ interface ParsedTransaction {
 /**
  * Parse transaction details from email using AI
  */
+// Scrub PII from text before sending to AI
+function scrubPII(text: string): string {
+  if (!text) return '';
+  
+  // Mobile numbers (India format mostly)
+  let scrubbed = text.replace(/(?:\+91[\-\s]?)?[789]\d{9}/g, '[MOBILE_REDACTED]');
+  
+  // Email addresses
+  scrubbed = scrubbed.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]');
+  
+  // PAN Card patterns (India)
+  scrubbed = scrubbed.replace(/[A-Z]{5}[0-9]{4}[A-Z]{1}/g, '[PAN_REDACTED]');
+  
+  // Aadhaar patterns (Simple 12 digit check contextually usually better, but basic block)
+  // scrubbed = scrubbed.replace(/\d{4}\s\d{4}\s\d{4}/g, '[AADHAAR_REDACTED]'); 
+  
+  return scrubbed;
+}
+
 async function parseEmailTransaction(request: ParseEmailRequest): Promise<ParsedTransaction | null> {
   const systemPrompt = `You are a financial transaction parser. Extract transaction details from bank notification emails.
 
@@ -65,13 +84,17 @@ Examples of bank email formats:
 - "Rs.15,000 credited to your account XX1234 on 24-10-2025. Salary payment from ABC Corp."
 - "You have spent Rs.2,500.00 at AMAZON on your Credit Card XX5678 on 24/10/2025"`;
 
+  // Scrub PII from inputs
+  const scrubbedBody = scrubPII(request.body);
+  const scrubbedSubject = scrubPII(request.subject);
+
   const userPrompt = `Parse this bank transaction email:
 
-Subject: ${request.subject}
+Subject: ${scrubbedSubject}
 From: ${request.from}
 
 Body:
-${request.body}
+${scrubbedBody}
 
 Return JSON with transaction details or null if not a valid transaction email.`;
 

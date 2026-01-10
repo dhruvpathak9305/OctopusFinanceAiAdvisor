@@ -11,6 +11,7 @@ const SettingsItem: React.FC<SettingsItemProps> = ({
   showArrow = true,
   rightComponent,
   colors,
+  titleStyle,
 }) => {
   return (
     <TouchableOpacity
@@ -29,7 +30,7 @@ const SettingsItem: React.FC<SettingsItemProps> = ({
           <Ionicons name={icon as any} size={20} color={colors.primary} />
         </View>
         <View style={styles.textContainer}>
-          <Text style={[styles.settingsTitle, { color: colors.text }]}>
+          <Text style={[styles.settingsTitle, { color: colors.text }, titleStyle]}>
             {title}
           </Text>
           {subtitle && (

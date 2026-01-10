@@ -11,6 +11,7 @@ export interface SettingsItemProps {
   showArrow?: boolean;
   rightComponent?: React.ReactNode;
   colors: ThemeColors;
+  titleStyle?: any;
 }
 
 export interface SettingsSectionProps {
