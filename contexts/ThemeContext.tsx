@@ -77,8 +77,8 @@ export function useTheme() {
 
 // Theme colors
 export const lightTheme = {
-  background: "#FFFFFF",
-  surface: "#F9FAFB",
+  background: "#F3F4F6", // Off-white/Light Gray background for contrast
+  surface: "#FFFFFF",
   primary: "#10B981",
   secondary: "#6B7280",
   text: "#111827",
@@ -87,7 +87,7 @@ export const lightTheme = {
   error: "#EF4444",
   success: "#10B981",
   warning: "#F59E0B",
-  card: "#F9FAFB", // Light gray for better contrast against white background
+  card: "#FFFFFF", // Pure white for cards to pop against the gray background
   tabBar: "#FFFFFF",
   tabBarBorder: "#E5E7EB",
 };

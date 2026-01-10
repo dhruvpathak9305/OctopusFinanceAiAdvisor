@@ -51,15 +51,14 @@ const RelationshipDetail: React.FC<RelationshipDetailProps> = ({
   const [groupData, setGroupData] = useState<GroupWithFinancials | null>(null);
   const [memberBalances, setMemberBalances] = useState<GroupMemberBalance[]>([]);
 
-  // Use the dark theme but with specific adjustments to match the main dashboard
+  // Dynamic theme colors based on isDark
+  const currentTheme = isDark ? darkTheme : lightTheme;
   const colors = {
-    ...darkTheme,
     ...navTheme.colors,
-    card: "#1F2937", // Darker card background to match the main dashboard
-    primary: "#10B981", // Green primary color for buttons and accents
-    success: "#10B981", // Green success color
-    text: "#FFFFFF", // White text
-    textSecondary: "#9CA3AF", // Gray secondary text
+    ...currentTheme,
+    primary: "#10B981",
+    success: "#10B981",
+    cardHighlight: isDark ? "#2D3748" : "#F3F4F6",
   };
 
   useEffect(() => {
@@ -444,9 +443,9 @@ const RelationshipDetail: React.FC<RelationshipDetailProps> = ({
     : Math.abs(summary?.totalAmount || 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: darkTheme.background }]}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: darkTheme.card }]}>
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />

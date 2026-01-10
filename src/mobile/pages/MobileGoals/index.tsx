@@ -35,6 +35,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTheme } from '../../../../contexts/ThemeContext';
 import { GoalsService } from '../../../../services/goalsService';
 
 const { width } = Dimensions.get('window');
@@ -79,7 +80,7 @@ const ProgressRing: React.FC<ProgressRingProps> = ({ progress, size, strokeWidth
     <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
       {/* Background circle */}
       <Circle
-        stroke="rgba(255, 255, 255, 0.1)"
+        stroke={color === '#E2E8F0' ? '#E2E8F0' : "rgba(255, 255, 255, 0.1)"}
         fill="none"
         cx={size / 2}
         cy={size / 2}
@@ -136,6 +137,7 @@ const EnhancedGoalCard: React.FC<EnhancedGoalCardProps> = ({
   onPress,
   onContribute,
 }) => {
+  const { isDark } = useTheme();
   const [scaleAnim] = useState(new Animated.Value(1));
 
   // Status colors and gradients
@@ -191,10 +193,21 @@ const EnhancedGoalCard: React.FC<EnhancedGoalCardProps> = ({
         onPressOut={handlePressOut}
       >
         <LinearGradient
-          colors={['rgba(30, 41, 59, 0.95)', 'rgba(15, 23, 42, 0.98)']}
+          colors={isDark ? ['rgba(30, 41, 59, 0.95)', 'rgba(15, 23, 42, 0.98)'] : ['#FFFFFF', '#F8FAFC']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.compactCard}
+          style={[
+            styles.compactCard, 
+            !isDark && { 
+              shadowColor: "#0F172A", 
+              shadowOffset: { width: 0, height: 4 }, 
+              shadowOpacity: 0.05, 
+              shadowRadius: 10, 
+              elevation: 4,
+              borderWidth: 1,
+              borderColor: '#E2E8F0'
+            }
+          ]}
         >
           {/* Compact Header */}
           <View style={styles.compactHeader}>
@@ -204,9 +217,9 @@ const EnhancedGoalCard: React.FC<EnhancedGoalCardProps> = ({
               </View>
               
               <View style={{ flex: 1 }}>
-                <Text style={styles.compactGoalName}>{name}</Text>
+                <Text style={[styles.compactGoalName, { color: isDark ? '#fff' : '#111827' }]}>{name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={styles.compactCategory}>{category}</Text>
+                  <Text style={[styles.compactCategory, { color: isDark ? 'rgba(255,255,255,0.6)' : '#6B7280' }]}>{category}</Text>
                   {timeframe && (
                     <View style={styles.timeframeTag}>
                       <Text style={styles.timeframeTagText}>
@@ -247,15 +260,15 @@ const EnhancedGoalCard: React.FC<EnhancedGoalCardProps> = ({
             {/* Amount Info */}
             <View style={styles.compactAmountInfo}>
               <View style={styles.compactAmountRow}>
-                <Text style={styles.compactAmountLabel}>Progress</Text>
+                <Text style={[styles.compactAmountLabel, { color: isDark ? 'rgba(255,255,255,0.6)' : '#6B7280' }]}>Progress</Text>
                 <Text style={[styles.compactCurrentAmount, { color: config.gradient[0] }]}>
                   ${currentAmount.toLocaleString()} / ${targetAmount.toLocaleString()}
                 </Text>
               </View>
 
               <View style={styles.compactAmountRow}>
-                <Text style={styles.compactAmountLabel}>Remaining</Text>
-                <Text style={styles.compactTargetAmount}>
+                <Text style={[styles.compactAmountLabel, { color: isDark ? 'rgba(255,255,255,0.6)' : '#6B7280' }]}>Remaining</Text>
+                <Text style={[styles.compactTargetAmount, { color: isDark ? 'rgba(255,255,255,0.8)' : '#374151' }]}>
                   ${(targetAmount - currentAmount).toLocaleString()}
                 </Text>
               </View>
@@ -268,10 +281,10 @@ const EnhancedGoalCard: React.FC<EnhancedGoalCardProps> = ({
                 onPress={onPress}
               >
                 <LinearGradient
-                  colors={['rgba(100, 116, 139, 0.2)', 'rgba(71, 85, 105, 0.2)']}
+                  colors={isDark ? ['rgba(100, 116, 139, 0.2)', 'rgba(71, 85, 105, 0.2)'] : ['#F3F4F6', '#E5E7EB']}
                   style={styles.compactDetailsButtonGradient}
                 >
-                  <Text style={styles.compactDetailsButtonText}>Details</Text>
+                  <Text style={[styles.compactDetailsButtonText, { color: isDark ? '#fff' : '#374151' }]}>Details</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -315,19 +328,31 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
   behind,
   ahead,
 }) => {
+  const { isDark } = useTheme();
   return (
     <View style={styles.overviewContainer}>
       <LinearGradient
-        colors={['rgba(59, 130, 246, 0.12)', 'rgba(139, 92, 246, 0.12)']}
+        colors={isDark ? ['rgba(59, 130, 246, 0.12)', 'rgba(139, 92, 246, 0.12)'] : ['#FFFFFF', '#F8FAFC']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.overviewCard}
+        style={[
+          styles.overviewCard, 
+          !isDark && { 
+            shadowColor: "#0F172A", 
+            shadowOffset: { width: 0, height: 4 }, 
+            shadowOpacity: 0.06, 
+            shadowRadius: 12, 
+            elevation: 4,
+            borderWidth: 1,
+            borderColor: '#E2E8F0'
+          }
+        ]}
       >
         {/* Compact Stats Row */}
         <View style={styles.overviewStatsCompact}>
           <View style={styles.overviewStatCompact}>
-            <Text style={styles.overviewNumberCompact}>{activeGoals}</Text>
-            <Text style={styles.overviewLabelCompact}>Goals</Text>
+            <Text style={[styles.overviewNumberCompact, { color: isDark ? '#fff' : '#111827' }]}>{activeGoals}</Text>
+            <Text style={[styles.overviewLabelCompact, { color: isDark ? 'rgba(255,255,255,0.6)' : '#6B7280' }]}>Goals</Text>
           </View>
 
           <View style={styles.overviewDivider} />
@@ -336,7 +361,7 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
             <Text style={[styles.overviewNumberCompact, { color: '#10b981' }]}>
               ${(totalSaved / 1000).toFixed(1)}K
             </Text>
-            <Text style={styles.overviewLabelCompact}>Saved</Text>
+            <Text style={[styles.overviewLabelCompact, { color: isDark ? 'rgba(255,255,255,0.6)' : '#6B7280' }]}>Saved</Text>
           </View>
 
           <View style={styles.overviewDivider} />
@@ -345,7 +370,7 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
             <Text style={[styles.overviewNumberCompact, { color: '#3b82f6' }]}>
               {overallProgress.toFixed(0)}%
             </Text>
-            <Text style={styles.overviewLabelCompact}>Progress</Text>
+            <Text style={[styles.overviewLabelCompact, { color: isDark ? 'rgba(255,255,255,0.6)' : '#6B7280' }]}>Progress</Text>
           </View>
         </View>
 
@@ -354,19 +379,19 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
           {onTrack > 0 && (
             <View style={[styles.statusPill, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
               <View style={[styles.statusDot, { backgroundColor: '#10b981' }]} />
-              <Text style={styles.statusPillText}>{onTrack} On Track</Text>
+              <Text style={[styles.statusPillText, { color: isDark ? 'rgba(255, 255, 255, 0.9)' : '#065f46' }]}>{onTrack} On Track</Text>
             </View>
           )}
           {behind > 0 && (
             <View style={[styles.statusPill, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
               <View style={[styles.statusDot, { backgroundColor: '#ef4444' }]} />
-              <Text style={styles.statusPillText}>{behind} Behind</Text>
+              <Text style={[styles.statusPillText, { color: isDark ? 'rgba(255, 255, 255, 0.9)' : '#991b1b' }]}>{behind} Behind</Text>
             </View>
           )}
           {ahead > 0 && (
             <View style={[styles.statusPill, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
               <View style={[styles.statusDot, { backgroundColor: '#3b82f6' }]} />
-              <Text style={styles.statusPillText}>{ahead} Ahead</Text>
+              <Text style={[styles.statusPillText, { color: isDark ? 'rgba(255, 255, 255, 0.9)' : '#1e40af' }]}>{ahead} Ahead</Text>
             </View>
           )}
         </View>
@@ -387,6 +412,7 @@ interface CategoryBrowserProps {
 // No more hardcoded categories - all loaded dynamically from Supabase!
 
 const CategoriesBrowser: React.FC<CategoryBrowserProps> = ({ categories, onCategorySelect }) => {
+  const { isDark } = useTheme();
   const [expandedGroup, setExpandedGroup] = useState<string | null>('Short-term');
 
   const groupedCategories = {
@@ -397,15 +423,15 @@ const CategoriesBrowser: React.FC<CategoryBrowserProps> = ({ categories, onCateg
 
   return (
     <View style={styles.categoriesBrowserContainer}>
-      <Text style={styles.categoriesBrowserTitle}>Browse All Categories ({categories.length})</Text>
+      <Text style={[styles.categoriesBrowserTitle, { color: isDark ? '#fff' : '#111827' }]}>Browse All Categories ({categories.length})</Text>
       
       {Object.entries(groupedCategories).map(([timeframe, categories]) => (
         <View key={timeframe} style={styles.categoryGroupContainer}>
           <TouchableOpacity
-            style={styles.categoryGroupHeader}
+            style={[styles.categoryGroupHeader, !isDark && { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderWidth: 1 }]}
             onPress={() => setExpandedGroup(expandedGroup === timeframe ? null : timeframe)}
           >
-            <Text style={styles.categoryGroupHeaderText}>
+            <Text style={[styles.categoryGroupHeaderText, { color: isDark ? 'rgba(255,255,255,0.7)' : '#374151' }]}>
               {expandedGroup === timeframe ? '▼' : '▶'} {timeframe} ({categories.length})
             </Text>
           </TouchableOpacity>
@@ -415,11 +441,22 @@ const CategoriesBrowser: React.FC<CategoryBrowserProps> = ({ categories, onCateg
               {categories.map((category) => (
                 <TouchableOpacity
                   key={category.id}
-                  style={styles.categoryGridItem}
+                  style={[
+                    styles.categoryGridItem, 
+                    !isDark && { 
+                      backgroundColor: '#FFFFFF', 
+                      borderColor: '#E2E8F0',
+                      shadowColor: "#64748B",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 3,
+                      elevation: 2
+                    }
+                  ]}
                   onPress={() => onCategorySelect(category)}
                 >
                   <Text style={styles.categoryGridIcon}>{category.icon}</Text>
-                  <Text style={styles.categoryGridName} numberOfLines={2}>
+                  <Text style={[styles.categoryGridName, { color: isDark ? '#fff' : '#374151' }]} numberOfLines={2}>
                     {category.name}
                   </Text>
                 </TouchableOpacity>
@@ -551,6 +588,7 @@ const GoalFormModal: React.FC<GoalFormModalProps> = ({
   selectedDate,
   setSelectedDate 
 }) => {
+  const { isDark } = useTheme();
   // Single-screen form state
   const [selectedTimeframe, setSelectedTimeframe] = useState<'Short-term' | 'Medium-term' | 'Long-term' | null>(
     initialGoal?.timeframe || null
@@ -616,16 +654,17 @@ const GoalFormModal: React.FC<GoalFormModalProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <LinearGradient
-              colors={['rgba(30, 41, 59, 0.98)', 'rgba(15, 23, 42, 0.98)']}
-              style={styles.modalContent}
+              colors={isDark ? ['rgba(30, 41, 59, 0.98)', 'rgba(15, 23, 42, 0.98)'] : ['#FFFFFF', '#F8FAFC']}
+              style={[styles.modalContent, !isDark && { borderColor: '#E2E8F0', borderWidth: 1 }]}
             >
               {/* Header */}
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
+              {/* Header */}
+              <View style={[styles.modalHeader, !isDark && { borderBottomColor: '#E2E8F0' }]}>
+                <Text style={[styles.modalTitle, !isDark && { color: '#1e293b' }]}>
                   {initialGoal ? 'Edit Goal' : 'Create New Goal'}
                 </Text>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Text style={styles.closeButtonText}>✕</Text>
+                <TouchableOpacity onPress={onClose} style={[styles.closeButton, !isDark && { backgroundColor: '#F1F5F9' }]}>
+                  <Text style={[styles.closeButtonText, !isDark && { color: '#64748B' }]}>✕</Text>
                 </TouchableOpacity>
               </View>
 
@@ -634,7 +673,7 @@ const GoalFormModal: React.FC<GoalFormModalProps> = ({
                 {!initialGoal && (
                   <View style={styles.singleScreenContainer}>
                     {/* Compact Timeframe Selector */}
-                    <Text style={styles.sectionTitle}>⏱️ Timeframe</Text>
+                    <Text style={[styles.sectionTitle, !isDark && { color: '#334155' }]}>⏱️ Timeframe</Text>
                     <View style={styles.compactTimeframeRow}>
                       <TouchableOpacity
                         style={[styles.compactTimeframeCard, selectedTimeframe === 'Short-term' && styles.compactTimeframeCardSelected]}
@@ -749,11 +788,11 @@ const GoalFormModal: React.FC<GoalFormModalProps> = ({
 
                     {/* Goal Name */}
                     <View style={styles.formGroup}>
-                      <Text style={styles.formLabel}>Goal Name *</Text>
+                      <Text style={[styles.formLabel, !isDark && { color: '#475569' }]}>Goal Name *</Text>
                       <TextInput
-                        style={styles.textInput}
+                        style={[styles.textInput, !isDark && { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', color: '#1e293b' }]}
                         placeholder="e.g., Summer Vacation 2025"
-                        placeholderTextColor="rgba(255,255,255,0.4)"
+                        placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "#94a3b8"}
                         value={goalName}
                         onChangeText={setGoalName}
                       />
@@ -961,6 +1000,7 @@ interface GoalDetailsModalProps {
 }
 
 const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({ visible, onClose, goal, onEdit, onDelete }) => {
+  const { isDark } = useTheme();
   if (!goal) return null;
 
   const handleDelete = () => {
@@ -987,14 +1027,14 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({ visible, onClose, g
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <LinearGradient
-            colors={['rgba(30, 41, 59, 0.98)', 'rgba(15, 23, 42, 0.98)']}
-            style={styles.modalContent}
+            colors={isDark ? ['rgba(30, 41, 59, 0.98)', 'rgba(15, 23, 42, 0.98)'] : ['#FFFFFF', '#F8FAFC']}
+            style={[styles.modalContent, !isDark && { borderColor: '#E2E8F0', borderWidth: 1 }]}
           >
             {/* Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Goal Details</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+            <View style={[styles.modalHeader, !isDark && { borderBottomColor: '#E2E8F0' }]}>
+              <Text style={[styles.modalTitle, !isDark && { color: '#1e293b' }]}>Goal Details</Text>
+              <TouchableOpacity onPress={onClose} style={[styles.closeButton, !isDark && { backgroundColor: '#F1F5F9' }]}>
+                <Text style={[styles.closeButtonText, !isDark && { color: '#64748B' }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -1072,6 +1112,7 @@ interface ContributionModalProps {
 }
 
 const ContributionModal: React.FC<ContributionModalProps> = ({ visible, onClose, goal, onContribute }) => {
+  const { isDark } = useTheme();
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
 
@@ -1098,14 +1139,14 @@ const ContributionModal: React.FC<ContributionModalProps> = ({ visible, onClose,
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <LinearGradient
-            colors={['rgba(30, 41, 59, 0.98)', 'rgba(15, 23, 42, 0.98)']}
-            style={styles.modalContent}
+            colors={isDark ? ['rgba(30, 41, 59, 0.98)', 'rgba(15, 23, 42, 0.98)'] : ['#FFFFFF', '#F8FAFC']}
+            style={[styles.modalContent, !isDark && { borderColor: '#E2E8F0', borderWidth: 1 }]}
           >
             {/* Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Contribution</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+            <View style={[styles.modalHeader, !isDark && { borderBottomColor: '#E2E8F0' }]}>
+              <Text style={[styles.modalTitle, !isDark && { color: '#1e293b' }]}>Add Contribution</Text>
+              <TouchableOpacity onPress={onClose} style={[styles.closeButton, !isDark && { backgroundColor: '#F1F5F9' }]}>
+                <Text style={[styles.closeButtonText, !isDark && { color: '#64748B' }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -1189,6 +1230,7 @@ const ContributionModal: React.FC<ContributionModalProps> = ({ visible, onClose,
 // MAIN SCREEN
 // ============================================================================
 export default function EnhancedGoalsScreen() {
+  const { isDark } = useTheme();
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -1409,7 +1451,7 @@ export default function EnhancedGoalsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#0f172a' : '#F3F4F6' }]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -1425,7 +1467,7 @@ export default function EnhancedGoalsScreen() {
       >
         {/* Header - More Aesthetic */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Goals</Text>
+          <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#111827' }]}>My Goals</Text>
           <TouchableOpacity 
             style={styles.addButton}
             onPress={() => {

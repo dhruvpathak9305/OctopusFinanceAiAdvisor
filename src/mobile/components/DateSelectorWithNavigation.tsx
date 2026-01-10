@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  TextInput,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useTheme } from "../../../contexts/ThemeContext";
@@ -465,56 +466,94 @@ const DateSelectorWithNavigation: React.FC<DateSelectorWithNavigationProps> = ({
       );
     };
 
-    // Year grid (4 columns x 5 rows, showing 20 years at a time)
+    // Year grid (4 columns x 5 rows, showing years based on scroll/search)
     const renderYearGrid = () => {
+      // Expanded range: 1900 to 2100
+      const minYear = 1900;
+      const maxYear = 2100;
+      const allYears = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
+      
+      // Filter years based on search if needed, but for now just showing all
+      // We'll reverse it so recent years are at the top if no search
+      const displayYears = [...allYears].reverse();
+
       const yearChunks = [];
-      for (let i = 0; i < years.length; i += 4) {
-        yearChunks.push(years.slice(i, i + 4));
+      for (let i = 0; i < displayYears.length; i += 4) {
+        yearChunks.push(displayYears.slice(i, i + 4));
       }
       
       return (
-        <ScrollView 
-          style={styles.yearScrollContainer}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.yearScrollContent}
-        >
-          <View style={styles.gridContainer}>
-            {yearChunks.map((chunk, rowIndex) => (
-              <View key={rowIndex} style={styles.gridRow}>
-                {chunk.map((year) => (
-                  <TouchableOpacity
-                    key={year}
-                    style={[
-                      styles.gridItem,
-                      { borderColor: colors.border },
-                      selectedYear === year && {
-                        backgroundColor: colors.accent,
-                        borderColor: colors.accent,
-                      },
-                    ]}
-                    onPress={() => {
-                      setSelectedYear(year);
-                      // Auto-return to Month mode after selecting year
-                      setPickerMode("month");
-                    }}
-                  >
-                    <Text
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+            <TextInput
+              style={{
+                height: 40,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                backgroundColor: colors.filterBackground,
+                color: colors.text,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+              placeholder="Type year..."
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="number-pad"
+              maxLength={4}
+              onChangeText={(text: string) => {
+                if (text.length === 4) {
+                  const year = parseInt(text);
+                  if (!isNaN(year) && year >= 1000 && year <= 9999) {
+                    setSelectedYear(year);
+                    // Optional: auto-switch to month view
+                    // setPickerMode("month");
+                  }
+                }
+              }}
+            />
+          </View>
+          <ScrollView 
+            style={styles.yearScrollContainer}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.yearScrollContent}
+          >
+            <View style={styles.gridContainer}>
+              {yearChunks.map((chunk, rowIndex) => (
+                <View key={rowIndex} style={styles.gridRow}>
+                  {chunk.map((year) => (
+                    <TouchableOpacity
+                      key={year}
                       style={[
-                        styles.gridItemText,
-                        {
-                          color: selectedYear === year ? "#FFFFFF" : colors.text,
-                          fontWeight: selectedYear === year ? "700" : "500",
+                        styles.gridItem,
+                        { borderColor: colors.border },
+                        selectedYear === year && {
+                          backgroundColor: colors.accent,
+                          borderColor: colors.accent,
                         },
                       ]}
+                      onPress={() => {
+                        setSelectedYear(year);
+                        // Auto-return to Month mode after selecting year
+                        setPickerMode("month");
+                      }}
                     >
-                      {year}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
-          </View>
-        </ScrollView>
+                      <Text
+                        style={[
+                          styles.gridItemText,
+                          {
+                            color: selectedYear === year ? "#FFFFFF" : colors.text,
+                            fontWeight: selectedYear === year ? "700" : "500",
+                          },
+                        ]}
+                      >
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
       );
     };
 

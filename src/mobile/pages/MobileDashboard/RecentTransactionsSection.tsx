@@ -10,7 +10,11 @@ import {
   Modal,
   FlatList,
   RefreshControl,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
+import SkeletonTransactionItem from "../../components/SkeletonTransactionItem";
 import TransactionItem from "../../components/TransactionItem";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
@@ -56,6 +60,7 @@ interface Transaction {
   category_ring_color?: string | null;
   category_bg_color?: string | null;
   subcategory_color?: string | null;
+  metadata?: any;
 }
 
 // Define grouped transactions type
@@ -388,7 +393,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   const { user } = useUnifiedAuth();
   const { isPremium } = useSubscription();
   const isOnline = networkMonitor.isCurrentlyOnline();
-  const [selectedFilter, setSelectedFilter] = useState("This Week");
+  const [selectedFilter, setSelectedFilter] = useState("All");
   const [error, setError] = useState<string | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
@@ -396,6 +401,16 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   const [transactionToDelete, setTransactionToDelete] = useState<
     number | string | null
   >(null);
+
+  // Enable LayoutAnimation for Android
+  useEffect(() => {
+    if (
+      Platform.OS === "android" &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
 
   // Get user ID for repository
   const userId = user?.id || 'offline_user';
@@ -429,6 +444,9 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
         // Set to January 1st of current year at midnight local time
           startDate = new Date(now.getFullYear(), 0, 1);
         startDate.setHours(0, 0, 0, 0); // Ensure it's at midnight
+          break;
+        case "all":
+          startDate = new Date(0); // 1970-01-01
           break;
         default:
           startDate.setDate(now.getDate() - 7);
@@ -555,8 +573,10 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   }, [infiniteScroll]);
 
   // Reset and reload when filter changes
+
   useEffect(() => {
     console.log(`🔄 RecentTransactions: Filter changed to "${selectedFilter}", resetting...`);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     infiniteScroll.reset();
     // reset() now automatically triggers loadMore(), so no need to call it manually
   }, [selectedFilter]); // Reset when filter changes - reset() will trigger reload
@@ -648,7 +668,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
   
   const filteredTransactions = uniqueTransactions;
   const groupedTransactions = groupTransactionsByDate(filteredTransactions);
-  const loading = infiniteScroll.isLoading;
+  const loading = infiniteScroll.isLoading && infiniteScroll.data.length === 0; // Only show full loading if no data exists
 
   const handleFilterChange = (filter: string) => {
     setSelectedFilter(filter);
@@ -753,21 +773,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
     fetchTransactionsData();
   }, [fetchTransactionsData]);
 
-  if (loading) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color="#10B981" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading transactions...
-        </Text>
-      </View>
-    );
-  }
+
 
   return (
     <View style={styles.container}>
@@ -789,7 +795,7 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
             {/* Filter */}
             <Dropdown
               value={selectedFilter}
-              options={["This Week", "Monthly", "Quarterly", "This Year"]}
+              options={["All", "This Week", "Monthly", "Quarterly", "This Year"]}
               onValueChange={handleFilterChange}
               placeholder="Select period"
             />
@@ -805,7 +811,16 @@ const RecentTransactionsSection: React.FC<RecentTransactionsSectionProps> = ({
 
         {/* Content */}
         <View style={styles.content}>
-          {error ? (
+          {loading ? (
+            <ScrollView
+              style={styles.transactionsList}
+              showsVerticalScrollIndicator={false}
+            >
+              {[1, 2, 3, 4, 5].map((key) => (
+                <SkeletonTransactionItem key={key} />
+              ))}
+            </ScrollView>
+          ) : error ? (
             <View style={styles.errorContainer}>
               <Text style={[styles.errorText, { color: "#EF4444" }]}>
                 {error}
@@ -1211,7 +1226,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   transactionsList: {
-    maxHeight: 600, // Increased to show at least 10 transactions
+    maxHeight: 400, // Reduced to show approx 5 items (approx 80px per item)
+    minHeight: 350, // Prevent layout collapse/snapping during loading
   },
   transactionGroup: {
     borderBottomWidth: 1,
@@ -1378,6 +1394,16 @@ const styles = StyleSheet.create({
   deleteModalButtonText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  loadingMoreContainer: {
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 12,
   },
 });
 

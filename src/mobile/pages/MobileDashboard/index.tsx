@@ -187,15 +187,15 @@ export default function MobileDashboard() {
         activeTab: "#10B981",
       }
     : {
-        background: "#FFFFFF",
-        card: "#F9FAFB", // Light gray for better contrast against white background
+        background: "#F3F4F6", // Off-white/Light Gray background for contrast
+        card: "#FFFFFF", // Pure white for cards to pop against the gray background
         text: "#111827",
         textSecondary: "#6B7280",
         border: "#E5E7EB",
         primary: "#10B981",
-        surface: "#F9FAFB",
+        surface: "#FFFFFF",
         error: "#EF4444",
-        tabBackground: "#F3F4F6",
+        tabBackground: "#FFFFFF",
         activeTab: "#10B981",
       };
 

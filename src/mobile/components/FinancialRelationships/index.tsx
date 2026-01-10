@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { useTheme as useNavTheme } from "@react-navigation/native";
-import { useTheme, darkTheme } from "../../../../contexts/ThemeContext";
+import { useTheme, darkTheme, lightTheme } from "../../../../contexts/ThemeContext";
 import FinancialDashboard from "./FinancialDashboard";
 import FinancialDashboardSkeleton from "./FinancialDashboardSkeleton";
 import RelationshipList from "./RelationshipList";
@@ -26,17 +26,6 @@ const FinancialRelationships: React.FC<FinancialRelationshipsProps> = ({
     string | null
   >(null);
   const [selectedIsGroup, setSelectedIsGroup] = useState<boolean>(false);
-
-  // Use the dark theme but with specific adjustments to match the main dashboard
-  const colors = {
-    ...darkTheme,
-    ...navTheme.colors,
-    card: "#1F2937", // Darker card background to match the main dashboard
-    primary: "#10B981", // Green primary color for buttons and accents
-    success: "#10B981", // Green success color
-    text: "#FFFFFF", // White text
-    textSecondary: "#9CA3AF", // Gray secondary text
-  };
 
   const handleSelectRelationship = (relationshipId: string, isGroup: boolean = false) => {
     setSelectedRelationshipId(relationshipId);
@@ -82,16 +71,30 @@ const FinancialRelationships: React.FC<FinancialRelationshipsProps> = ({
     );
   }
 
+  const currentTheme = isDark ? darkTheme : lightTheme;
+
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: "#10B981",
-        tabBarInactiveTintColor: "#FFFFFF",
+        tabBarInactiveTintColor: isDark ? "#9CA3AF" : "#6B7280",
         tabBarStyle: {
-          backgroundColor: "#1F2937",
+          backgroundColor: currentTheme.card,
+          borderTopWidth: isDark ? 0 : 1,
+          borderTopColor: currentTheme.border,
+          elevation: isDark ? 0 : 2,
+          shadowColor: isDark ? "transparent" : "#000",
+          shadowOffset: { width: 0, height: -1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
         },
         tabBarIndicatorStyle: {
           backgroundColor: "#10B981",
+          height: 3,
+        },
+        tabBarLabelStyle: {
+          fontWeight: "600",
+          fontSize: 14,
         },
       }}
     >

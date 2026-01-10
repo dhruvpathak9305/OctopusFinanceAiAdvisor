@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,8 +11,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Animated,
+  Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme as useNavTheme } from "@react-navigation/native";
 import {
   useTheme,
@@ -51,6 +54,312 @@ interface UpcomingPayment {
   relatedUserId: string;
   relatedUserName?: string;
 }
+
+// Animated Activity Item Component
+const AnimatedActivityItem: React.FC<{
+  activity: RecentActivity;
+  index: number;
+  colors: any;
+  formatCurrency: (amount: number) => string;
+  formatDate: (date: string) => string;
+}> = ({ activity, index, colors, formatCurrency, formatDate }) => {
+  const itemAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(itemAnim, {
+      toValue: 1,
+      duration: 400,
+      delay: index * 100,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: itemAnim,
+        transform: [
+          {
+            translateX: itemAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-20, 0],
+            }),
+          },
+          {
+            scale: itemAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.95, 1],
+            }),
+          },
+        ],
+      }}
+    >
+      <TouchableOpacity
+        style={[
+          styles.activityItem,
+          { 
+            backgroundColor: colors.cardHighlight,
+            borderWidth: colors.isDark ? 0 : 1,
+            borderColor: colors.borderLight,
+          },
+        ]}
+        onPress={() => console.log(`View activity details: ${activity.id}`)}
+        activeOpacity={0.7}
+      >
+        <View
+          style={[
+            styles.activityIconContainer,
+            {
+              backgroundColor:
+                activity.type === "payment"
+                  ? colors.isDark
+                    ? "rgba(16,185,129,0.2)"
+                    : "rgba(16,185,129,0.15)"
+                  : activity.type === "loan"
+                  ? colors.isDark
+                    ? "rgba(239,68,68,0.2)"
+                    : "rgba(239,68,68,0.15)"
+                  : colors.isDark
+                  ? "rgba(59,130,246,0.2)"
+                  : "rgba(59,130,246,0.15)",
+            },
+          ]}
+        >
+          <Ionicons
+            name={
+              activity.type === "payment"
+                ? "cash-outline"
+                : activity.type === "loan"
+                ? "wallet-outline"
+                : "people-outline"
+            }
+            size={24}
+            color={
+              activity.type === "payment"
+                ? "#10B981"
+                : activity.type === "loan"
+                ? "#EF4444"
+                : "#3B82F6"
+            }
+          />
+        </View>
+        <View style={styles.activityContent}>
+          <View style={styles.activityHeader}>
+            <Text
+              style={[
+                styles.activityDescription,
+                { color: colors.text },
+              ]}
+            >
+              {activity.type === "payment"
+                ? `${activity.relatedUserName} paid you`
+                : activity.type === "loan"
+                ? `You loaned to ${activity.relatedUserName}`
+                : `Split with ${activity.relatedUserName}`}
+            </Text>
+            <Text
+              style={[
+                styles.activityAmount,
+                {
+                  color:
+                    activity.type === "loan"
+                      ? "#EF4444"
+                      : colors.success,
+                  fontWeight: "600",
+                },
+              ]}
+            >
+              {formatCurrency(activity.amount)}
+            </Text>
+          </View>
+          <View style={styles.activitySubheader}>
+            <Text
+              style={[
+                styles.activityDate,
+                { color: colors.textSecondary },
+              ]}
+            >
+              {formatDate(activity.date)}
+            </Text>
+            <TouchableOpacity>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// Animated Upcoming Item Component
+const AnimatedUpcomingItem: React.FC<{
+  payment: UpcomingPayment;
+  index: number;
+  colors: any;
+  formatCurrency: (amount: number) => string;
+  formatDaysRemaining: (days: number) => string;
+}> = ({ payment, index, colors, formatCurrency, formatDaysRemaining }) => {
+  const itemAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(itemAnim, {
+      toValue: 1,
+      duration: 400,
+      delay: index * 100,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: itemAnim,
+        transform: [
+          {
+            translateX: itemAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-20, 0],
+            }),
+          },
+          {
+            scale: itemAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.95, 1],
+            }),
+          },
+        ],
+      }}
+    >
+      <TouchableOpacity
+        style={[
+          styles.upcomingItem,
+          { 
+            backgroundColor: colors.cardHighlight,
+            borderWidth: colors.isDark ? 0 : 1,
+            borderColor: colors.borderLight,
+          },
+        ]}
+        onPress={() => console.log(`View payment details: ${payment.id}`)}
+        activeOpacity={0.7}
+      >
+        <View
+          style={[
+            styles.upcomingIconContainer,
+            {
+              backgroundColor:
+                payment.type === "incoming"
+                  ? colors.isDark
+                    ? "rgba(16,185,129,0.2)"
+                    : "rgba(16,185,129,0.15)"
+                  : colors.isDark
+                  ? "rgba(239,68,68,0.2)"
+                  : "rgba(239,68,68,0.15)",
+            },
+          ]}
+        >
+          <Ionicons
+            name={
+              payment.type === "incoming"
+                ? "arrow-down-outline"
+                : "arrow-up-outline"
+            }
+            size={24}
+            color={payment.type === "incoming" ? "#10B981" : "#EF4444"}
+          />
+        </View>
+
+        <View style={styles.upcomingContent}>
+          <View style={styles.upcomingHeader}>
+            <View>
+              <Text
+                style={[styles.upcomingTitle, { color: colors.text }]}
+              >
+                {payment.type === "incoming"
+                  ? `${payment.relatedUserName}'s payment due`
+                  : `Your payment to ${payment.relatedUserName}`}
+              </Text>
+              <Text
+                style={[
+                  styles.upcomingDescription,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {payment.description}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.upcomingAmount,
+                {
+                  color:
+                    payment.type === "incoming" ? "#10B981" : "#EF4444",
+                  fontWeight: "600",
+                },
+              ]}
+            >
+              {formatCurrency(payment.amount)}
+            </Text>
+          </View>
+
+          <View style={styles.upcomingFooter}>
+            <View style={styles.upcomingDateContainer}>
+              <Ionicons
+                name="calendar-outline"
+                size={14}
+                color={
+                  payment.daysRemaining <= 1
+                    ? "#EF4444"
+                    : colors.textSecondary
+                }
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.upcomingDate,
+                  {
+                    color:
+                      payment.daysRemaining <= 1
+                        ? "#EF4444"
+                        : colors.textSecondary,
+                    fontWeight:
+                      payment.daysRemaining <= 1 ? "600" : "400",
+                  },
+                ]}
+              >
+                {formatDaysRemaining(payment.daysRemaining)}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.upcomingActionButton,
+                {
+                  backgroundColor:
+                    payment.type === "incoming" ? "#10B981" : "#3B82F6",
+                },
+              ]}
+              onPress={() =>
+                console.log(`Action for payment ${payment.id}`)
+              }
+            >
+              <Text style={styles.upcomingActionText}>
+                {payment.type === "incoming"
+                  ? "Record Payment"
+                  : "Make Payment"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
   userId,
@@ -96,17 +405,38 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [banks, setBanks] = useState<{ id: string; name: string }[]>([]);
 
-  // Use the dark theme but with specific adjustments to match the main dashboard
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const balanceBarAnim = useRef(new Animated.Value(0)).current;
+  const card1Anim = useRef(new Animated.Value(0)).current;
+  const card2Anim = useRef(new Animated.Value(0)).current;
+  const netBalanceAnim = useRef(new Animated.Value(0)).current;
+
+  // Dynamic theme colors based on isDark - Enhanced for better accessibility
+  const currentTheme = isDark ? darkTheme : lightTheme;
   const colors = {
-    ...darkTheme,
     ...navTheme.colors,
-    card: "#1F2937", // Darker card background to match the main dashboard
+    ...currentTheme,
     primary: "#10B981", // Green primary color for buttons and accents
     success: "#10B981", // Green success color
-    text: "#FFFFFF", // White text
-    textSecondary: "#9CA3AF", // Gray secondary text
-    cardHighlight: "#2D3748", // Slightly lighter shade for hover/active states
-    border: "#374151", // Border color
+    // Card highlight colors - better contrast for both themes
+    cardHighlight: isDark ? "#2D3748" : "#F3F4F6",
+    // Text colors with better contrast
+    text: currentTheme.text,
+    textSecondary: currentTheme.textSecondary,
+    // Border colors with better visibility
+    border: currentTheme.border,
+    borderLight: isDark ? "rgba(255,255,255,0.1)" : "#D1D5DB",
+    // Card background
+    card: currentTheme.card,
+    // Shadow colors for better elevation in light theme
+    shadow: isDark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.1)",
+    // Background for balance indicator
+    balanceBarBg: isDark ? "#374151" : "#E5E7EB",
+    // Add isDark for use in child components
+    isDark,
   };
 
   useEffect(() => {
@@ -129,11 +459,83 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
         console.error("Error loading dashboard data:", error);
       } finally {
         setLoading(false);
+        
+        // Start animations after data loads
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 600,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 600,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+          Animated.timing(card1Anim, {
+            toValue: 1,
+            duration: 500,
+            delay: 100,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(card2Anim, {
+            toValue: 1,
+            duration: 500,
+            delay: 200,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(netBalanceAnim, {
+            toValue: 1,
+            duration: 600,
+            delay: 300,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        // Animate balance bar
+        const balancePercent = Math.min(
+          Math.abs((summary?.netBalance || 0) / 5000) * 100,
+          100
+        );
+        Animated.timing(balanceBarAnim, {
+          toValue: balancePercent,
+          duration: 1000,
+          delay: 500,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: false,
+        }).start();
       }
     };
 
     loadDashboardData();
   }, [userId]);
+
+  // Update balance bar animation when summary changes
+  useEffect(() => {
+    if (summary) {
+      const balancePercent = Math.min(
+        Math.abs((summary.netBalance || 0) / 5000) * 100,
+        100
+      );
+      Animated.timing(balanceBarAnim, {
+        toValue: balancePercent,
+        duration: 800,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [summary?.netBalance]);
 
   // Load user's contacts, groups and banks for modals
   const loadContacts = async () => {
@@ -472,233 +874,448 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: darkTheme.background }]}
+      style={[styles.container, { backgroundColor: currentTheme.background }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Financial Summary */}
-      <View style={[styles.card, { backgroundColor: darkTheme.card }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          FINANCIAL SUMMARY
-        </Text>
-
-        {/* Summary Cards in a Row */}
-        <View style={styles.summaryCardsRow}>
-          <TouchableOpacity
-            style={[
-              styles.summaryCard,
-              { backgroundColor: colors.cardHighlight },
-            ]}
-            onPress={() => console.log("View all owed")}
-          >
-            <View style={styles.summaryCardContent}>
-              <Ionicons
-                name="arrow-down"
-                size={24}
-                color={colors.success}
-                style={styles.summaryIcon}
-              />
-              <Text
-                style={[
-                  styles.summaryCardLabel,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                You are owed
-              </Text>
-              <Text
-                style={[styles.summaryCardValue, { color: colors.success }]}
-              >
-                {formatCurrency(summary?.totalOwed || 0)}
-              </Text>
-              <Text
-                style={[
-                  styles.summaryCardSubtext,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                From {recentActivity.length || 0} people
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.summaryCard,
-              { backgroundColor: colors.cardHighlight },
-            ]}
-            onPress={() => console.log("View all owing")}
-          >
-            <View style={styles.summaryCardContent}>
-              <Ionicons
-                name="arrow-up"
-                size={24}
-                color="#EF4444"
-                style={styles.summaryIcon}
-              />
-              <Text
-                style={[
-                  styles.summaryCardLabel,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                You owe
-              </Text>
-              <Text style={[styles.summaryCardValue, { color: "#EF4444" }]}>
-                {formatCurrency(summary?.totalOwing || 0)}
-              </Text>
-              <Text
-                style={[
-                  styles.summaryCardSubtext,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                To {upcomingPayments.length || 0} people
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Net Balance with Animation */}
-        <View
-          style={[
-            styles.netBalanceContainer,
-            {
-              backgroundColor: colors.cardHighlight,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <View style={styles.netBalanceContent}>
-            <Text style={[styles.netBalanceLabel, { color: colors.text }]}>
-              NET BALANCE
-            </Text>
-            <Text
-              style={[
-                styles.netBalanceValue,
-                {
-                  color:
-                    (summary?.netBalance || 0) > 0
-                      ? colors.success
-                      : (summary?.netBalance || 0) < 0
-                      ? "#EF4444"
-                      : colors.text,
-                },
-              ]}
+      <Animated.View
+        style={{
+          opacity: fadeAnim,
+          transform: [
+            { translateY: slideAnim },
+            { scale: scaleAnim }
+          ],
+        }}
+      >
+        {/* Financial Summary */}
+        <View style={[
+          styles.card, 
+          { 
+            backgroundColor: colors.card,
+            borderWidth: isDark ? 0 : 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadow,
+          }
+        ]}>
+          {/* Summary Cards in a Row */}
+          <View style={styles.summaryCardsRow}>
+            <Animated.View
+              style={{
+                flex: 1,
+                opacity: card1Anim,
+                transform: [
+                  {
+                    translateX: card1Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-30, 0],
+                    }),
+                  },
+                  {
+                    scale: card1Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.9, 1],
+                    }),
+                  },
+                ],
+              }}
             >
-              {formatCurrency(summary?.netBalance || 0)}
-            </Text>
+              <TouchableOpacity
+                style={styles.summaryCard}
+                onPress={() => console.log("View all owed")}
+                activeOpacity={0.8}
+              >
+            <LinearGradient
+              colors={isDark 
+                ? ['rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.08)', 'rgba(16, 185, 129, 0.12)']
+                : ['rgba(16, 185, 129, 0.12)', 'rgba(16, 185, 129, 0.06)', 'rgba(16, 185, 129, 0.10)']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.summaryCardGradient}
+            >
+              <View style={styles.summaryCardContent}>
+                <Ionicons
+                  name="arrow-down-circle"
+                  size={20}
+                  color={colors.success}
+                  style={styles.summaryIcon}
+                />
+                <Text
+                  style={[
+                    styles.summaryCardLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  You are owed
+                </Text>
+                <Text
+                  style={[styles.summaryCardValue, { color: colors.success }]}
+                >
+                  {formatCurrency(summary?.totalOwed || 0)}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCardSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  From {recentActivity.length || 0} people
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+            </Animated.View>
+
+            <Animated.View
+              style={{
+                flex: 1,
+                opacity: card2Anim,
+                transform: [
+                  {
+                    translateX: card2Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  },
+                  {
+                    scale: card2Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.9, 1],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <TouchableOpacity
+                style={styles.summaryCard}
+                onPress={() => console.log("View all owing")}
+                activeOpacity={0.8}
+              >
+            <LinearGradient
+              colors={isDark 
+                ? ['rgba(239, 68, 68, 0.15)', 'rgba(239, 68, 68, 0.08)', 'rgba(239, 68, 68, 0.12)']
+                : ['rgba(239, 68, 68, 0.12)', 'rgba(239, 68, 68, 0.06)', 'rgba(239, 68, 68, 0.10)']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.summaryCardGradient}
+            >
+              <View style={styles.summaryCardContent}>
+                <Ionicons
+                  name="arrow-up-circle"
+                  size={20}
+                  color="#EF4444"
+                  style={styles.summaryIcon}
+                />
+                <Text
+                  style={[
+                    styles.summaryCardLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  You owe
+                </Text>
+                <Text style={[styles.summaryCardValue, { color: "#EF4444" }]}>
+                  {formatCurrency(summary?.totalOwing || 0)}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCardSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  To {upcomingPayments.length || 0} people
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+            </Animated.View>
           </View>
 
-          <View style={styles.balanceIndicatorContainer}>
-            <View
+          {/* Net Balance with Animation */}
+          <Animated.View
+            style={[
+              styles.netBalanceContainer,
+              {
+                backgroundColor: colors.cardHighlight,
+                borderColor: colors.border,
+                borderWidth: isDark ? 1 : 1.5,
+                opacity: netBalanceAnim,
+                transform: [
+                  {
+                    translateY: netBalanceAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {
+                    scale: netBalanceAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.95, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.netBalanceContent}>
+              <Text style={[styles.netBalanceLabel, { color: colors.text }]}>
+                NET BALANCE
+              </Text>
+              <Animated.Text
+                style={[
+                  styles.netBalanceValue,
+                  {
+                    color:
+                      (summary?.netBalance || 0) > 0
+                        ? colors.success
+                        : (summary?.netBalance || 0) < 0
+                        ? "#EF4444"
+                        : colors.text,
+                    transform: [
+                      {
+                        scale: netBalanceAnim.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: [0.8, 1.1, 1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                {formatCurrency(summary?.netBalance || 0)}
+              </Animated.Text>
+            </View>
+
+            <View style={styles.balanceIndicatorContainer}>
+              <View
+                style={[
+                  styles.balanceIndicatorBar,
+                  { backgroundColor: colors.balanceBarBg },
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.balanceIndicatorFill,
+                    {
+                      backgroundColor:
+                        (summary?.netBalance || 0) >= 0
+                          ? colors.success
+                          : "#EF4444",
+                      width: balanceBarAnim.interpolate({
+                        inputRange: [0, 100],
+                        outputRange: ['0%', '100%'],
+                      }),
+                      alignSelf:
+                        (summary?.netBalance || 0) >= 0
+                          ? "flex-start"
+                          : "flex-end",
+                    },
+                  ]}
+                >
+                  <View style={styles.balanceIndicatorGlow} />
+                </Animated.View>
+              </View>
+              <View style={styles.balanceLabelsContainer}>
+                <Text
+                  style={[
+                    styles.balanceIndicatorLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  You owe others
+                </Text>
+                <Text
+                  style={[
+                    styles.balanceIndicatorLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Others owe you
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </Animated.View>
+
+      {/* Quick Actions */}
+      <Animated.View
+        style={[
+          styles.card, 
+          { 
+            backgroundColor: colors.card,
+            borderWidth: isDark ? 0 : 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadow,
+            opacity: fadeAnim,
+            transform: [
+              {
+                translateY: fadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0],
+                }),
+              },
+            ],
+          }
+        ]}
+      >
+        <View style={styles.actionButtonsGrid}>
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: fadeAnim,
+              transform: [
+                {
+                  scale: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+              ],
+            }}
+          >
+            <TouchableOpacity
               style={[
-                styles.balanceIndicatorBar,
-                { backgroundColor: "#374151" },
+                styles.gridActionButton,
+                {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
+                  borderWidth: isDark ? 0 : 1,
+                  borderColor: colors.border,
+                }
               ]}
+              onPress={() => setCreateLoanModalVisible(true)}
+              activeOpacity={0.7}
             >
               <View
                 style={[
-                  styles.balanceIndicatorFill,
-                  {
-                    backgroundColor:
-                      (summary?.netBalance || 0) >= 0
-                        ? colors.success
-                        : "#EF4444",
-                    width: `${Math.min(
-                      Math.abs((summary?.netBalance || 0) / 5000) * 100,
-                      100
-                    )}%`,
-                    alignSelf:
-                      (summary?.netBalance || 0) >= 0
-                        ? "flex-start"
-                        : "flex-end",
+                  styles.gridIconContainer,
+                  { 
+                    backgroundColor: isDark 
+                      ? "rgba(16,185,129,0.15)" 
+                      : "rgba(16,185,129,0.1)" 
                   },
                 ]}
-              />
-            </View>
-            <View style={styles.balanceLabelsContainer}>
-              <Text
+              >
+                <Ionicons name="cash-outline" size={26} color="#10B981" />
+              </View>
+              <Text style={[styles.gridActionText, { color: colors.text }]}>Loan</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: fadeAnim,
+              transform: [
+                {
+                  scale: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+              ],
+            }}
+          >
+            <TouchableOpacity
+              style={[
+                styles.gridActionButton,
+                {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
+                  borderWidth: isDark ? 0 : 1,
+                  borderColor: colors.border,
+                }
+              ]}
+              onPress={() => setRequestPaymentModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View
                 style={[
-                  styles.balanceIndicatorLabel,
-                  { color: colors.textSecondary },
+                  styles.gridIconContainer,
+                  { 
+                    backgroundColor: isDark 
+                      ? "rgba(59,130,246,0.15)" 
+                      : "rgba(59,130,246,0.1)" 
+                  },
                 ]}
               >
-                You owe others
-              </Text>
-              <Text
+                <Ionicons name="arrow-down-circle" size={26} color="#3B82F6" />
+              </View>
+              <Text style={[styles.gridActionText, { color: colors.text }]}>Request</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: fadeAnim,
+              transform: [
+                {
+                  scale: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+              ],
+            }}
+          >
+            <TouchableOpacity
+              style={[
+                styles.gridActionButton,
+                {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
+                  borderWidth: isDark ? 0 : 1,
+                  borderColor: colors.border,
+                }
+              ]}
+              onPress={() => setViewAllModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View
                 style={[
-                  styles.balanceIndicatorLabel,
-                  { color: colors.textSecondary },
+                  styles.gridIconContainer,
+                  { 
+                    backgroundColor: isDark 
+                      ? "rgba(245,158,11,0.15)" 
+                      : "rgba(245,158,11,0.1)" 
+                  },
                 ]}
               >
-                Others owe you
-              </Text>
-            </View>
-          </View>
+                <Ionicons name="people" size={26} color="#F59E0B" />
+              </View>
+              <Text style={[styles.gridActionText, { color: colors.text }]}>View All</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
-      </View>
-
-      {/* Quick Actions */}
-      <View style={[styles.card, { backgroundColor: darkTheme.card }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          QUICK ACTIONS
-        </Text>
-        <View style={styles.actionButtonsGrid}>
-          <TouchableOpacity
-            style={styles.gridActionButton}
-            onPress={() => setCreateLoanModalVisible(true)}
-          >
-            <View
-              style={[
-                styles.gridIconContainer,
-                { backgroundColor: "rgba(16,185,129,0.15)" },
-              ]}
-            >
-              <Ionicons name="cash-outline" size={26} color="#10B981" />
-            </View>
-            <Text style={styles.gridActionText}>Loan</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.gridActionButton}
-            onPress={() => setRequestPaymentModalVisible(true)}
-          >
-            <View
-              style={[
-                styles.gridIconContainer,
-                { backgroundColor: "rgba(59,130,246,0.15)" },
-              ]}
-            >
-              <Ionicons name="arrow-down-circle" size={26} color="#3B82F6" />
-            </View>
-            <Text style={styles.gridActionText}>Request</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.gridActionButton}
-            onPress={() => setViewAllModalVisible(true)}
-          >
-            <View
-              style={[
-                styles.gridIconContainer,
-                { backgroundColor: "rgba(245,158,11,0.15)" },
-              ]}
-            >
-              <Ionicons name="people" size={26} color="#F59E0B" />
-            </View>
-            <Text style={styles.gridActionText}>View All</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      </Animated.View>
 
       {/* Recent Activity */}
-      <View style={[styles.card, { backgroundColor: darkTheme.card }]}>
+      <Animated.View
+        style={[
+          styles.card, 
+          { 
+            backgroundColor: colors.card,
+            borderWidth: isDark ? 0 : 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadow,
+            opacity: fadeAnim,
+            transform: [
+              {
+                translateY: fadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [40, 0],
+                }),
+              },
+            ],
+          }
+        ]}
+      >
         <View style={styles.cardHeaderRow}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>
             RECENT ACTIVITY
           </Text>
           <TouchableOpacity
             onPress={() => setShowAllActivity(!showAllActivity)}
+            activeOpacity={0.7}
           >
             <Text style={[styles.viewAllText, { color: colors.primary }]}>
               {showAllActivity ? "Show Less" : "View All"}
@@ -715,96 +1332,15 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
             {(showAllActivity
               ? recentActivity
               : recentActivity.slice(0, 3)
-            ).map((activity) => (
-              <TouchableOpacity
+            ).map((activity, index) => (
+              <AnimatedActivityItem
                 key={activity.id}
-                style={[
-                  styles.activityItem,
-                  { backgroundColor: colors.cardHighlight },
-                ]}
-                onPress={() =>
-                  console.log(`View activity details: ${activity.id}`)
-                }
-              >
-                <View
-                  style={[
-                    styles.activityIconContainer,
-                    {
-                      backgroundColor:
-                        activity.type === "payment"
-                          ? "rgba(16,185,129,0.2)"
-                          : activity.type === "loan"
-                          ? "rgba(239,68,68,0.2)"
-                          : "rgba(59,130,246,0.2)",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={
-                      activity.type === "payment"
-                        ? "cash-outline"
-                        : activity.type === "loan"
-                        ? "wallet-outline"
-                        : "people-outline"
-                    }
-                    size={24}
-                    color={
-                      activity.type === "payment"
-                        ? "#10B981"
-                        : activity.type === "loan"
-                        ? "#EF4444"
-                        : "#3B82F6"
-                    }
-                  />
-                </View>
-                <View style={styles.activityContent}>
-                  <View style={styles.activityHeader}>
-                    <Text
-                      style={[
-                        styles.activityDescription,
-                        { color: colors.text },
-                      ]}
-                    >
-                      {activity.type === "payment"
-                        ? `${activity.relatedUserName} paid you`
-                        : activity.type === "loan"
-                        ? `You loaned to ${activity.relatedUserName}`
-                        : `Split with ${activity.relatedUserName}`}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.activityAmount,
-                        {
-                          color:
-                            activity.type === "loan"
-                              ? "#EF4444"
-                              : colors.success,
-                          fontWeight: "600",
-                        },
-                      ]}
-                    >
-                      {formatCurrency(activity.amount)}
-                    </Text>
-                  </View>
-                  <View style={styles.activitySubheader}>
-                    <Text
-                      style={[
-                        styles.activityDate,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {formatDate(activity.date)}
-                    </Text>
-                    <TouchableOpacity>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                activity={activity}
+                index={index}
+                colors={colors}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+              />
             ))}
 
             {!showAllActivity && recentActivity.length > 3 && (
@@ -824,16 +1360,36 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
             )}
           </>
         )}
-      </View>
+      </Animated.View>
 
       {/* Upcoming */}
-      <View style={[styles.card, { backgroundColor: darkTheme.card }]}>
+      <Animated.View
+        style={[
+          styles.card, 
+          { 
+            backgroundColor: colors.card,
+            borderWidth: isDark ? 0 : 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadow,
+            opacity: fadeAnim,
+            transform: [
+              {
+                translateY: fadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [50, 0],
+                }),
+              },
+            ],
+          }
+        ]}
+      >
         <View style={styles.cardHeaderRow}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            UPCOMING
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Upcoming
           </Text>
           <TouchableOpacity
             onPress={() => setShowAllUpcoming(!showAllUpcoming)}
+            activeOpacity={0.7}
           >
             <Text style={[styles.viewAllText, { color: colors.primary }]}>
               {showAllUpcoming ? "Show Less" : "View All"}
@@ -850,122 +1406,15 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
             {(showAllUpcoming
               ? upcomingPayments
               : upcomingPayments.slice(0, 2)
-            ).map((payment) => (
-              <TouchableOpacity
+            ).map((payment, index) => (
+              <AnimatedUpcomingItem
                 key={payment.id}
-                style={[
-                  styles.upcomingItem,
-                  { backgroundColor: colors.cardHighlight },
-                ]}
-                onPress={() =>
-                  console.log(`View payment details: ${payment.id}`)
-                }
-              >
-                <View
-                  style={[
-                    styles.upcomingIconContainer,
-                    {
-                      backgroundColor:
-                        payment.type === "incoming"
-                          ? "rgba(16,185,129,0.2)"
-                          : "rgba(239,68,68,0.2)",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={
-                      payment.type === "incoming"
-                        ? "arrow-down-outline"
-                        : "arrow-up-outline"
-                    }
-                    size={24}
-                    color={payment.type === "incoming" ? "#10B981" : "#EF4444"}
-                  />
-                </View>
-
-                <View style={styles.upcomingContent}>
-                  <View style={styles.upcomingHeader}>
-                    <View>
-                      <Text
-                        style={[styles.upcomingTitle, { color: colors.text }]}
-                      >
-                        {payment.type === "incoming"
-                          ? `${payment.relatedUserName}'s payment due`
-                          : `Your payment to ${payment.relatedUserName}`}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.upcomingDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {payment.description}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.upcomingAmount,
-                        {
-                          color:
-                            payment.type === "incoming" ? "#10B981" : "#EF4444",
-                          fontWeight: "600",
-                        },
-                      ]}
-                    >
-                      {formatCurrency(payment.amount)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.upcomingFooter}>
-                    <View style={styles.upcomingDateContainer}>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={14}
-                        color={
-                          payment.daysRemaining <= 1
-                            ? "#EF4444"
-                            : colors.textSecondary
-                        }
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text
-                        style={[
-                          styles.upcomingDate,
-                          {
-                            color:
-                              payment.daysRemaining <= 1
-                                ? "#EF4444"
-                                : colors.textSecondary,
-                            fontWeight:
-                              payment.daysRemaining <= 1 ? "600" : "400",
-                          },
-                        ]}
-                      >
-                        {formatDaysRemaining(payment.daysRemaining)}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.upcomingActionButton,
-                        {
-                          backgroundColor:
-                            payment.type === "incoming" ? "#10B981" : "#3B82F6",
-                        },
-                      ]}
-                      onPress={() =>
-                        console.log(`Action for payment ${payment.id}`)
-                      }
-                    >
-                      <Text style={styles.upcomingActionText}>
-                        {payment.type === "incoming"
-                          ? "Record Payment"
-                          : "Make Payment"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                payment={payment}
+                index={index}
+                colors={colors}
+                formatCurrency={formatCurrency}
+                formatDaysRemaining={formatDaysRemaining}
+              />
             ))}
 
             {!showAllUpcoming && upcomingPayments.length > 2 && (
@@ -985,7 +1434,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
             )}
           </>
         )}
-      </View>
+      </Animated.View>
 
       {/* Create Loan Modal */}
       <Modal
@@ -999,7 +1448,14 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
           style={styles.modalOverlay}
         >
           <View
-            style={[styles.modalContainer, { backgroundColor: colors.card }]}
+            style={[
+              styles.modalContainer, 
+              { 
+                backgroundColor: colors.card,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+              }
+            ]}
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
@@ -1018,11 +1474,11 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
               <Text style={[styles.inputLabel, { color: colors.text }]}>
                 Select Recipient
               </Text>
-              <View style={styles.recipientTypeTabs}>
+              <View style={[styles.recipientTypeTabs, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }]}>
                 <TouchableOpacity
                   style={[
                     styles.recipientTypeTab,
-                    recipientType === "person" && styles.activeRecipientTab,
+                    recipientType === "person" && [styles.activeRecipientTab, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }],
                   ]}
                   onPress={() => setRecipientType("person")}
                 >
@@ -1054,7 +1510,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.recipientTypeTab,
-                    recipientType === "group" && styles.activeRecipientTab,
+                    recipientType === "group" && [styles.activeRecipientTab, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }],
                   ]}
                   onPress={() => setRecipientType("group")}
                 >
@@ -1086,7 +1542,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.recipientTypeTab,
-                    recipientType === "bank" && styles.activeRecipientTab,
+                    recipientType === "bank" && [styles.activeRecipientTab, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }],
                   ]}
                   onPress={() => setRecipientType("bank")}
                 >
@@ -1123,6 +1579,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1154,7 +1611,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                             backgroundColor:
                               selectedContact === contact.id
                                 ? colors.primary
-                                : "rgba(255,255,255,0.1)",
+                                : isDark
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(0,0,0,0.05)",
                             borderColor:
                               selectedContact === contact.id
                                 ? colors.primary
@@ -1196,7 +1655,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                             backgroundColor:
                               selectedContact === group.id
                                 ? colors.primary
-                                : "rgba(255,255,255,0.1)",
+                                : isDark
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(0,0,0,0.05)",
                             borderColor:
                               selectedContact === group.id
                                 ? colors.primary
@@ -1238,7 +1699,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                             backgroundColor:
                               selectedContact === bank.id
                                 ? colors.primary
-                                : "rgba(255,255,255,0.1)",
+                                : isDark
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(0,0,0,0.05)",
                             borderColor:
                               selectedContact === bank.id
                                 ? colors.primary
@@ -1276,6 +1739,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1307,6 +1771,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1335,6 +1800,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1363,6 +1829,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1419,7 +1886,14 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
           style={styles.modalOverlay}
         >
           <View
-            style={[styles.modalContainer, { backgroundColor: colors.card }]}
+            style={[
+              styles.modalContainer, 
+              { 
+                backgroundColor: colors.card,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+              }
+            ]}
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
@@ -1438,11 +1912,11 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
               <Text style={[styles.inputLabel, { color: colors.text }]}>
                 Select Recipient
               </Text>
-              <View style={styles.recipientTypeTabs}>
+              <View style={[styles.recipientTypeTabs, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }]}>
                 <TouchableOpacity
                   style={[
                     styles.recipientTypeTab,
-                    recipientType === "person" && styles.activeRecipientTab,
+                    recipientType === "person" && [styles.activeRecipientTab, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }],
                   ]}
                   onPress={() => setRecipientType("person")}
                 >
@@ -1474,7 +1948,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.recipientTypeTab,
-                    recipientType === "group" && styles.activeRecipientTab,
+                    recipientType === "group" && [styles.activeRecipientTab, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }],
                   ]}
                   onPress={() => setRecipientType("group")}
                 >
@@ -1506,7 +1980,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.recipientTypeTab,
-                    recipientType === "bank" && styles.activeRecipientTab,
+                    recipientType === "bank" && [styles.activeRecipientTab, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }],
                   ]}
                   onPress={() => setRecipientType("bank")}
                 >
@@ -1543,6 +2017,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1574,7 +2049,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                             backgroundColor:
                               selectedContact === contact.id
                                 ? colors.primary
-                                : "rgba(255,255,255,0.1)",
+                                : isDark
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(0,0,0,0.05)",
                             borderColor:
                               selectedContact === contact.id
                                 ? colors.primary
@@ -1616,7 +2093,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                             backgroundColor:
                               selectedContact === group.id
                                 ? colors.primary
-                                : "rgba(255,255,255,0.1)",
+                                : isDark
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(0,0,0,0.05)",
                             borderColor:
                               selectedContact === group.id
                                 ? colors.primary
@@ -1658,7 +2137,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                             backgroundColor:
                               selectedContact === bank.id
                                 ? colors.primary
-                                : "rgba(255,255,255,0.1)",
+                                : isDark
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(0,0,0,0.05)",
                             borderColor:
                               selectedContact === bank.id
                                 ? colors.primary
@@ -1696,6 +2177,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1727,6 +2209,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1755,6 +2238,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                   {
                     backgroundColor: colors.cardHighlight,
                     borderColor: colors.border,
+                    borderWidth: isDark ? 1 : 1.5,
                   },
                 ]}
               >
@@ -1811,17 +2295,17 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
         <View
           style={[
             styles.fullScreenModalOverlay,
-            { backgroundColor: darkTheme.background },
+            { backgroundColor: currentTheme.background },
           ]}
         >
           {selectedGroup ? (
             // Group Members View
             <>
-              <View style={styles.enhancedModalHeader}>
+              <View style={[styles.enhancedModalHeader, { borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }]}>
                 <View style={styles.headerLeftSection}>
                   <TouchableOpacity
                     onPress={() => setSelectedGroup(null)}
-                    style={styles.backButton}
+                    style={[styles.backButton, { backgroundColor: isDark ? "rgba(16,185,129,0.1)" : "rgba(16,185,129,0.15)" }]}
                   >
                     <Ionicons name="arrow-back" size={24} color="#10B981" />
                   </TouchableOpacity>
@@ -1837,9 +2321,9 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                       setSelectedGroup(null);
                       setViewAllModalVisible(false);
                     }}
-                    style={styles.closeButtonContainer}
+                    style={[styles.closeButtonContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }]}
                   >
-                    <Ionicons name="close" size={24} color="#9CA3AF" />
+                    <Ionicons name="close" size={24} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1850,13 +2334,13 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                     key={member.id}
                     style={[
                       styles.relationshipItem,
-                      { backgroundColor: darkTheme.card },
+                      { backgroundColor: colors.card },
                     ]}
                     onPress={() => {
                       // Handle member selection if needed
                     }}
                   >
-                    <View style={styles.contactAvatar}>
+                    <View style={[styles.contactAvatar, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }]}>
                       <Ionicons name="person" size={24} color="#10B981" />
                     </View>
                     <View style={styles.contactDetails}>
@@ -1875,7 +2359,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                           {member.role === "admin" ? "" : "Member"}
                         </Text>
                         {member.role === "admin" && (
-                          <View style={styles.adminBadge}>
+                          <View style={[styles.adminBadge, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)" }]}>
                             <Ionicons
                               name="shield-checkmark"
                               size={12}
@@ -1894,7 +2378,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
           ) : (
             // Main Relationships View
             <>
-              <View style={styles.enhancedModalHeader}>
+              <View style={[styles.enhancedModalHeader, { borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }]}>
                 <View style={styles.headerLeftSection}>
                   {/* Empty view for alignment */}
                 </View>
@@ -1906,15 +2390,15 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                 <View style={styles.headerRightSection}>
                   <TouchableOpacity
                     onPress={() => setViewAllModalVisible(false)}
-                    style={styles.closeButtonContainer}
+                    style={[styles.closeButtonContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }]}
                   >
-                    <Ionicons name="close" size={24} color="#9CA3AF" />
+                    <Ionicons name="close" size={24} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               </View>
 
               {/* Tabs for Individuals and Groups with counts */}
-              <View style={styles.tabContainer}>
+              <View style={[styles.tabContainer, { borderBottomColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }]}>
                 <TouchableOpacity
                   style={[
                     styles.tab,
@@ -2006,7 +2490,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                       key={contact.id}
                       style={[
                         styles.relationshipItem,
-                        { backgroundColor: darkTheme.card },
+                        { backgroundColor: colors.card },
                       ]}
                       onPress={() => {
                         setViewAllModalVisible(false);
@@ -2051,14 +2535,14 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({
                       key={group.id}
                       style={[
                         styles.relationshipItem,
-                        { backgroundColor: darkTheme.card },
+                        { backgroundColor: colors.card },
                       ]}
                       onPress={() => loadGroupMembers(group.id, group.name)}
                     >
                       <View
                         style={[
                           styles.contactAvatar,
-                          { backgroundColor: "rgba(59,130,246,0.15)" },
+                          { backgroundColor: isDark ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.1)" },
                         ]}
                       >
                         <Ionicons name="people" size={24} color="#3B82F6" />
@@ -2118,7 +2602,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    // Border color will be set dynamically
   },
   headerLeftSection: {
     width: 44,
@@ -2138,17 +2622,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.05)",
     justifyContent: "center",
     alignItems: "center",
+    // Background color will be set dynamically
   },
   backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(16,185,129,0.1)",
     justifyContent: "center",
     alignItems: "center",
+    // Background color will be set dynamically
   },
   closeButton: {
     padding: 4,
@@ -2269,7 +2753,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
     elevation: 2,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -2282,8 +2765,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   viewAllText: {
     fontSize: 14,
@@ -2312,30 +2800,46 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 16,
+    gap: 10,
   },
   summaryCard: {
-    width: "48%",
-    borderRadius: 10,
+    flex: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  summaryCardGradient: {
+    borderRadius: 14,
     padding: 12,
-    elevation: 1,
+    minHeight: 110,
+    justifyContent: "center",
   },
   summaryCardContent: {
     alignItems: "flex-start",
   },
   summaryIcon: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   summaryCardLabel: {
-    fontSize: 12,
+    fontSize: 11,
     marginBottom: 4,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   summaryCardValue: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     marginBottom: 4,
+    marginTop: 2,
   },
   summaryCardSubtext: {
-    fontSize: 11,
+    fontSize: 10,
+    marginTop: 2,
   },
   netBalanceContainer: {
     borderRadius: 10,
@@ -2353,8 +2857,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   netBalanceValue: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: "700",
   },
   balanceIndicatorContainer: {
     width: "100%",
@@ -2369,6 +2873,15 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  balanceIndicatorGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
   balanceLabelsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -2381,21 +2894,19 @@ const styles = StyleSheet.create({
   actionButtonsGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 15,
-    marginBottom: 5,
+    gap: 12,
   },
   gridActionButton: {
-    backgroundColor: "rgba(255,255,255,0.05)",
-    width: "31%",
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 20,
     borderRadius: 16,
     elevation: 2,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    minHeight: 100,
   },
   gridIconContainer: {
     width: 52,
@@ -2406,7 +2917,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   gridActionText: {
-    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
     textAlign: "center",
@@ -2415,7 +2925,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 16,
-    backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 10,
     padding: 4,
   },
@@ -2428,7 +2937,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeRecipientTab: {
-    backgroundColor: "rgba(16,185,129,0.15)",
+    // Will be set dynamically based on theme
   },
   recipientTabIcon: {
     marginRight: 6,
@@ -2468,12 +2977,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   activityDescription: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
   },
   activityAmount: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 16,
+    fontWeight: "600",
   },
   activityDate: {
     fontSize: 12,
@@ -2506,15 +3015,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   upcomingTitle: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
     marginBottom: 2,
   },
   upcomingDescription: {
     fontSize: 12,
   },
   upcomingAmount: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: "600",
   },
   upcomingFooter: {
     flexDirection: "row",
@@ -2572,10 +3082,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(16,185,129,0.15)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    // Background color will be set dynamically
   },
   contactDetails: {
     flex: 1,
@@ -2593,13 +3103,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   adminBadge: {
-    backgroundColor: "rgba(16,185,129,0.15)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     marginLeft: 0,
     flexDirection: "row",
     alignItems: "center",
+    // Background color will be set dynamically
   },
   adminBadgeText: {
     color: "#10B981",
@@ -2610,7 +3120,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
+    // Border color will be set dynamically
   },
   tab: {
     flex: 1,

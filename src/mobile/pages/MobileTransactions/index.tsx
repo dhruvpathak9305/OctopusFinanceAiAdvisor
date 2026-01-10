@@ -510,7 +510,7 @@ const TransactionQuickStats: React.FC<{
   isDark: boolean;
   onExport: () => void;
 }> = ({ transactions, isDark, onExport }) => {
-  const [showStats, setShowStats] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const colors = isDark ? {
     card: '#374151',
@@ -533,6 +533,11 @@ const TransactionQuickStats: React.FC<{
     const expenses = transactions.filter(t => t.type === 'expense');
     const incomes = transactions.filter(t => t.type === 'income');
     
+    // Total amounts
+    const totalIncome = incomes.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const totalExpense = expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const netBalance = totalIncome - totalExpense;
+
     // Average transaction
     const avgExpense = expenses.length > 0 
       ? expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0) / expenses.length 
@@ -558,6 +563,9 @@ const TransactionQuickStats: React.FC<{
       transactionCount: transactions.length,
       expenseCount: expenses.length,
       incomeCount: incomes.length,
+      totalIncome,
+      totalExpense,
+      netBalance,
       avgExpense,
       largestExpense,
       topCategories,
@@ -572,7 +580,7 @@ const TransactionQuickStats: React.FC<{
     }).format(value);
   };
 
-  if (!stats || !showStats) return null;
+  if (!stats) return null;
 
   return (
     <View style={[quickStatsStyles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -585,49 +593,79 @@ const TransactionQuickStats: React.FC<{
           <TouchableOpacity onPress={onExport} style={quickStatsStyles.exportBtn}>
             <Ionicons name="download-outline" size={14} color="#10B981" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowStats(false)}>
-            <Ionicons name="close" size={16} color={colors.textSecondary} />
+          <TouchableOpacity onPress={() => setIsCollapsed(!isCollapsed)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name={isCollapsed ? "chevron-down" : "chevron-up"} size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={quickStatsStyles.statsRow}>
-        <View style={quickStatsStyles.statItem}>
-          <Text style={[quickStatsStyles.statValue, { color: colors.text }]}>{stats.transactionCount}</Text>
-          <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Transactions</Text>
-        </View>
-        <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
-        <View style={quickStatsStyles.statItem}>
-          <Text style={[quickStatsStyles.statValue, { color: colors.text }]}>{formatCurrency(stats.avgExpense)}</Text>
-          <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Avg Expense</Text>
-        </View>
-        <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
-        <View style={quickStatsStyles.statItem}>
-          <Text style={[quickStatsStyles.statValue, { color: '#EF4444' }]}>{formatCurrency(stats.largestExpense.amount)}</Text>
-          <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]} numberOfLines={1}>Largest</Text>
-        </View>
-      </View>
-
-      {stats.topCategories.length > 0 && (
-        <View style={quickStatsStyles.categoriesSection}>
-          <Text style={[quickStatsStyles.categoriesTitle, { color: colors.textSecondary }]}>Top Spending</Text>
-          <View style={quickStatsStyles.categoriesList}>
-            {stats.topCategories.map(([category, amount], index) => (
-              <View key={category} style={quickStatsStyles.categoryItem}>
-                <View style={[quickStatsStyles.categoryRank, { backgroundColor: index === 0 ? '#F59E0B20' : colors.border }]}>
-                  <Text style={[quickStatsStyles.categoryRankText, { color: index === 0 ? '#F59E0B' : colors.textSecondary }]}>
-                    {index + 1}
-                  </Text>
-                </View>
-                <Text style={[quickStatsStyles.categoryName, { color: colors.text }]} numberOfLines={1}>
-                  {category}
-                </Text>
-                <Text style={[quickStatsStyles.categoryAmount, { color: colors.textSecondary }]}>
-                  {formatCurrency(amount)}
-                </Text>
-              </View>
-            ))}
+      {!isCollapsed ? (
+        <>
+          <View style={quickStatsStyles.statsRow}>
+            <View style={quickStatsStyles.statItem}>
+              <Text style={[quickStatsStyles.statValue, { color: '#10B981' }]}>{formatCurrency(stats.totalIncome)}</Text>
+              <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Income</Text>
+            </View>
+            <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
+            <View style={quickStatsStyles.statItem}>
+              <Text style={[quickStatsStyles.statValue, { color: '#EF4444' }]}>{formatCurrency(stats.totalExpense)}</Text>
+              <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Expense</Text>
+            </View>
           </View>
+          
+          <View style={[quickStatsStyles.statsRow, { marginTop: 8 }]}>
+             <View style={quickStatsStyles.statItem}>
+              <Text style={[quickStatsStyles.statValue, { color: colors.text }]}>{stats.transactionCount}</Text>
+              <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Transactions</Text>
+            </View>
+            <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
+            <View style={quickStatsStyles.statItem}>
+              <Text style={[quickStatsStyles.statValue, { color: colors.text }]}>{formatCurrency(stats.avgExpense)}</Text>
+              <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Avg Expense</Text>
+            </View>
+             <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
+             <View style={quickStatsStyles.statItem}>
+              <Text style={[quickStatsStyles.statValue, { color: '#EF4444' }]}>{formatCurrency(stats.largestExpense.amount)}</Text>
+              <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]} numberOfLines={1}>Largest</Text>
+            </View>
+          </View>
+
+          {stats.topCategories.length > 0 && (
+            <View style={quickStatsStyles.categoriesSection}>
+              <Text style={[quickStatsStyles.categoriesTitle, { color: colors.textSecondary }]}>Top Spending</Text>
+              <View style={quickStatsStyles.categoriesList}>
+                {stats.topCategories.map(([category, amount], index) => (
+                  <View key={category} style={quickStatsStyles.categoryItem}>
+                    <View style={[quickStatsStyles.categoryRank, { backgroundColor: index === 0 ? '#F59E0B20' : colors.border }]}>
+                      <Text style={[quickStatsStyles.categoryRankText, { color: index === 0 ? '#F59E0B' : colors.textSecondary }]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <Text style={[quickStatsStyles.categoryName, { color: colors.text }]} numberOfLines={1}>
+                      {category}
+                    </Text>
+                    <Text style={[quickStatsStyles.categoryAmount, { color: colors.textSecondary }]}>
+                      {formatCurrency(amount)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+        </>
+      ) : (
+        <View style={quickStatsStyles.statsRow}>
+           <View style={quickStatsStyles.statItem}>
+              <Text style={[quickStatsStyles.statValue, { color: stats.netBalance >= 0 ? '#10B981' : '#EF4444' }]}>
+                {formatCurrency(stats.netBalance)}
+              </Text>
+              <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Net Balance</Text>
+            </View>
+            <View style={[quickStatsStyles.divider, { backgroundColor: colors.border }]} />
+            <View style={quickStatsStyles.statItem}>
+              <Text style={[quickStatsStyles.statValue, { color: colors.text }]}>{stats.transactionCount}</Text>
+              <Text style={[quickStatsStyles.statLabel, { color: colors.textSecondary }]}>Transactions</Text>
+            </View>
         </View>
       )}
     </View>

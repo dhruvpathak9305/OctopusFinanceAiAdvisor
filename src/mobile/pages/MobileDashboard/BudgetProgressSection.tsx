@@ -36,7 +36,7 @@ const BudgetSummaryCard: React.FC<{
     textSecondary: '#9CA3AF',
     border: '#4B5563',
   } : {
-    card: '#F9FAFB', // Light gray for better contrast against white background
+    card: '#FFFFFF', // Pure white for cards to pop against the gray background
     text: '#111827',
     textSecondary: '#6B7280',
     border: '#E5E7EB',
@@ -443,12 +443,12 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
         filterBackground: "#374151",
       }
     : {
-        background: "#FFFFFF",
-        card: "#F9FAFB", // Light gray for better contrast against white background
+        background: "#F3F4F6", // Off-white/Light Gray background for contrast
+        card: "#FFFFFF", // Pure white for cards to pop against the gray background
         text: "#111827",
         textSecondary: "#6B7280",
         border: "#E5E7EB",
-        filterBackground: "#F3F4F6",
+        filterBackground: "#FFFFFF",
       };
 
   const formatCurrency = (value: number) => {

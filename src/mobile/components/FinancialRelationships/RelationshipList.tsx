@@ -46,15 +46,14 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
   const [category, setCategory] = useState<CategoryType>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Use the dark theme but with specific adjustments to match the main dashboard
+  // Dynamic theme colors based on isDark
+  const currentTheme = isDark ? darkTheme : lightTheme;
   const colors = {
-    ...darkTheme,
     ...navTheme.colors,
-    card: "#1F2937", // Darker card background to match the main dashboard
-    primary: "#10B981", // Green primary color for buttons and accents
-    success: "#10B981", // Green success color
-    text: "#FFFFFF", // White text
-    textSecondary: "#9CA3AF", // Gray secondary text
+    ...currentTheme,
+    primary: "#10B981",
+    success: "#10B981",
+    cardHighlight: isDark ? "#2D3748" : "#F3F4F6",
   };
 
   useEffect(() => {
@@ -280,7 +279,7 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
 
     return (
       <TouchableOpacity
-        style={[styles.relationshipCard, { backgroundColor: darkTheme.card }]}
+        style={[styles.relationshipCard, { backgroundColor: colors.card }]}
         onPress={() => onSelectRelationship(item.id, isGroup)}
       >
         {/* Status indicator strip */}
@@ -483,17 +482,12 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
 
   return (
     <GroupsErrorBoundary onReset={loadRelationships}>
-      <View style={[styles.container, { backgroundColor: darkTheme.background }]}>
-        {/* Header */}
-        <Text style={[styles.title, { color: colors.text }]}>
-          FINANCIAL RELATIONSHIPS
-        </Text>
-
+      <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       {/* Filter Tabs - Balance Filter */}
       <View
         style={[
           styles.filterTabs,
-          { backgroundColor: "#1F2937", borderColor: "#374151" },
+          { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
         <TouchableOpacity
@@ -552,7 +546,7 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
       <View
         style={[
           styles.categoryTabs,
-          { backgroundColor: "#1F2937", borderColor: "#374151", marginTop: 10 },
+          { backgroundColor: colors.card, borderColor: colors.border, marginTop: 10 },
         ]}
       >
         <TouchableOpacity
@@ -652,7 +646,7 @@ const RelationshipList: React.FC<RelationshipListProps> = ({
       <View
         style={[
           styles.searchContainer,
-          { backgroundColor: "#1F2937", borderColor: "#374151" },
+          { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
         <Ionicons name="search" size={20} color={colors.textSecondary} />

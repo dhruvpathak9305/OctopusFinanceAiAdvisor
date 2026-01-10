@@ -9,7 +9,7 @@ import {
   FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme, darkTheme } from "../../../../contexts/ThemeContext";
+import { useTheme, darkTheme, lightTheme } from "../../../../contexts/ThemeContext";
 import { useTheme as useNavTheme } from "@react-navigation/native";
 import { FinancialRelationshipService } from "../../../../services/financialRelationshipService";
 import { LoanManagementService } from "../../../../services/loanManagementService";
@@ -57,15 +57,14 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
   const [borrowedLoans, setBorrowedLoans] = useState<Loan[]>([]);
   const [upcomingPayments, setUpcomingPayments] = useState<any[]>([]);
 
-  // Always use the dark theme to match the main dashboard
+  // Dynamic theme colors based on isDark
+  const currentTheme = isDark ? darkTheme : lightTheme;
   const colors = {
-    ...darkTheme,
     ...navTheme.colors,
-    card: "#1F2937",
+    ...currentTheme,
     primary: "#10B981",
     success: "#10B981",
-    text: "#FFFFFF",
-    textSecondary: "#9CA3AF",
+    cardHighlight: isDark ? "#2D3748" : "#F3F4F6",
   };
 
   useEffect(() => {
@@ -374,7 +373,7 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
 
     return (
       <TouchableOpacity
-        style={[styles.loanCard, { backgroundColor: "#1F2937" }]}
+        style={[styles.loanCard, { backgroundColor: colors.card }]}
         onPress={() => onViewLoanDetails?.(item.id)}
       >
         {/* Status indicator strip at the top */}
@@ -442,7 +441,7 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
         </View>
 
         {/* Progress bar showing paid amount */}
-        <View style={styles.progressBarContainer}>
+        <View style={[styles.progressBarContainer, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" }]}>
           <View
             style={[
               styles.progressBar,
@@ -457,7 +456,7 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
           </Text>
         </View>
 
-        <View style={styles.loanDetails}>
+        <View style={[styles.loanDetails, { borderTopColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }]}>
           <View style={styles.loanDetailRow}>
             <Text
               style={[styles.loanDetailLabel, { color: colors.textSecondary }]}
@@ -564,7 +563,7 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
 
     return (
       <TouchableOpacity
-        style={[styles.paymentCard, { backgroundColor: "#1F2937" }]}
+        style={[styles.paymentCard, { backgroundColor: colors.card }]}
         onPress={() => onViewLoanDetails?.(item.loan_id)}
       >
         {/* Status indicator strip */}
@@ -635,8 +634,8 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
                 </Text>
 
                 {/* Show payment count info */}
-                <View style={styles.paymentCountBadge}>
-                  <Text style={styles.paymentCountText}>
+                <View style={[styles.paymentCountBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.05)" }]}>
+                  <Text style={[styles.paymentCountText, { color: isDark ? "#FFFFFF" : colors.textSecondary }]}>
                     {item.payment_number}/{item.total_payments}
                   </Text>
                 </View>
@@ -742,20 +741,20 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: darkTheme.background }]}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       {/* Fixed Summary Cards - Always visible */}
-      <View style={styles.fixedSummaryContainer}>
+      <View style={[styles.fixedSummaryContainer, { borderBottomColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.summaryCardsContent}
         >
-          <View style={[styles.summaryCard, { backgroundColor: "#1F2937" }]}>
+          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
             <Ionicons name="cash-outline" size={24} color="#10B981" />
-            <Text style={[styles.summaryLabel, { color: "#9CA3AF" }]}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
               Total Lent
             </Text>
-            <Text style={[styles.summaryValue, { color: "#FFFFFF" }]}>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
               {formatCurrency(summary.totalLent)}
             </Text>
             <Text style={[styles.summarySubtext, { color: "#9CA3AF" }]}>
@@ -763,12 +762,12 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
             </Text>
           </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: "#1F2937" }]}>
+          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
             <Ionicons name="wallet-outline" size={24} color="#EF4444" />
-            <Text style={[styles.summaryLabel, { color: "#9CA3AF" }]}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
               Total Borrowed
             </Text>
-            <Text style={[styles.summaryValue, { color: "#FFFFFF" }]}>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
               {formatCurrency(summary.totalBorrowed)}
             </Text>
             <Text style={[styles.summarySubtext, { color: "#9CA3AF" }]}>
@@ -776,12 +775,12 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
             </Text>
           </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: "#1F2937" }]}>
+          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
             <Ionicons name="calendar-outline" size={24} color="#F59E0B" />
-            <Text style={[styles.summaryLabel, { color: "#9CA3AF" }]}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
               Pending Payments
             </Text>
-            <Text style={[styles.summaryValue, { color: "#FFFFFF" }]}>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
               {summary.totalPendingPayments}
             </Text>
             <Text style={[styles.summarySubtext, { color: "#9CA3AF" }]}>
@@ -791,12 +790,12 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
             </Text>
           </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: "#1F2937" }]}>
+          <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
             <Ionicons name="time-outline" size={24} color="#3B82F6" />
-            <Text style={[styles.summaryLabel, { color: "#9CA3AF" }]}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
               Next Payment
             </Text>
-            <Text style={[styles.summaryValue, { color: "#FFFFFF" }]}>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
               {summary.nextPaymentDate
                 ? formatDate(summary.nextPaymentDate)
                 : "None"}
@@ -811,7 +810,7 @@ const LoanSummaryTab: React.FC<LoanSummaryTabProps> = ({
       </View>
 
       {/* Tabs */}
-      <View style={[styles.tabContainer, { backgroundColor: "#1F2937" }]}>
+      <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>
         <TouchableOpacity
           style={[
             styles.tab,
@@ -956,7 +955,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   fixedSummaryContainer: {
-    backgroundColor: darkTheme.background,
+    // backgroundColor will be set dynamically
     paddingTop: 16, // Add padding at top
     paddingBottom: 8, // Add padding at bottom
     borderBottomWidth: 1,
