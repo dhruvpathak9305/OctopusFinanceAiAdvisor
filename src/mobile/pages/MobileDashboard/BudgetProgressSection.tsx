@@ -23,7 +23,9 @@ import { renderIconFromName } from "../../../../utils/subcategoryIcons";
 import BudgetCategoryDetailModal from "../../components/BudgetCategoryDetailModal";
 import { useUnifiedAuth } from "../../../../contexts/UnifiedAuthContext";
 import CircularProgress from "../../components/common/CircularProgress";
+
 import { balanceEventEmitter } from "../../../../utils/balanceEventEmitter";
+import BudgetProgressSkeleton from "./BudgetProgressSkeleton";
 
 // Budget Summary Component
 const BudgetSummaryCard: React.FC<{
@@ -432,6 +434,8 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   const [budgetProgressData, setBudgetProgressData] = useState<
     BudgetProgressItem[]
   >([]);
+  const [showSkeleton, setShowSkeleton] = useState(true);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const colors = isDark
     ? {
@@ -566,9 +570,24 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
   // Fetch data when filters change or component mounts
   useEffect(() => {
     if (user?.id && !isDemo) {
+      if (budgetProgressData.length === 0) setShowSkeleton(true);
       fetchBudgetProgressData();
     }
   }, [timePeriod, typeFilter]);
+
+  // Handle Skeleton Animation
+  useEffect(() => {
+    if ((!loading && budgetProgressData.length > 0) || (isDemo && loading === false)) {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => setShowSkeleton(false));
+    } else if (loading && budgetProgressData.length === 0) {
+      setShowSkeleton(true);
+      fadeAnim.setValue(1);
+    }
+  }, [loading, budgetProgressData.length, isDemo]);
 
   // Reference for debounce timeout and refresh state tracking
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -917,32 +936,20 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
     setSelectedCategoryIndex(newIndex);
   };
 
-  if (loading && budgetProgressData.length === 0) {
-    // Use a default height for loading state (assuming 2 rows for most cases)
-    const defaultLoadingHeight = 80 + 2 * 172; // base + 2 rows
 
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          {
-            backgroundColor: colors.background,
-            minHeight: defaultLoadingHeight,
-          },
-        ]}
-      >
-        <ActivityIndicator size="large" color="#10B981" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading budget data...
-        </Text>
-      </View>
-    );
-  }
 
   const currentCategories = getCurrentCategories();
 
   // Calculate dynamic container height based on number of cards
   const calculateContainerHeight = () => {
+    // If showing skeleton, match the skeleton height (Header + Summary + 3 Cards)
+    if (showSkeleton) {
+        // Base (80) + Summary (approx 100) + 1 Row of cards (172) + margins
+        // Actually the skeleton renders Header + Summary + 3 Cards in a row.
+        // Skeleton logic: Header (~40) + SummaryCard (~100) + Cards (~220) + margins
+        return 310; // Adjusted height to match actual skeleton content (~305px) and remove yellow box gap
+    }
+
     const numberOfCards = currentCategories.length;
     const cardsPerRow = 3;
     const numberOfRows = Math.ceil(numberOfCards / cardsPerRow);
@@ -960,9 +967,17 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
     minHeight: calculateContainerHeight(),
   };
 
+  // If we are strictly in loading state with no data, we can render just the skeleton to be safe, 
+  // but for cross-fade we render both. 
+  // However, if logic dictates we must return early, we do so.
+  // But we want to avoid early return to allow cross-fade.
+  // So we remove the early return block.
+
   return (
     <View style={dynamicContainerStyle}>
-      {/* Header with Filters */}
+
+
+      {/* Header with Filters - Always Visible */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
           Budget Progress
@@ -990,7 +1005,26 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
         </View>
       </View>
 
-      {/* Budget Summary Card */}
+      {/* Main Content Container - Subject to Fade In/Out or just being covered */}
+       <View style={{flex: 1, position: 'relative'}}>
+         
+          {/* Skeleton Overlay for Content Only */}
+          {showSkeleton && (
+            <Animated.View 
+              style={[
+                StyleSheet.absoluteFill, 
+                { 
+                  opacity: fadeAnim, 
+                  zIndex: 10, 
+                  backgroundColor: colors.background,
+                }
+              ]}
+            >
+               <BudgetProgressSkeleton />
+            </Animated.View>
+          )}
+
+       {/* Budget Summary Card */}
       {currentCategories.length > 0 && (
         <BudgetSummaryCard categories={currentCategories} isDark={isDark} />
       )}
@@ -1103,6 +1137,7 @@ const BudgetProgressSection: React.FC<BudgetProgressSectionProps> = ({
         availableCategories={availableCategories}
         onCategoryChange={handleCategoryChange}
       />
+      </View>
     </View>
   );
 };
